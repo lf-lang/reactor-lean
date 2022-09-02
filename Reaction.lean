@@ -1,6 +1,41 @@
 import Std
 open Std
 
+/-
+class Typable (α) where
+  type : α → Type
+
+attribute [reducible] Typable.type
+
+open Typable
+
+structure Context (α : Type) [Typable α] where
+  vals : (a : α) → type a 
+
+def ContextM (α : Type) [Typable α] (β : Type) := Context α → (Context α) × β
+
+def ContextM.get (a : α) [Typable α] : ContextM α (type a) :=
+  fun ctx => (ctx, ctx.vals a) 
+
+instance [Typable α] : Monad (ContextM α) := sorry
+
+inductive Var
+  | a 
+  | b
+
+@[reducible]
+instance : Typable Var where
+  type
+    | .a => Nat
+    | .b => String
+
+open ContextM in
+example : ContextM Var Unit := do
+  let a ← get .a
+  let x := a + 1
+  return
+-/
+
 -- Generate a type of input ports of the reactor:
 -- inductive Input | a | b | c | d
 --
@@ -19,189 +54,271 @@ open Std
 instance [Hashable α] {p : α → Prop} : Hashable { a : α // p a } where
   hash a := hash a.val
 
-def Time := Nat
-  deriving LT
+instance [BEq α] {p : α → Prop} : BEq { a : α // p a } where
+  beq a₁ a₂ := BEq.beq a₁.val a₂.val
+
+abbrev Time := Nat
+abbrev Duration := { d : Nat // d > 0 }
 
 structure Tag where
   time : Time
   microstep : Nat
 
-def Time.after (g : Tag) : Type := 
-  { t : Time // t > g.time }
+def Time.after (time : Time) : Type := 
+  { t : Time // t > time }
 
-structure Interface.Scheme where
-  names : Type 
-  types : names → Type
-  [namesDecidableEq : DecidableEq names]
-  [namesHashable : Hashable names]
-
-attribute [instance] Interface.Scheme.namesDecidableEq
-attribute [instance] Interface.Scheme.namesHashable
--- deriving instance BEq for Interface.Scheme.names
-
-def Interface.Scheme.only (s : Interface.Scheme) (included : HashSet s.names) : Interface.Scheme := {
-  names := { n : s.names // included.contains n },
-  types := fun n => s.types n
+def Time.advance (time : Time) (d : Duration) : Time.after time := {
+  val := time + d,
+  property := by simp_arith [Nat.succ_le_of_lt d.property]
 }
 
-def Interface (s : Interface.Scheme) := 
-  (n : s.names) → Option (s.types n)
+class Typed (α : Type) where
+  type : α → Type
 
-def Interface.only (i : Interface s) (included : HashSet s.names) : Interface (s.only included) :=
-  fun n => i n.val
+attribute [reducible] Typed.type
 
-structure Reactor.Scheme where
-  state   : Interface.Scheme
-  inputs  : Interface.Scheme
-  outputs : Interface.Scheme
-  actions : Interface.Scheme
+open Typed
 
-structure ReactionM.Event (s : Interface.Scheme) where 
-  action : s.names
-  time   : Time
-  value  : s.types action
+instance [Typed α] {p : α → Prop} : Typed { a : α // p a } where
+  type a := type a.val
 
-structure ReactionM.Context (s : Reactor.Scheme) where
-  inputs  : Interface s.inputs
-  outputs : Interface s.outputs
-  actions : Interface s.actions
-  state   : Interface s.state
-  events  : Array (Event s.actions)
+@[reducible]
+instance [Coe α β] [Typed β] : Typed α where
+  type a := type (a : β)
 
-def ReactionM (s : Reactor.Scheme) (_ : Tag) (α : Type) := ReactionM.Context s → (ReactionM.Context s × α)
+def Interface (Name : Type) [Typed Name] := (name : Name) → Option (type name)
 
-instance : Monad (ReactionM s g) where
-  pure a ctx := 
-    (ctx, a)
-  map f a ctx := 
-    let (ctx, a) := a ctx
-    (ctx, f a)
-  seq f a ctx :=
-    let (ctx, a) := a () ctx
-    let (ctx, f) := f ctx
-    (ctx, f a)
-  bind a f ctx :=
-    let (ctx, a) := a ctx
-    let (ctx, b) := f a ctx
-    (ctx, b)
+def Interface.merge [Typed Name] (i₁ i₂ : Interface Name) : Interface Name :=
+  fun n => (i₂ n).orElse (fun _ => i₁ n)
 
-def ReactionM.getInput (n : s.inputs.names) : ReactionM s g (Option $ s.inputs.types n) :=
-  fun ctx => (ctx, ctx.inputs n)
+structure ReactionM.Event (Name : Type) [Typed Name] (now : Time) where 
+  action : Name
+  time   : Time.after now
+  value  : type action
 
-def ReactionM.getState (n : s.state.names) : ReactionM s g (Option $ s.state.types n) :=
-  fun ctx => (ctx, ctx.state n)
+structure ReactionM.Input (Source Action State : Type) [Typed Source] [Typed Action] [Typed State] where
+  sources : Interface Source
+  actions : Interface Action
+  state   : Interface State
+  time    : Time
 
-def ReactionM.getAction (n : s.actions.names) : ReactionM s g (Option $ s.actions.types n) :=
-  fun ctx => (ctx, ctx.actions n)
+structure ReactionM.Output (Effect Action State : Type) [Typed Effect] [Typed Action] [Typed State] (now : Time) where
+  effects : Interface Effect := fun _ => none
+  state   : Interface State
+  events  : Array (Event Action now) := #[]
 
-def ReactionM.setOutput (n : s.outputs.names) (v : s.outputs.types n) : ReactionM s g Unit :=
-  fun ctx =>
-    let outputs := fun m => if h : m = n then some (h ▸ v) else ctx.outputs m
-    ({ ctx with outputs := outputs }, ())
-
-def ReactionM.setState (n : s.state.names) (v : s.state.types n) : ReactionM s g Unit :=
-  fun ctx =>
-    let state := fun m => if h : m = n then some (h ▸ v) else ctx.state m
-    ({ ctx with state := state }, ())
-
-def ReactionM.schedule (n : s.actions.names) (t : Time.after g) (v : s.actions.types n) : ReactionM s g Unit := 
-  fun ctx => 
-    let event : Event s.actions := { action := n, time := t.val, value := v }
-    ({ ctx with events := ctx.events.push event }, ())
-
-def Reactor.Scheme.only (s : Reactor.Scheme) (inputs : HashSet s.inputs.names) (outputs : HashSet s.outputs.names) (actions : HashSet s.actions.names) : Reactor.Scheme := { s with
-  inputs  := s.inputs.only  inputs,
-  outputs := s.outputs.only outputs,
-  actions := s.actions.only actions
+def ReactionM.Output.merge [Typed Effect] [Typed Action] [Typed State] (o₁ o₂ : ReactionM.Output Effect Action State time) : ReactionM.Output Effect Action State time := {
+  effects := o₁.effects.merge o₂.effects,
+  state := o₁.state.merge o₂.state,
+  events := o₁.events ++ o₂.events
 }
 
-structure 
+def ReactionM.Input.noop [Typed Source] [Typed Action] [Typed State] [Typed Effect] (input : ReactionM.Input Source Action State) : ReactionM.Output Effect Action State input.time := 
+  { state := input.state }
 
-structure Reaction (state : Interface.Scheme) where
-  sources :  Type
-  [sourcesBEq : BEq sources]
-  [sourcesHashable : Hashable sources]
-  effects :  Type
-  actions :  Type
-  triggers : HashSet sources
-  -- body :     (g : Tag) → ReactionM (s.only sources effects actions) g Unit
+def ReactionM (Source Effect Action State : Type) [Typed Source] [Typed Effect] [Typed Action] [Typed State] [DecidableEq Effect] [DecidableEq State] (α : Type) := 
+  (input : ReactionM.Input Source Action State) → (ReactionM.Output Effect Action State input.time) × α
 
-def Reactor.Scheme.forReaction (s : Reactor.Scheme) (rcn : Reaction s) : Reactor.Scheme :=
-  s.only rcn.sources rcn.effects rcn.actions
+variable [Typed Source] [Typed Effect] [Typed Action] [Typed State] [DecidableEq Effect] [DecidableEq State]
+
+instance : Monad (ReactionM Source Effect Action State) where
+  pure a input := 
+    let output := input.noop
+    (output, a)
+  map f ma input :=
+    let (output, a) := ma input
+    (output, f a)
+  seq mf ma input₁ :=
+    let (output₁, a) := ma () input₁
+    let input₂ := { input₁ with state := output₁.state }
+    let (output₂, f) := mf input₂
+    (output₂, f a)
+  bind ma f input₁ :=
+    let (output₁, a) := ma input₁
+    let input₂ := { input₁ with state := output₁.state }
+    let (output₂, b) := f a input₂
+    let output := output₁.merge output₂
+    (output, b)
+
+def ReactionM.getInput (source : Source) : ReactionM Source Effect Action State (Option $ type source) :=
+  fun input => (input.noop, input.sources source)
+
+def ReactionM.getState (var : State) : ReactionM Source Effect Action State (Option $ type var) :=
+  fun input => (input.noop, input.state var)
+
+def ReactionM.getAction (action : Action) : ReactionM Source Effect Action State (Option $ type action) :=
+  fun input => (input.noop, input.actions action)
+
+def ReactionM.logicalTime : ReactionM Source Effect Action State Time := 
+  fun input => (input.noop, input.time)
+
+def ReactionM.setOutput (effect : Effect) (v : type effect) : ReactionM Source Effect Action State Unit :=
+  fun input =>
+    let effects := fun e => if h : e = effect then some (h ▸ v) else none
+    let output := { effects := effects, state := input.state }
+    (output, ())
+
+def ReactionM.setState (var : State) (v : type var) : ReactionM Source Effect Action State Unit :=
+  fun input =>
+    let state := fun s => if h : s = var then some (h ▸ v) else input.state s
+    let output := { state := state }
+    (output, ())
+
+def ReactionM.schedule (action : Action) (delay : Nat) (h : delay > 0 := by simp_arith) (v : type action) : ReactionM Source Effect Action State Unit := 
+  fun input => 
+    let time := input.time.advance ⟨delay, h⟩
+    let event : Event Action input.time := { action := action, time := time, value := v }
+    let output := { state := input.state, events := #[event] }
+    (output, ())
+
+structure Reaction (Input Output Action State : Type) [Typed State] [DecidableEq State] where
+  sources : Type
+  effects : Type
+  actions : Type
+  triggers : sources → Bool
+  [sourcesTyped : Typed sources]
+  [effectsTyped : Typed effects]
+  [actionsTyped : Typed actions]
+  [effectsDecidableEq : DecidableEq effects]
+  [actionsDecidableEq : DecidableEq actions]
+  [sourcesCoe : Coe sources Input]
+  [effectsCoe : Coe effects Output]
+  [actionsCoe : Coe actions Action]
+  body : ReactionM sources effects actions State Unit
+
+attribute [instance] Reaction.sourcesTyped Reaction.effectsTyped Reaction.actionsTyped 
+attribute [instance] Reaction.effectsDecidableEq Reaction.actionsDecidableEq
+attribute [instance] Reaction.sourcesCoe Reaction.effectsCoe Reaction.actionsCoe
+
+structure Reactor.Interface where
+  names : Type
+  [namesTyped : Typed names]
+  interface : Interface names := fun _ => none
+
+attribute [instance] Reactor.Interface.namesTyped 
 
 structure Reactor where
-  scheme  : Reactor.Scheme
-  state   : Interface scheme.state   := fun _ => none 
-  inputs  : Interface scheme.inputs  := fun _ => none 
-  outputs : Interface scheme.outputs := fun _ => none 
-  actions : Interface scheme.actions := fun _ => none 
-  reactions : Array (Reaction scheme)
+  state   : Reactor.Interface
+  inputs  : Reactor.Interface
+  outputs : Reactor.Interface
+  actions : Reactor.Interface
+  [stateDecidableEq : DecidableEq state.names]
+  reactions : Array (Reaction inputs.names outputs.names actions.names state.names)
 
-def ReactionM.run (g : Tag) (rtr : Reactor) (rcn : Reaction rtr.scheme) (m : ReactionM (rtr.scheme.forReaction rcn) g α)  : (ReactionM.Context $ rtr.scheme.forReaction rcn) × α :=
-  m {
-    inputs  := rtr.inputs.only  rcn.sources,
-    outputs := rtr.outputs.only rcn.effects,
-    actions := rtr.actions.only rcn.actions,
-    state   := rtr.state,
-    events  := #[]
+attribute [instance] Reactor.stateDecidableEq
+
+def Reactor.reactionType (rtr : Reactor) :=
+  Reaction rtr.inputs.names rtr.outputs.names rtr.actions.names rtr.state.names
+
+def Reaction.outputType [Typed State] [DecidableEq State] (rcn : Reaction Source Effect Action State) :=
+  ReactionM.Output rcn.effects rcn.actions State 
+
+def ReactionM.run (time : Time) (rtr : Reactor) (rcn : rtr.reactionType) : (rcn.outputType time) × Unit :=
+  rcn.body {
+    sources := fun s => rtr.inputs.interface s, -- TODO: Problem: (type s) vs (type $ coe s) 
+    actions := sorry,
+    state   := rtr.state.interface,
+    time    := time
   }
 
-inductive TestInputNames  | i1 | i2 deriving DecidableEq, Hashable
-inductive TestOutputNames | o1 | o2 deriving DecidableEq, Hashable
-inductive TestStateNames  | s1 | s2 deriving DecidableEq, Hashable
-inductive TestActionNames | a1 | a2 deriving DecidableEq, Hashable
+inductive ReactorInput  | i1 | i2 
+inductive ReactorOutput | o1 | o2
+inductive ReactorState  | s1 | s2 deriving DecidableEq
+inductive ReactorAction | a1 | a2
 
-abbrev testInputScheme : Interface.Scheme := {
-  names := TestInputNames,
-  types := fun n => 
-    match n with
+inductive ReactionSource | i1 | i2 deriving DecidableEq
+inductive ReactionEffect | o1      deriving DecidableEq
+inductive ReactionAction | a1 | a2 deriving DecidableEq
+
+@[reducible]
+instance : Typed ReactorInput where 
+  type
     | .i1 => Nat
     | .i2 => String  
-}
 
-def testOutputScheme : Interface.Scheme := {
-  names := TestOutputNames,
-  types := fun n => 
-    match n with
+@[reducible]
+instance : Typed ReactorOutput where
+  type
     | .o1 => Bool
     | .o2 => Unit  
-}
 
-def testStateScheme : Interface.Scheme := {
-  names := TestStateNames,
-  types := fun n => 
-    match n with
+@[reducible]
+instance : Typed ReactorState where
+  type
     | .s1 => Prop
     | .s2 => Bool  
-}
 
-def testActionScheme : Interface.Scheme := {
-  names := TestActionNames,
-  types := fun n => 
-    match n with
+@[reducible]
+instance : Typed ReactorAction where
+  type
     | .a1 => String
     | .a2 => Bool × Nat  
-}
 
-abbrev testScheme : Reactor.Scheme := {
-  state   := testStateScheme,
-  inputs  := testInputScheme,
-  outputs := testOutputScheme,
-  actions := testActionScheme
-}
+instance : Coe ReactionSource ReactorInput where
+  coe 
+    | .i1 => .i1
+    | .i2 => .i2
+
+instance : Coe ReactionEffect ReactorOutput where
+  coe 
+    | .o1 => .o1
+
+instance : Coe ReactionAction ReactorAction where
+  coe 
+    | .a1 => .a1
+    | .a2 => .a2
 
 open ReactionM in
-def testReaction : Reaction testScheme := {
-  sources  := HashSet.empty |>.insert .i1 |>.insert .i2,
-  triggers := HashSet.empty |>.insert .i1,
-  effects  := HashSet.empty |>.insert .o1,
-  actions  := HashSet.empty |>.insert .a1 |>.insert .a2,
-  body     := fun g => do
-    let p₀ ← getInput .nameOfPort
-    return
+def testReaction : Reaction ReactorInput ReactorOutput ReactorAction ReactorState := {
+  sources := ReactionSource,
+  effects := ReactionEffect,
+  actions := ReactionAction,
+  triggers := fun s => match s with | .i1 => true | .i2 => false,
+  body := do
+    let i ← getInput .i1
+    let i' := (i.getD 0) + 1
+    let b := if i' = 0 then false else true
+    setOutput .o1 b
+    schedule .a1 1 _ "Test"
 }
 
-def testReactor : Reactor := {
-  scheme := testScheme,
-  reactions := #[]
-}
+
+
+
+
+
+-- [port p 10,   state s₁ 5,   state s₂ 6,   port p 1]
+--
+-- [             state s₁ 5,   state s₂ 6,   port p 1]
+--
+-- [port p 1,    state s₁ 5,   state s₂ 6]
+--
+-- [action a "hello" 10,   action a "again" 10,   action a "future" 20]
+--
+-- [action a "hello" 10,   action a "future" 20,   action a "again" 10]
+--
+--
+-- Shown so far:
+-- ∀ instantaneous executions e₁ e₂:   (e₁ e₂ are change-list equivalent)  ->  e₁ and e₂ result in the same reactor
+-- 
+-- To show:
+-- e₁ e₂ are change-list equivalent
+--
+-- Approach:
+-- Consider execution as (finite) sequence of reactions: rcn₁, rcn₂, rcn₃, ...
+--
+-- Each reaction induces an "operation":
+-- * Not triggered: "skip"
+-- * Triggered:     "execute a certain change list"
+--
+-- We get a sequence of operations op₁, op₂, op₃, ...
+-- 
+-- change₁, change₂, change₃,    .....    change₃₅,  change₃₆,                      change₃₇, ....
+-- [      op for rcn₁      ],    .....    [   op for rcn₇   ], [  skip for rcn₂  ], [ op for rcn₁₂ ... ]
+-- 
+-- Remaining gap:
+-- Show that e₁ and e₂'s operation sequences are permutations of each other.
+-- 
+-- Almost Shown:
+-- e₁ and e₂'s operation sequences are permutations   ->   e₁ and e₂ are change-list equivalent
+    

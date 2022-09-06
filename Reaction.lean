@@ -50,6 +50,7 @@ instance [inst : Typed Var] : Repr (Interface Var) where
       result := result ++ mapsto ++ line
     return result
 
+-- Merge i₂ into i₁.
 def Interface.merge [Typed Var] (i₁ i₂ : Interface Var) : Interface Var :=
   fun n => (i₂ n).orElse (fun _ => i₁ n)
 
@@ -145,6 +146,17 @@ class TypedCoe (α β) [Typed α] [Typed β] extends Coe α β where
   coeEqType : ∀ a, type (coe a) = type a
 
 attribute [instance] TypedCoe.toCoe
+
+-- Merge i₂ into i₁.
+def Interface.merge' [Typed Var] [Typed S] [TypedCoe S Var] (i₁ : Interface Var) (i₂ : Interface S) : Interface Var :=
+  fun n => sorry
+
+instance [Typed S] [Typed Action] [inst : TypedCoe S Action] : Coe (ReactionM.Event S time) (ReactionM.Event Action time) where
+  coe e := {
+    action := e.action,
+    time := e.time,
+    value := (inst.coeEqType e.action) ▸ e.value
+  }
 
 structure Reaction (Input Output Action State : Type) [Typed Input] [Typed Output] [Typed Action] [Typed State] where
   sources : Type
@@ -293,3 +305,27 @@ def testReactor : Reactor := {
 
 def result := ReactionM.run 12 testReactor testReaction
 #eval result
+
+structure Reactor.Context (Action : Type) [Typed Action] where
+  time : Time
+  events : Array (ReactionM.Event Action time)
+
+def Reactor.run (rtr : Reactor) (ctx : Reactor.Context rtr.actions.vars) : Reactor × (Array $ ReactionM.Event rtr.actions.vars ctx.time) := Id.run do
+  let mut events := ctx.events
+  let mut rtr := rtr
+  for rcn in rtr.reactions do
+    -- TODO: We need to set the actions on the rtr first (according to ctx.events).
+    --       And then remove the used events.
+
+    let ⟨result, _⟩ := ReactionM.run ctx.time rtr rcn
+    let outputs := rtr.outputs.interface.merge' result.effects
+    let state := rtr.state.interface.merge result.state
+    let inst : Coe (ReactionM.Event rcn.actions ctx.time) (ReactionM.Event rtr.actions.vars ctx.time) := inferInstance
+    let newEvents := result.events.map fun e => inst.coe e
+    events := events ++ newEvents
+    -- TODO: Problem: we can't change the value of rtr.
+    --       Solution: Decouple the structure of a reactor from its values.
+
+  return (rtr, #[]) 
+
+    

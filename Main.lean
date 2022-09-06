@@ -80,6 +80,8 @@ instance : ∀ a, Repr $ ReactorState.scheme.type a  | .s1 | .s2 => inferInstanc
 instance : ∀ a, Repr $ ReactorAction.scheme.type a | .a1 | .a2 => inferInstance
 --------------------------------------------------------------------------------
 
+-- TODO: Turn BodyM into ReactionT and have ReactionM := ReactionT IO.
+
 def testReaction : Reaction ReactorInput.scheme ReactorOutput.scheme ReactorAction.scheme ReactorState.scheme := {
   sources := ReactionSource,
   effects := ReactionEffect,
@@ -97,16 +99,20 @@ def testReaction : Reaction ReactorInput.scheme ReactorOutput.scheme ReactorActi
     | some v => setState s1 (v * 12)
     schedule a1 1 (by simp) "First"
     schedule a1 1 (by simp) "Second"
+    IO.println "Hello"
+    let dir := IO.appDir
+    let dir' ← IO.appDir
 }
 
-def testReactor : Reactor := {
-  scheme := {
-    inputs  := ReactorInput.scheme,
-    outputs := ReactorOutput.scheme,
-    actions := ReactorAction.scheme,
-    state   := ReactorState.scheme,
-    reactions := #[testReaction]
-  },
+def testReactorSchemes : Reactor.Schemes := {
+  inputs  := ReactorInput.scheme,
+  outputs := ReactorOutput.scheme,
+  actions := ReactorAction.scheme,
+  state   := ReactorState.scheme,
+  reactions := #[testReaction]
+}
+
+def testReactor : Reactor testReactorSchemes := {
   inputs  := fun _ => none,
   outputs := fun _ => none,
   actions := fun _ => none,

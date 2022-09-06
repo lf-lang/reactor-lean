@@ -1,6 +1,6 @@
 // Lean compiler output
 // Module: Runtime
-// Imports: Init Runtime.Interface Runtime.Reaction Runtime.Reactor Runtime.Time
+// Imports: Init Runtime.Interface Runtime.Print Runtime.Reaction Runtime.Reactor Runtime.Time
 #include <lean/lean.h>
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -15,6 +15,7 @@ extern "C" {
 #endif
 lean_object* initialize_Init(uint8_t builtin, lean_object*);
 lean_object* initialize_Runtime_Interface(uint8_t builtin, lean_object*);
+lean_object* initialize_Runtime_Print(uint8_t builtin, lean_object*);
 lean_object* initialize_Runtime_Reaction(uint8_t builtin, lean_object*);
 lean_object* initialize_Runtime_Reactor(uint8_t builtin, lean_object*);
 lean_object* initialize_Runtime_Time(uint8_t builtin, lean_object*);
@@ -27,6 +28,9 @@ res = initialize_Init(builtin, lean_io_mk_world());
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_Runtime_Interface(builtin, lean_io_mk_world());
+if (lean_io_result_is_error(res)) return res;
+lean_dec_ref(res);
+res = initialize_Runtime_Print(builtin, lean_io_mk_world());
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_Runtime_Reaction(builtin, lean_io_mk_world());

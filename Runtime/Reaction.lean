@@ -1,47 +1,40 @@
 import Runtime.Time
 import Runtime.Interface
 
-open Typed
+structure Event (σAction : Scheme) (min : Time) where 
+  action : σAction.vars
+  time   : Time.After min
+  value  : σAction.type action
 
-section
-variable (Input Output Source Effect Action State : Type) 
-variable [Typed Input] [Typed Output] [Typed Source] [Typed Effect] [Typed Action] [Typed State]
-
-structure ReactionM.Event (min : Time) where 
-  action : Action
-  time   : Time.after min
-  value  : type action
-  deriving Repr
-
-structure ReactionM.Input where
-  sources : Interface Source
-  actions : Interface Action
-  state   : Interface State
+structure ReactionM.Input (σSource σAction σState : Scheme) where
+  sources : Interface σSource
+  actions : Interface σAction
+  state   : Interface σState
   time    : Time
 
-structure ReactionM.Output (now : Time) where
-  effects : Interface Effect := fun _ => none
-  state   : Interface State
-  events  : Array (Event Action now) := #[]
-  deriving Repr
+structure ReactionM.Output (σEffect σAction σState : Scheme) (now : Time) where
+  effects : Interface σEffect := fun _ => none
+  state   : Interface σState
+  events  : Array (Event σAction now) := #[]
 
-def ReactionM (α : Type) := (input : ReactionM.Input Source Action State) → (ReactionM.Output Effect Action State input.time) × α
+open ReactionM in
+def ReactionM (σSource σEffect σAction σState : Scheme) (α : Type) := 
+  (input : Input σSource σAction σState) → (Output σEffect σAction σState input.time) × α
 
-end
+variable {σInput σOutput σSource σEffect σAction σState : Scheme} 
 
-variable {Input Output Source Effect Action State : Type} 
-variable [Typed Input] [Typed Output] [Typed Source] [Typed Effect] [Typed Action] [Typed State]
+namespace ReactionM
 
-def ReactionM.Output.merge (o₁ o₂ : ReactionM.Output Effect Action State time) : ReactionM.Output Effect Action State time := {
+def Output.merge (o₁ o₂ : ReactionM.Output σEffect σAction σState time) : Output σEffect σAction σState time := {
   effects := o₁.effects.merge o₂.effects,
   state := o₁.state.merge o₂.state,
   events := o₁.events ++ o₂.events
 }
 
-def ReactionM.Input.noop (input : ReactionM.Input Source Action State) : ReactionM.Output Effect Action State input.time := 
+def Input.noop (input : ReactionM.Input σSource σAction σState) : Output σEffect σAction σState input.time := 
   { state := input.state }
 
-instance : Monad (ReactionM Source Effect Action State) where
+instance : Monad (ReactionM σSource σEffect σAction σState) where
   pure a input := 
     let output := input.noop
     (output, a)
@@ -60,56 +53,65 @@ instance : Monad (ReactionM Source Effect Action State) where
     let output := output₁.merge output₂
     (output, b)
 
-def ReactionM.getInput (source : Source) : ReactionM Source Effect Action State (Option $ type source) :=
+def getInput (source : σSource.vars) : ReactionM σSource σEffect σAction σState (Option $ σSource.type source) :=
   fun input => (input.noop, input.sources source)
 
-def ReactionM.getState (var : State) : ReactionM Source Effect Action State (Option $ type var) :=
-  fun input => (input.noop, input.state var)
+def getState (stv : σState.vars) : ReactionM σSource σEffect σAction σState (Option $ σState.type stv) :=
+  fun input => (input.noop, input.state stv)
 
-def ReactionM.getAction (action : Action) : ReactionM Source Effect Action State (Option $ type action) :=
+def getAction (action : σAction.vars) : ReactionM σSource σEffect σAction σState (Option $ σAction.type action) :=
   fun input => (input.noop, input.actions action)
 
-def ReactionM.logicalTime : ReactionM Source Effect Action State Time := 
+def logicalTime : ReactionM σSource σEffect σAction σState Time := 
   fun input => (input.noop, input.time)
 
-def ReactionM.setOutput (effect : Effect) (v : type effect) : ReactionM Source Effect Action State Unit :=
+def setOutput (effect : σEffect.vars) (v : σEffect.type effect) : ReactionM σSource σEffect σAction σState Unit :=
   fun input =>
     let effects := fun e => if h : e = effect then some (h ▸ v) else none
     let output := { effects := effects, state := input.state }
     (output, ())
 
-def ReactionM.setState (var : State) (v : type var) : ReactionM Source Effect Action State Unit :=
+def setState (stv : σState.vars) (v : σState.type var) : ReactionM σSource σEffect σAction σState Unit :=
   fun input =>
     let state := fun s => if h : s = var then some (h ▸ v) else input.state s
     let output := { state := state }
     (output, ())
 
-def ReactionM.schedule (action : Action) (delay : Nat) (h : delay > 0 := by simp_arith) (v : type action) : ReactionM Source Effect Action State Unit := 
+def schedule (action : σAction.vars) (delay : Nat) (h : delay > 0 := by simp_arith) (v : σAction.type action) : ReactionM σSource σEffect σAction σState Unit := 
   fun input => 
     let time := input.time.advance ⟨delay, h⟩
-    let event : Event Action input.time := { action := action, time := time, value := v }
+    let event : Event σAction input.time := { action := action, time := time, value := v }
     let output := { state := input.state, events := #[event] }
     (output, ())
 
-instance [Typed S] [Typed Action] [inst : TypedCoe S Action] : Coe (ReactionM.Event S time) (ReactionM.Event Action time) where
-  coe e := {
-    action := e.action,
-    time := e.time,
-    value := (inst.coeEqType e.action) ▸ e.value
-  }
+end ReactionM
 
-structure Reaction (Input Output Action State : Type) [Typed Input] [Typed Output] [Typed Action] [Typed State] where
+structure Reaction (σInput σOutput σAction σState : Scheme) where
   sources : Type
   effects : Type
   actions : Type
   triggers : sources → Bool
-  [sourcesTyped : Typed sources]
-  [effectsTyped : Typed effects]
-  [actionsTyped : Typed actions]
-  [sourcesTypedCoe : TypedCoe sources Input]
-  [effectsTypedCoe : TypedCoe effects Output]
-  [actionsTypedCoe : TypedCoe actions Action]
-  body : ReactionM sources effects actions State Unit
+  [sourcesDecEq : DecidableEq sources]
+  [effectsDecEq : DecidableEq effects]
+  [actionsDecEq : DecidableEq actions]
+  [sourcesInjCoe : InjectiveCoe sources σInput.vars]
+  [effectsInjCoe : InjectiveCoe effects σOutput.vars]
+  [actionsInjCoe : InjectiveCoe actions σAction.vars]
+  body : ReactionM (σInput.restrict sources) (σOutput.restrict effects) (σAction.restrict actions) σState Unit
 
-attribute [instance] Reaction.sourcesTyped Reaction.effectsTyped Reaction.actionsTyped 
-attribute [instance] Reaction.sourcesTypedCoe Reaction.effectsTypedCoe Reaction.actionsTypedCoe
+attribute [instance] Reaction.sourcesDecEq Reaction.effectsDecEq Reaction.actionsDecEq
+attribute [instance] Reaction.sourcesInjCoe Reaction.effectsInjCoe Reaction.actionsInjCoe
+
+abbrev Reaction.outputType (rcn : Reaction σInput σOutput σAction σState) :=
+  ReactionM.Output (σOutput.restrict rcn.effects) (σAction.restrict rcn.actions) σState 
+
+def ReactionM.run 
+  (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) 
+  (rcn : Reaction σInput σOutput σAction σState) (time : Time) : 
+  (rcn.outputType time) × Unit :=
+  rcn.body {
+    sources := fun s => inputs s,
+    actions := fun a => actions a,
+    state := state,
+    time := time
+  }

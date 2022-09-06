@@ -9,117 +9,110 @@ inductive ReactionSource | i1 | i2 deriving DecidableEq, Repr
 inductive ReactionEffect | o1      deriving DecidableEq, Repr
 inductive ReactionAction | a1 | a2 deriving DecidableEq, Repr
 
-instance : Enumerable ReactorInput  where allCases := #[.i1, .i2]
-instance : Enumerable ReactorOutput where allCases := #[.o1, .o2]
-instance : Enumerable ReactorState  where allCases := #[.s1, .s2]
-instance : Enumerable ReactorAction where allCases := #[.a1, .a2]
-
-instance : Enumerable ReactionSource where allCases := #[.i1, .i2]
-instance : Enumerable ReactionEffect where allCases := #[.o1]
-instance : Enumerable ReactionAction where allCases := #[.a1, .a2]
+@[reducible]
+instance : InjectiveCoe ReactionSource ReactorInput where
+  coe a := match a with | .i1 => .i1      | .i2 => .i2
+  inv b := match b with | .i1 => some .i1 | .i2 => some .i2
+  invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : Typed ReactorInput where 
-  type
+instance : InjectiveCoe ReactionEffect ReactorOutput where
+  coe a := match a with | .o1 => .o1
+  inv b := match b with | .o1 => some .o1 | .o2 => none
+  invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
+  coeInvId := (by cases · <;> rfl)
+
+@[reducible]
+instance : InjectiveCoe ReactionSource ReactorInput where
+  coe a := match a with | .i1 => .i1      | .i2 => .i2
+  inv b := match b with | .i1 => some .i1 | .i2 => some .i2
+  invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
+  coeInvId := (by cases · <;> rfl)
+
+@[reducible]
+instance : InjectiveCoe ReactionAction ReactorAction where
+  coe a := match a with | .a1 => .a1      | .a2 => .a2
+  inv b := match b with | .a1 => some .a1 | .a2 => some .a2
+  invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
+  coeInvId := (by cases · <;> rfl)
+
+abbrev ReactorInput.scheme : Scheme := {
+  vars := ReactorInput,
+  type := fun x => match x with
     | .i1 => Nat
-    | .i2 => String  
-  typeRepr | .i1 | .i2 => inferInstance
+    | .i2 => String
+}
 
-@[reducible]
-instance : Typed ReactorOutput where
-  type
+abbrev ReactorOutput.scheme : Scheme := {
+  vars := ReactorOutput,
+  type := fun x => match x with
     | .o1 => Bool
-    | .o2 => Unit  
-  typeRepr | .o1 | .o2 => inferInstance
+    | .o2 => Unit
+}
 
-@[reducible]
-instance : Typed ReactorState where
-  type
-    | .s1 => Int
-    | .s2 => Bool  
-  typeRepr | .s1 | .s2 => inferInstance
-
-@[reducible]
-instance : Typed ReactorAction where
-  type
+abbrev ReactorAction.scheme : Scheme := {
+  vars := ReactorAction,
+  type := fun x => match x with
     | .a1 => String
     | .a2 => Bool × Nat  
-  typeRepr | .a1 | .a2 => inferInstance
+}
 
-instance : Coe ReactionSource ReactorInput where
-  coe 
-    | .i1 => .i1
-    | .i2 => .i2
+abbrev ReactorState.scheme : Scheme := {
+  vars := ReactorState,
+  type := fun x => match x with
+    | .s1 => Int
+    | .s2 => Bool  
+}
 
-instance : TypedCoe ReactionSource ReactorInput where
-  coeEqType _ := rfl
+-- Printing --------------------------------------------------------------------
+instance : Enum ReactorInput where   allCases := #[.i1, .i2]
+instance : Enum ReactorOutput where  allCases := #[.o1, .o2]
+instance : Enum ReactorState where   allCases := #[.s1, .s2]
+instance : Enum ReactorAction where  allCases := #[.a1, .a2]
+instance : Enum ReactionSource where allCases := #[.i1, .i2]
+instance : Enum ReactionEffect where allCases := #[.o1]
+instance : Enum ReactionAction where allCases := #[.a1, .a2]
 
-instance : Coe ReactionEffect ReactorOutput where
-  coe 
-    | .o1 => .o1
+instance : ∀ a, Repr $ ReactorInput.scheme.type a  | .i1 | .i2 => inferInstance
+instance : ∀ a, Repr $ ReactorOutput.scheme.type a | .o1 | .o2 => inferInstance
+instance : ∀ a, Repr $ ReactorState.scheme.type a  | .s1 | .s2 => inferInstance
+instance : ∀ a, Repr $ ReactorAction.scheme.type a | .a1 | .a2 => inferInstance
+--------------------------------------------------------------------------------
 
-instance : TypedCoe ReactionEffect ReactorOutput where
-  coeEqType _ := rfl
-
-instance : Coe ReactionAction ReactorAction where
-  coe 
-    | .a1 => .a1
-    | .a2 => .a2
-
-instance : TypedCoe ReactionAction ReactorAction where
-  coeEqType _ := rfl
-
-open ReactionM in
-def testReaction : Reaction ReactorInput ReactorOutput ReactorAction ReactorState := {
+def testReaction : Reaction ReactorInput.scheme ReactorOutput.scheme ReactorAction.scheme ReactorState.scheme := {
   sources := ReactionSource,
   effects := ReactionEffect,
   actions := ReactionAction,
   triggers := fun s => match s with | .i1 => true | .i2 => false,
-  body := do
-    let i ← getInput .i1
+  body := open ReactionM ReactionSource ReactionEffect ReactionAction ReactorState in do
+    let i ← getInput i1
     let i' := (i.getD 0) + 1
     let b := if i' = 0 then true else false
-    setOutput .o1 b
-    setOutput .o1 true
-    setState .s1 (-1 : Int)
-    match ← getState .s1 with
+    setOutput o1 b
+    setOutput o1 true
+    -- setState s1 (-1 : Int)
+    match ← getState s1 with
     | none => return
-    | some v => setState .s1 (v * 12)
-    schedule .a1 1 (by simp) "First"
-    schedule .a1 1 (by simp) "Second"
+    | some v => setState s1 (v * 12)
+    schedule a1 1 (by simp) "First"
+    schedule a1 1 (by simp) "Second"
 }
 
 def testReactor : Reactor := {
-  inputs  := { vars := ReactorInput },
-  outputs := { vars := ReactorOutput },
-  actions := { vars := ReactorAction },
-  state   := { vars := ReactorState },
-  reactions := #[testReaction]
+  scheme := {
+    inputs  := ReactorInput.scheme,
+    outputs := ReactorOutput.scheme,
+    actions := ReactorAction.scheme,
+    state   := ReactorState.scheme,
+    reactions := #[testReaction]
+  },
+  inputs  := fun _ => none,
+  outputs := fun _ => none,
+  actions := fun _ => none,
+  state   := fun _ => none
 }
 
-def result := ReactionM.run 12 testReactor testReaction
-#eval result
-
-structure Reactor.Context (Action : Type) [Typed Action] where
-  time : Time
-  events : Array (ReactionM.Event Action time)
-
-def Reactor.run (rtr : Reactor) (ctx : Reactor.Context rtr.actions.vars) : Reactor × (Array $ ReactionM.Event rtr.actions.vars ctx.time) := Id.run do
-  let mut events := ctx.events
-  let mut rtr := rtr
-  for rcn in rtr.reactions do
-    -- TODO: We need to set the actions on the rtr first (according to ctx.events).
-    --       And then remove the used events.
-
-    let ⟨result, _⟩ := ReactionM.run ctx.time rtr rcn
-    let outputs := rtr.outputs.interface.merge' result.effects
-    let state := rtr.state.interface.merge result.state
-    let inst : Coe (ReactionM.Event rcn.actions ctx.time) (ReactionM.Event rtr.actions.vars ctx.time) := inferInstance
-    let newEvents := result.events.map fun e => inst.coe e
-    events := events ++ newEvents
-    -- TODO: Problem: we can't change the value of rtr.
-    --       Solution: Decouple the structure of a reactor from its values.
-
-  return (rtr, #[]) 
-
-    
+-- instance : Repr (Reaction.outputType testReaction 12 × Unit) := inferInstance
+-- def result := ReactionM.run 12 testReactor testReaction
+-- #eval result

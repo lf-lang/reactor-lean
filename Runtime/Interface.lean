@@ -1,43 +1,39 @@
-class Enumerable (α) where
-  allCases : Array α
+class InjectiveCoe (α β) extends Coe α β where
+  inv      : β → Option α
+  invInj   : ∀ {b₁ b₂}, (inv b₁ = inv b₂) → (b₁ = b₂) 
+  coeInvId : ∀ a, inv (coe a) = a
 
-class Typed (α : Type) extends Enumerable α, Repr α where
-  type : α → Type
-  typeRepr : ∀ a, Repr (type a)
-  [decidableEq : DecidableEq α]
+structure Scheme where
+  vars : Type
+  type : (var : vars) → Type
+  [varsDecidableEq : DecidableEq vars]
 
-attribute [reducible] Typed.type
-attribute [instance] Typed.decidableEq Typed.typeRepr
+attribute [reducible] Scheme.type
+attribute [instance] Scheme.varsDecidableEq
 
-open Typed
+abbrev Scheme.restrict (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCoe Sub σ.vars] : Scheme := {
+  vars := Sub,
+  type := fun var => σ.type var
+}
 
-@[reducible]
-instance [DecidableEq α] [Enumerable α] [Repr α] [Coe α β] [Typed β] : Typed α where
-  type a := type (a : β)
-  typeRepr := inferInstance
+instance {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars] : InjectiveCoe (σ.restrict Sub).vars σ.vars := 
+  inferInstance
 
-def Interface (Var : Type) [Typed Var] := (var : Var) → Option (type var)
+theorem Scheme.restrict_preserves_type {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars] {var : Sub} : 
+  (σ.restrict Sub).type var = σ.type var := rfl
 
-open Std in
-instance [inst : Typed Var] : Repr (Interface Var) where
-  reprPrec i p := Id.run do
-    let mut result := .nil 
-    for var in inst.allCases do
-      let varF := reprPrec var p
-      let valueF := reprPrec (i var) p
-      let mapsto := varF ++ " ↦ " ++ valueF
-      result := result ++ mapsto ++ .line
-    return result
+abbrev Interface (σ : Scheme) := (var : σ.vars) → Option (σ.type var)
 
 -- Merge i₂ into i₁.
-def Interface.merge [Typed Var] (i₁ i₂ : Interface Var) : Interface Var :=
-  fun n => (i₂ n).orElse (fun _ => i₁ n)
-
-class TypedCoe (α β) [Typed α] [Typed β] extends Coe α β where
-  coeEqType : ∀ a, type (coe a) = type a
-
-attribute [instance] TypedCoe.toCoe
+def Interface.merge (i₁ i₂ : Interface σ) : Interface σ :=
+  fun var => (i₂ var).orElse (fun _ => i₁ var)
 
 -- Merge i₂ into i₁.
-def Interface.merge' [Typed Var] [Typed S] [TypedCoe S Var] (i₁ : Interface Var) (i₂ : Interface S) : Interface Var :=
-  fun n => sorry
+def Interface.merge' {Sub : Type} [DecidableEq Sub] [injCoe : InjectiveCoe Sub σ.vars] (i₁ : Interface σ) (i₂ : Interface $ σ.restrict Sub) : Interface σ :=
+  fun var => 
+    match h : injCoe.inv var with 
+    | none => i₁ var
+    | some sub => 
+      have h₁ : (σ.restrict Sub).type sub = σ.type sub := Scheme.restrict_preserves_type
+      have h₂ : Coe.coe sub = var := h.symm ▸ injCoe.coeInvId sub |> injCoe.invInj
+      h₂ ▸ h₁ ▸ i₂ sub

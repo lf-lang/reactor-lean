@@ -5,6 +5,7 @@ inductive List.Sorted [LE α] : List α → Prop
 
 structure SortedArray (α) [LE α] extends Array α where 
   isSorted : List.Sorted toArray.data
+  deriving Repr
 
 namespace SortedArray
 

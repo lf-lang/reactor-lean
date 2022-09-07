@@ -7,7 +7,6 @@ inductive ReactorAction | a1 | a2 deriving DecidableEq, Repr
 
 inductive ReactionSource | i1 | i2 deriving DecidableEq, Repr
 inductive ReactionEffect | o1      deriving DecidableEq, Repr
-inductive ReactionAction | a1 | a2 deriving DecidableEq, Repr
 
 @[reducible]
 instance : InjectiveCoe ReactionSource ReactorInput where
@@ -20,20 +19,6 @@ instance : InjectiveCoe ReactionSource ReactorInput where
 instance : InjectiveCoe ReactionEffect ReactorOutput where
   coe a := match a with | .o1 => .o1
   inv b := match b with | .o1 => some .o1 | .o2 => none
-  invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
-  coeInvId := (by cases · <;> rfl)
-
-@[reducible]
-instance : InjectiveCoe ReactionSource ReactorInput where
-  coe a := match a with | .i1 => .i1      | .i2 => .i2
-  inv b := match b with | .i1 => some .i1 | .i2 => some .i2
-  invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
-  coeInvId := (by cases · <;> rfl)
-
-@[reducible]
-instance : InjectiveCoe ReactionAction ReactorAction where
-  coe a := match a with | .a1 => .a1      | .a2 => .a2
-  inv b := match b with | .a1 => some .a1 | .a2 => some .a2
   invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
   coeInvId := (by cases · <;> rfl)
 
@@ -72,7 +57,6 @@ instance : Enum ReactorState where   allCases := #[.s1, .s2]
 instance : Enum ReactorAction where  allCases := #[.a1, .a2]
 instance : Enum ReactionSource where allCases := #[.i1, .i2]
 instance : Enum ReactionEffect where allCases := #[.o1]
-instance : Enum ReactionAction where allCases := #[.a1, .a2]
 
 instance : ∀ a, Repr $ ReactorInput.scheme.type a  | .i1 | .i2 => inferInstance
 instance : ∀ a, Repr $ ReactorOutput.scheme.type a | .o1 | .o2 => inferInstance
@@ -80,14 +64,17 @@ instance : ∀ a, Repr $ ReactorState.scheme.type a  | .s1 | .s2 => inferInstanc
 instance : ∀ a, Repr $ ReactorAction.scheme.type a | .a1 | .a2 => inferInstance
 --------------------------------------------------------------------------------
 
--- TODO: Turn BodyM into ReactionT and have ReactionM := ReactionT IO.
+def testTriggers : (Reaction.Trigger ReactionSource ReactorAction) → Bool 
+  | .source .i1 => true 
+  | .source .i2 => false
+  | .action .a1 => false
+  | .action .a2 => true 
 
 def testReaction : Reaction ReactorInput.scheme ReactorOutput.scheme ReactorAction.scheme ReactorState.scheme := {
   sources := ReactionSource,
   effects := ReactionEffect,
-  actions := ReactionAction,
-  triggers := fun s => match s with | .i1 => true | .i2 => false,
-  body := open ReactionM ReactionSource ReactionEffect ReactionAction ReactorState in do
+  triggers := testTriggers,
+  body := open ReactionM ReactionSource ReactionEffect ReactorAction ReactorState in do
     let i ← getInput i1
     let i' := (i.getD 0) + 1
     let b := if i' = 0 then true else false

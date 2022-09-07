@@ -98,10 +98,15 @@ def schedule (action : σAction.vars) (delay : Nat) (h : delay > 0 := by simp_ar
 
 end ReactionM
 
+inductive Reaction.Trigger (Source Action : Type)
+  | source (_ : Source)
+  | action (_ : Action)
+
+open Reaction in
 structure Reaction (σInput σOutput σAction σState : Scheme) where
   sources : Type
   effects : Type
-  triggers : (Sum sources σAction.vars) → Bool
+  triggers : (Trigger sources σAction.vars) → Bool
   [sourcesDecEq : DecidableEq sources]
   [effectsDecEq : DecidableEq effects]
   [sourcesInjCoe : InjectiveCoe sources σInput.vars]
@@ -111,11 +116,15 @@ structure Reaction (σInput σOutput σAction σState : Scheme) where
 attribute [instance] Reaction.sourcesDecEq Reaction.effectsDecEq
 attribute [instance] Reaction.sourcesInjCoe Reaction.effectsInjCoe
 
-abbrev Reaction.outputType (rcn : Reaction σInput σOutput σAction σState) :=
+namespace Reaction
+
+abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.effects) σAction σState 
 
-def Reaction.run 
+def run 
   (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) 
   (rcn : Reaction σInput σOutput σAction σState) (time : Time) : 
   IO (rcn.outputType time × Unit) := 
   rcn.body { sources := fun s => inputs s, actions := actions, state := state, time := time }
+
+end Reaction

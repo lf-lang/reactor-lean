@@ -24,6 +24,9 @@ theorem Scheme.restrict_preserves_type {σ : Scheme} {Sub : Type} [DecidableEq S
 
 abbrev Interface (σ : Scheme) := (var : σ.vars) → Option (σ.type var)
 
+def Interface.isPresent (i : Interface σ) (var : σ.vars) : Bool :=
+  (i var).isSome
+
 -- Merge i₂ into i₁.
 def Interface.merge (i₁ i₂ : Interface σ) : Interface σ :=
   fun var => (i₂ var).orElse (fun _ => i₁ var)

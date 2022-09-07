@@ -14,7 +14,7 @@ structure ReactionM.Input (σSource σAction σState : Scheme) where
   sources : Interface σSource
   actions : Interface σAction
   state   : Interface σState
-  time    : Time
+  tag     : Tag
 
 structure ReactionM.Output (σEffect σAction σState : Scheme) (now : Time) where
   effects : Interface σEffect := fun _ => none
@@ -23,7 +23,7 @@ structure ReactionM.Output (σEffect σAction σState : Scheme) (now : Time) whe
 
 open ReactionM in
 abbrev ReactionT (σSource σEffect σAction σState : Scheme) (m : Type → Type) (α : Type) := 
-  (input : Input σSource σAction σState) → m (Output σEffect σAction σState input.time × α)
+  (input : Input σSource σAction σState) → m (Output σEffect σAction σState input.tag.time × α)
 
 abbrev ReactionM (σSource σEffect σAction σState : Scheme) := ReactionT σSource σEffect σAction σState IO
 
@@ -37,7 +37,7 @@ def Output.merge (o₁ o₂ : ReactionM.Output σEffect σAction σState time) :
   events  := o₁.events.merge  o₂.events
 }
 
-def Input.noop (input : ReactionM.Input σSource σAction σState) : Output σEffect σAction σState input.time := 
+def Input.noop (input : ReactionM.Input σSource σAction σState) : Output σEffect σAction σState input.tag.time := 
   { state := input.state }
 
 instance : Monad (ReactionM σSource σEffect σAction σState) where
@@ -74,8 +74,11 @@ def getState (stv : σState.vars) : ReactionM σSource σEffect σAction σState
 def getAction (action : σAction.vars) : ReactionM σSource σEffect σAction σState (Option $ σAction.type action) :=
   fun input => return (input.noop, input.actions action)
 
-def logicalTime : ReactionM σSource σEffect σAction σState Time := 
-  fun input => return (input.noop, input.time)
+def logicalTime : ReactionM σSource σEffect σAction σState Tag := 
+  fun input => return (input.noop, input.tag)
+
+def physicalTime : ReactionM σSource σEffect σAction σState Time :=
+  fun input => return (input.noop, ← IO.monoNanosNow)
 
 def setOutput (effect : σEffect.vars) (v : σEffect.type effect) : ReactionM σSource σEffect σAction σState Unit :=
   fun input => 
@@ -91,8 +94,8 @@ def setState (stv : σState.vars) (v : σState.type var) : ReactionM σSource σ
 
 def schedule (action : σAction.vars) (delay : Nat) (h : delay > 0 := by simp_arith) (v : σAction.type action) : ReactionM σSource σEffect σAction σState Unit := 
   fun input => 
-    let time := input.time.advance ⟨delay, h⟩
-    let event : Event σAction input.time := { action := action, time := time, value := v }
+    let time := input.tag.time.advance ⟨delay, h⟩
+    let event : Event σAction input.tag.time := { action := action, time := time, value := v }
     let output := { state := input.state, events := #[event] }
     return (output, ())
 
@@ -123,8 +126,8 @@ abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
 
 def run 
   (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) 
-  (rcn : Reaction σInput σOutput σAction σState) (time : Time) : 
-  IO (rcn.outputType time × Unit) := 
-  rcn.body { sources := fun s => inputs s, actions := actions, state := state, time := time }
+  (rcn : Reaction σInput σOutput σAction σState) (tag : Tag) : 
+  IO (rcn.outputType tag.time × Unit) := 
+  rcn.body { sources := fun s => inputs s, actions := actions, state := state, tag := tag }
 
 end Reaction

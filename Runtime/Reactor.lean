@@ -7,42 +7,38 @@ structure Reactor.Schemes where
   state   : Scheme
   reactions : Array (Reaction inputs outputs actions state)
 
+def Reactor.Schemes.reactionType (σ : Reactor.Schemes) := Reaction σ.inputs σ.outputs σ.actions σ.state
+
 structure Reactor (σ : Reactor.Schemes) where
   inputs  : Interface σ.inputs
   outputs : Interface σ.outputs
   actions : Interface σ.actions
   state   : Interface σ.state
 
-structure Reactor.ExecInput (σAction : Scheme) where
-  time : Time
-  events : SortedArray (Event σAction time)
-
 structure Reactor.ExecOutput (σ : Schemes) (time : Time) where
   reactor : Reactor σ
   events : SortedArray (Event σ.actions time)
 
--- TODO: Figure out the coercion of an array of events of reaction-actions to an array of events of reactor-actions.
-instance {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σAction.vars] : Coe (Event σAction time) (Event (σAction.restrict Sub) time) where
-  coe e := sorry
+def Reactor.triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
+  sorry
 
-instance [Coe α β] : Coe (Array α) (Array β) where
-  coe as := as.map fun a => Coe.coe a
-
-def Reactor.run {σ : Schemes} (rtr : Reactor σ) (input : ExecInput σ.actions) : IO (ExecOutput σ input.time) := 
-  go 0 rtr input
+-- When this function is called, the reactor should have its actions set to reflect the events
+-- of the given tag.
+def Reactor.run {σ : Schemes} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := 
+  go 0 rtr tag
 where 
-  go (rcnIdx : Nat) {σ : Schemes} (rtr : Reactor σ) (input : ExecInput σ.actions) : IO (ExecOutput σ input.time) := do
+  go (rcnIdx : Nat) {σ : Schemes} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
   match h : σ.reactions.get? rcnIdx with
-  | none => return { reactor := rtr, events := input.events }
+  | none => return { reactor := rtr, events := #[] }
   | some rcn => 
-    let ⟨⟨effects, state, events⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state input.time
-    let outputs' := rtr.outputs.merge' effects
-    let state' := rtr.state.merge state
-    let events' := input.events -- ++ (events : Array $ Event σ.actions ctx.time)
-    let rtr' := { rtr with outputs := outputs', state := state' }
-    let input' := { input with events := events' }
     have : rcnIdx < σ.reactions.size := by unfold Array.get? at h; split at h <;> simp [*]
-    let result ← go (rcnIdx + 1) rtr' input'
-    have hi : input'.time = input.time := rfl
-    return hi ▸ result
+    if rtr.triggers rcn then
+      let ⟨⟨effects, state, events⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state tag
+      let rtr' := { rtr with 
+        outputs := rtr.outputs.merge' effects, 
+        state := rtr.state.merge state 
+      }
+      go (rcnIdx + 1) rtr' tag
+    else 
+      go (rcnIdx + 1) rtr tag
   termination_by _ => σ.reactions.size - rcnIdx

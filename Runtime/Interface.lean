@@ -3,6 +3,8 @@ class InjectiveCoe (α β) extends Coe α β where
   invInj   : ∀ {b₁ b₂}, (inv b₁ = inv b₂) → (b₁ = b₂) 
   coeInvId : ∀ a, inv (coe a) = a
 
+namespace Interface
+
 structure Scheme where
   vars : Type
   type : (var : vars) → Type
@@ -22,17 +24,17 @@ instance {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars]
 theorem Scheme.restrict_preserves_type {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars] {var : Sub} : 
   (σ.restrict Sub).type var = σ.type var := rfl
 
-abbrev Interface (σ : Scheme) := (var : σ.vars) → Option (σ.type var)
+abbrev _root_.Interface (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
 
-def Interface.isPresent (i : Interface σ) (var : σ.vars) : Bool :=
+def isPresent (i : Interface σ) (var : σ.vars) : Bool :=
   (i var).isSome
 
 -- Merge i₂ into i₁.
-def Interface.merge (i₁ i₂ : Interface σ) : Interface σ :=
+def merge (i₁ i₂ : Interface σ) : Interface σ :=
   fun var => (i₂ var).orElse (fun _ => i₁ var)
 
 -- Merge i₂ into i₁.
-def Interface.merge' {Sub : Type} [DecidableEq Sub] [injCoe : InjectiveCoe Sub σ.vars] (i₁ : Interface σ) (i₂ : Interface $ σ.restrict Sub) : Interface σ :=
+def merge' {Sub : Type} [DecidableEq Sub] [injCoe : InjectiveCoe Sub σ.vars] (i₁ : Interface σ) (i₂ : Interface $ σ.restrict Sub) : Interface σ :=
   fun var => 
     match h : injCoe.inv var with 
     | none => i₁ var
@@ -40,3 +42,5 @@ def Interface.merge' {Sub : Type} [DecidableEq Sub] [injCoe : InjectiveCoe Sub �
       have h₁ : (σ.restrict Sub).type sub = σ.type sub := Scheme.restrict_preserves_type
       have h₂ : Coe.coe sub = var := h.symm ▸ injCoe.coeInvId sub |> injCoe.invInj
       h₂ ▸ h₁ ▸ i₂ sub
+
+end Interface

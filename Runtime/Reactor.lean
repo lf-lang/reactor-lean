@@ -1,25 +1,39 @@
 import Runtime.Reaction
 
-structure Reactor.Structure where
-  inputs    : Scheme
-  outputs   : Scheme
-  actions   : Scheme
-  state     : Scheme
+inductive PortKind
+  | input
+  | output
+
+def PortKind.opposite : PortKind → PortKind 
+  | .input => .output
+  | .output => .input
+
+namespace Reactor
+
+structure Scheme where
+  inputs    : Interface.Scheme
+  outputs   : Interface.Scheme
+  actions   : Interface.Scheme
+  state     : Interface.Scheme
   reactions : Array (Reaction inputs outputs actions state)
 
-abbrev Reactor.Structure.reactionType (σ : Reactor.Structure) := Reaction σ.inputs σ.outputs σ.actions σ.state
+abbrev Scheme.reactionType (σ : Reactor.Scheme) := Reaction σ.inputs σ.outputs σ.actions σ.state
 
-structure Reactor (σ : Reactor.Structure) where
+abbrev Scheme.ports (σ : Reactor.Scheme) : PortKind → Interface.Scheme
+  | .input => σ.inputs
+  | .output => σ.outputs
+
+structure _root_.Reactor (σ : Reactor.Scheme) where
   inputs  : Interface σ.inputs
   outputs : Interface σ.outputs
   actions : Interface σ.actions
   state   : Interface σ.state
 
-structure Reactor.ExecOutput (σ : Structure) (time : Time) where
+structure ExecOutput (σ : Reactor.Scheme) (time : Time) where
   reactor : Reactor σ
   events : SortedArray (Event σ.actions time)
 
-def Reactor.triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
+def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
   rcn.triggers.any fun trigger => 
     match trigger with
     | .source source => rtr.inputs.isPresent source
@@ -27,10 +41,10 @@ def Reactor.triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
 
 -- When this function is called, the reactor should have its actions set to reflect the events
 -- of the given tag.
-def Reactor.run {σ : Structure} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := 
+def run {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := 
   go 0 rtr tag
 where 
-  go (rcnIdx : Nat) {σ : Structure} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
+  go (rcnIdx : Nat) {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
   match h : σ.reactions.get? rcnIdx with
   | none => return { reactor := rtr, events := #[] }
   | some rcn => 
@@ -45,3 +59,5 @@ where
     else 
       go (rcnIdx + 1) rtr tag
   termination_by _ => σ.reactions.size - rcnIdx
+
+end Reactor

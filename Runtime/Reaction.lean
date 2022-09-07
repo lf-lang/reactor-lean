@@ -2,7 +2,7 @@ import Runtime.Time
 import Runtime.Interface
 import Runtime.SortedArray
 
-structure Event (σAction : Scheme) (min : Time) where 
+structure Event (σAction : Interface.Scheme) (min : Time) where 
   action : σAction.vars
   time   : Time.After min
   value  : σAction.type action
@@ -10,26 +10,25 @@ structure Event (σAction : Scheme) (min : Time) where
 instance : LE (Event σAction time) where
   le e₁ e₂ := e₁.time ≤ e₂.time
 
-structure ReactionM.Input (σSource σAction σState : Scheme) where
+namespace ReactionM
+
+structure Input (σSource σAction σState : Interface.Scheme) where
   sources : Interface σSource
   actions : Interface σAction
   state   : Interface σState
   tag     : Tag
 
-structure ReactionM.Output (σEffect σAction σState : Scheme) (now : Time) where
+structure Output (σEffect σAction σState : Interface.Scheme) (now : Time) where
   effects : Interface σEffect := fun _ => none
   state   : Interface σState
   events  : SortedArray (Event σAction now) := #[]
 
-open ReactionM in
-abbrev ReactionT (σSource σEffect σAction σState : Scheme) (m : Type → Type) (α : Type) := 
+abbrev _root_.ReactionT (σSource σEffect σAction σState : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σSource σAction σState) → m (Output σEffect σAction σState input.tag.time × α)
 
-abbrev ReactionM (σSource σEffect σAction σState : Scheme) := ReactionT σSource σEffect σAction σState IO
+abbrev _root_.ReactionM (σSource σEffect σAction σState : Interface.Scheme) := ReactionT σSource σEffect σAction σState IO
 
-variable {σInput σOutput σSource σEffect σAction σState : Scheme} 
-
-namespace ReactionM
+variable {σInput σOutput σSource σEffect σAction σState : Interface.Scheme} 
 
 def Output.merge (o₁ o₂ : ReactionM.Output σEffect σAction σState time) : Output σEffect σAction σState time := {
   effects := o₁.effects.merge o₂.effects,
@@ -101,12 +100,14 @@ def schedule (action : σAction.vars) (delay : Nat) (h : delay > 0 := by simp_ar
 
 end ReactionM
 
-inductive Reaction.Trigger (Source Action : Type)
+namespace Reaction
+
+inductive Trigger (Source Action : Type)
   | source (_ : Source)
   | action (_ : Action)
 
 open Reaction in
-structure Reaction (σInput σOutput σAction σState : Scheme) where
+structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme) where
   sources : Type
   effects : Type
   triggers : Array (Trigger sources σAction.vars)
@@ -118,8 +119,6 @@ structure Reaction (σInput σOutput σAction σState : Scheme) where
 
 attribute [instance] Reaction.sourcesDecEq Reaction.effectsDecEq
 attribute [instance] Reaction.sourcesInjCoe Reaction.effectsInjCoe
-
-namespace Reaction
 
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.effects) σAction σState 

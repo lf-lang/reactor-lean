@@ -2,23 +2,38 @@ import Runtime.Reactor
 
 namespace Network
 
--- This induces a tree of types.
-inductive IDTree 
+namespace ReactorID
+
+-- This represents a tree of types for reactors' IDs.
+inductive Tree 
   | leaf (IDs : Type)
-  | node (IDs : Type) (nested : IDs → IDTree)
+  | node (IDs : Type) (nested : IDs → Tree)
 
-inductive ID.Nested : IDTree → Type _
-  | final (id : IDs) : ID.Nested (.leaf IDs)
-  | cons (head : IDs) {nested : IDs → IDTree} : (ID.Nested $ nested head) → (ID.Nested $ .node IDs next)
+inductive Nested : Tree → Type _
+  | final (id : IDs) : ReactorID.Nested (.leaf IDs)
+  | cons (head : IDs) {nested : IDs → Tree} : (ReactorID.Nested $ nested head) → (ReactorID.Nested $ .node IDs next)
 
-inductive ID (tree : IDTree)
+inductive _root_.ReactorID (tree : Tree)
   | main
-  | nested : ID.Nested tree → ID tree
+  | nested : Nested tree → ReactorID tree
+
+end ReactorID
+
+structure Scheme where
+  tree : ReactorID.Tree
+  reactor : (ReactorID tree) → Reactor.Scheme 
+
+def Scheme.reactorIDs (σ : Network.Scheme) := ReactorID σ.tree
+
+structure PortID (kind : PortKind) (σ : Network.Scheme) where
+  reactor : σ.reactorIDs
+  port : σ.reactor reactor |>.ports kind |>.vars
+
+abbrev Connection (σ : Network.Scheme) := (PortID .output σ) × (PortID .input σ)
+
+structure _root_.Network where
+  scheme : Network.Scheme
+  reactor : (id : scheme.reactorIDs) → Reactor (scheme.reactor id)
+  connections : Array (Connection scheme)
 
 end Network
-
-open Network in
-structure Network where
-  idTree : IDTree
-  structures : (ID idTree) → Reactor.Structure
-  reactors : (id : ID idTree) → Reactor (structures id)

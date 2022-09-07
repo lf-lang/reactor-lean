@@ -109,7 +109,7 @@ open Reaction in
 structure Reaction (σInput σOutput σAction σState : Scheme) where
   sources : Type
   effects : Type
-  triggers : (Trigger sources σAction.vars) → Bool
+  triggers : Array (Trigger sources σAction.vars)
   [sourcesDecEq : DecidableEq sources]
   [effectsDecEq : DecidableEq effects]
   [sourcesInjCoe : InjectiveCoe sources σInput.vars]

@@ -20,7 +20,10 @@ structure Reactor.ExecOutput (σ : Schemes) (time : Time) where
   events : SortedArray (Event σ.actions time)
 
 def Reactor.triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
-  sorry
+  rcn.triggers.any fun trigger => 
+    match trigger with
+    | .source source => rtr.inputs.isPresent source
+    | .action action => rtr.actions.isPresent action
 
 -- When this function is called, the reactor should have its actions set to reflect the events
 -- of the given tag.

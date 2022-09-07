@@ -64,16 +64,10 @@ instance : ∀ a, Repr $ ReactorState.scheme.type a  | .s1 | .s2 => inferInstanc
 instance : ∀ a, Repr $ ReactorAction.scheme.type a | .a1 | .a2 => inferInstance
 --------------------------------------------------------------------------------
 
-def testTriggers : (Reaction.Trigger ReactionSource ReactorAction) → Bool 
-  | .source .i1 => true 
-  | .source .i2 => false
-  | .action .a1 => false
-  | .action .a2 => true 
-
 def testReaction : Reaction ReactorInput.scheme ReactorOutput.scheme ReactorAction.scheme ReactorState.scheme := {
   sources := ReactionSource,
   effects := ReactionEffect,
-  triggers := testTriggers,
+  triggers := #[.source .i1, .action .a2],
   body := open ReactionM ReactionSource ReactionEffect ReactorAction ReactorState in do
     let i ← getInput i1
     let i' := (i.getD 0) + 1

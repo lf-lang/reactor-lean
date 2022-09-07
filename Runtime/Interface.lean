@@ -12,7 +12,7 @@ attribute [reducible] Scheme.type
 attribute [instance] Scheme.varsDecidableEq
 
 abbrev Scheme.restrict (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCoe Sub σ.vars] : Scheme := {
-  vars := Sub,
+  vars := Sub
   type := fun var => σ.type var
 }
 

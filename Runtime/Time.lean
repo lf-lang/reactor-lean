@@ -10,6 +10,6 @@ structure Tag where
   microstep : Nat
 
 def Time.advance (time : Time) (d : Duration) : Time.After time := {
-  val := time + d,
+  val := time + d
   property := by simp_arith [Nat.succ_le_of_lt d.property]
 }

@@ -23,28 +23,28 @@ instance : InjectiveCoe ReactionEffect ReactorOutput where
   coeInvId := (by cases · <;> rfl)
 
 abbrev ReactorInput.scheme : Scheme := {
-  vars := ReactorInput,
+  vars := ReactorInput
   type := fun x => match x with
     | .i1 => Nat
     | .i2 => String
 }
 
 abbrev ReactorOutput.scheme : Scheme := {
-  vars := ReactorOutput,
+  vars := ReactorOutput
   type := fun x => match x with
     | .o1 => Bool
     | .o2 => Unit
 }
 
 abbrev ReactorAction.scheme : Scheme := {
-  vars := ReactorAction,
+  vars := ReactorAction
   type := fun x => match x with
     | .a1 => String
     | .a2 => Bool × Nat  
 }
 
 abbrev ReactorState.scheme : Scheme := {
-  vars := ReactorState,
+  vars := ReactorState
   type := fun x => match x with
     | .s1 => Int
     | .s2 => Bool  
@@ -85,18 +85,18 @@ def testReaction : Reaction ReactorInput.scheme ReactorOutput.scheme ReactorActi
     let dir' ← IO.appDir
 }
 
-def testReactorSchemes : Reactor.Schemes := {
-  inputs  := ReactorInput.scheme,
-  outputs := ReactorOutput.scheme,
-  actions := ReactorAction.scheme,
-  state   := ReactorState.scheme,
+def testStructure : Reactor.Structure := {
+  inputs    := ReactorInput.scheme
+  outputs   := ReactorOutput.scheme
+  actions   := ReactorAction.scheme
+  state     := ReactorState.scheme
   reactions := #[testReaction]
 }
 
 def testReactor : Reactor testReactorSchemes := {
-  inputs  := fun _ => none,
-  outputs := fun _ => none,
-  actions := fun _ => none,
+  inputs  := fun _ => none
+  outputs := fun _ => none
+  actions := fun _ => none
   state   := fun _ => none
 }
 

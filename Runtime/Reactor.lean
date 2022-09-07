@@ -15,11 +15,11 @@ structure Reactor (σ : Reactor.Schemes) where
 
 structure Reactor.ExecInput (σAction : Scheme) where
   time : Time
-  events : Array (Event σAction time)
+  events : SortedArray (Event σAction time)
 
 structure Reactor.ExecOutput (σ : Schemes) (time : Time) where
   reactor : Reactor σ
-  events : Array (Event σ.actions time)
+  events : SortedArray (Event σ.actions time)
 
 -- TODO: Figure out the coercion of an array of events of reaction-actions to an array of events of reactor-actions.
 instance {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σAction.vars] : Coe (Event σAction time) (Event (σAction.restrict Sub) time) where
@@ -35,6 +35,7 @@ where
   match h : σ.reactions.get? rcnIdx with
   | none => return { reactor := rtr, events := input.events }
   | some rcn => 
+
     let ⟨⟨effects, state, events⟩, _⟩ ← ReactionM.run rtr.inputs rtr.actions rtr.state rcn input.time
     let outputs' := rtr.outputs.merge' effects
     let state' := rtr.state.merge state

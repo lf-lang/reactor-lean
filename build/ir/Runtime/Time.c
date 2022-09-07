@@ -16,6 +16,25 @@ extern "C" {
 LEAN_EXPORT lean_object* l_Time_advance___boxed(lean_object*, lean_object*);
 lean_object* lean_nat_add(lean_object*, lean_object*);
 LEAN_EXPORT lean_object* l_Time_advance(lean_object*, lean_object*);
+LEAN_EXPORT lean_object* l_instLEAfter(lean_object*);
+LEAN_EXPORT lean_object* l_instLEAfter___boxed(lean_object*);
+LEAN_EXPORT lean_object* l_instLEAfter(lean_object* x_1) {
+_start:
+{
+lean_object* x_2; 
+x_2 = lean_box(0);
+return x_2;
+}
+}
+LEAN_EXPORT lean_object* l_instLEAfter___boxed(lean_object* x_1) {
+_start:
+{
+lean_object* x_2; 
+x_2 = l_instLEAfter(x_1);
+lean_dec(x_1);
+return x_2;
+}
+}
 LEAN_EXPORT lean_object* l_Time_advance(lean_object* x_1, lean_object* x_2) {
 _start:
 {

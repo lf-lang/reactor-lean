@@ -1,10 +1,14 @@
 import Runtime.Time
 import Runtime.Interface
+import Runtime.SortedArray
 
 structure Event (σAction : Scheme) (min : Time) where 
   action : σAction.vars
   time   : Time.After min
   value  : σAction.type action
+
+instance : LE (Event σAction time) where
+  le e₁ e₂ := e₁.time ≤ e₂.time
 
 structure ReactionM.Input (σSource σAction σState : Scheme) where
   sources : Interface σSource
@@ -15,7 +19,7 @@ structure ReactionM.Input (σSource σAction σState : Scheme) where
 structure ReactionM.Output (σEffect σAction σState : Scheme) (now : Time) where
   effects : Interface σEffect := fun _ => none
   state   : Interface σState
-  events  : Array (Event σAction now) := #[]
+  events  : SortedArray (Event σAction now) := #[]
 
 open ReactionM in
 abbrev ReactionT (σSource σEffect σAction σState : Scheme) (m : Type → Type) (α : Type) := 
@@ -29,8 +33,8 @@ namespace ReactionM
 
 def Output.merge (o₁ o₂ : ReactionM.Output σEffect σAction σState time) : Output σEffect σAction σState time := {
   effects := o₁.effects.merge o₂.effects,
-  state := o₁.state.merge o₂.state,
-  events := o₁.events ++ o₂.events
+  state   := o₁.state.merge   o₂.state,
+  events  := o₁.events.merge  o₂.events
 }
 
 def Input.noop (input : ReactionM.Input σSource σAction σState) : Output σEffect σAction σState input.time := 

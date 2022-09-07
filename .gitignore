@@ -3,8 +3,8 @@
 *.olean
 /_target
 /leanpkg.path
-/src/build
-/src/lean_packages
+/build
+/lean_packages
 
 ## Core latex/pdflatex auxiliary files:
 *.aux

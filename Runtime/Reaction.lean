@@ -101,29 +101,21 @@ end ReactionM
 structure Reaction (σInput σOutput σAction σState : Scheme) where
   sources : Type
   effects : Type
-  actions : Type
-  triggers : sources → Bool
+  triggers : (Sum sources σAction.vars) → Bool
   [sourcesDecEq : DecidableEq sources]
   [effectsDecEq : DecidableEq effects]
-  [actionsDecEq : DecidableEq actions]
   [sourcesInjCoe : InjectiveCoe sources σInput.vars]
   [effectsInjCoe : InjectiveCoe effects σOutput.vars]
-  [actionsInjCoe : InjectiveCoe actions σAction.vars]
-  body : ReactionM (σInput.restrict sources) (σOutput.restrict effects) (σAction.restrict actions) σState Unit
+  body : ReactionM (σInput.restrict sources) (σOutput.restrict effects) σAction σState Unit
 
-attribute [instance] Reaction.sourcesDecEq Reaction.effectsDecEq Reaction.actionsDecEq
-attribute [instance] Reaction.sourcesInjCoe Reaction.effectsInjCoe Reaction.actionsInjCoe
+attribute [instance] Reaction.sourcesDecEq Reaction.effectsDecEq
+attribute [instance] Reaction.sourcesInjCoe Reaction.effectsInjCoe
 
 abbrev Reaction.outputType (rcn : Reaction σInput σOutput σAction σState) :=
-  ReactionM.Output (σOutput.restrict rcn.effects) (σAction.restrict rcn.actions) σState 
+  ReactionM.Output (σOutput.restrict rcn.effects) σAction σState 
 
-def ReactionM.run 
+def Reaction.run 
   (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) 
   (rcn : Reaction σInput σOutput σAction σState) (time : Time) : 
   IO (rcn.outputType time × Unit) := 
-  rcn.body {
-    sources := fun s => inputs s,
-    actions := fun a => actions a,
-    state := state,
-    time := time
-  }
+  rcn.body { sources := fun s => inputs s, actions := actions, state := state, time := time }

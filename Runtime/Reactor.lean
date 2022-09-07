@@ -35,8 +35,7 @@ where
   match h : σ.reactions.get? rcnIdx with
   | none => return { reactor := rtr, events := input.events }
   | some rcn => 
-
-    let ⟨⟨effects, state, events⟩, _⟩ ← ReactionM.run rtr.inputs rtr.actions rtr.state rcn input.time
+    let ⟨⟨effects, state, events⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state input.time
     let outputs' := rtr.outputs.merge' effects
     let state' := rtr.state.merge state
     let events' := input.events -- ++ (events : Array $ Event σ.actions ctx.time)

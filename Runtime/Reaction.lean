@@ -58,8 +58,8 @@ instance : Monad (ReactionM σSource σEffect σAction σState) where
     let output := output₁.merge output₂
     return (output, b)
 
-instance : Coe (IO α) (ReactionM σSource σEffect σAction σState α) where
-  coe io input world :=
+instance : MonadLift IO (ReactionM σSource σEffect σAction σState) where
+  monadLift io input world := 
     match io world with 
     | .error e world' => .error e world'
     | .ok    a world' => .ok (input.noop, a) world'

@@ -61,7 +61,7 @@ def getReactorSchemeReactionDecls : (TSyntax `reactor_scheme) → MacroM (Array 
 
 def makeReactorSchemeCommand (name : Ident) (reactions : Array Ident) : MacroM Command := do
   let schemeIdent := mkIdentFrom name (name.getId ++ `scheme)
-  let reactionInstanceIdents := reactions.map fun rcn => mkIdentFrom rcn (name.getId ++ rcn.getId ++ `instance)
+  let reactionInstanceIdents := reactions.map fun rcn => mkIdentFrom rcn (name.getId ++ `Reactions ++ rcn.getId ++ `instance)
   `(
     def $schemeIdent : $(mkIdent `Reactor.Scheme) := {
       inputs    := $(mkIdent `Input.scheme)
@@ -80,14 +80,14 @@ def makeInjectiveCoeCommand (name : Ident) (reactor : TSyntax `reactor_scheme) (
   let reactorOutputType := mkIdentFrom name (name.getId ++ (toString ReactorSchemeField.output).capitalize)
   let mut commands : Array Command := #[]
   for ⟨reactionIdent, signature⟩ in reactions do
-    let reactionSourceType := mkIdentFrom reactionIdent (name.getId ++ reactionIdent.getId ++ `Source)
-    let reactionEffectType := mkIdentFrom reactionIdent (name.getId ++ reactionIdent.getId ++ `Effect)
+    let reactionSourceType := mkIdentFrom reactionIdent (name.getId ++ `Reactions ++ reactionIdent.getId ++ `Source)
+    let reactionEffectType := mkIdentFrom reactionIdent (name.getId ++ `Reactions ++ reactionIdent.getId ++ `Effect)
     let reactionSourceIdents : Array Ident := (← getReactionDependencies signature).filterMap (·.input?)
-    let reactionSourceIdents' := reactionSourceIdents.map fun ident => mkIdentFrom ident (name.getId ++ reactionIdent.getId ++ `Source ++ ident.getId.getRoot)
+    let reactionSourceIdents' := reactionSourceIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Reactions ++ reactionIdent.getId ++ `Source ++ ident.getId.getRoot)
     let reactionSourceIdentsAsInput := reactionSourceIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Input ++ ident.getId.getRoot)
     let nonSourceInputs := reactorInputIdents.filter (¬ reactionSourceIdents.contains ·)
     let reactionEffectIdents : Array Ident := (← getReactionDependencies signature).filterMap (·.effect?)
-    let reactionEffectIdents' := reactionEffectIdents.map fun ident => mkIdentFrom ident (name.getId ++ reactionIdent.getId ++ `Effect ++ ident.getId.getRoot)
+    let reactionEffectIdents' := reactionEffectIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Reactions ++ reactionIdent.getId ++ `Effect ++ ident.getId.getRoot)
     let reactionEffectIdentsAsOutput := reactionEffectIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Output ++ ident.getId.getRoot)
     let nonEffectOutputs := reactorOutputIdents.filter (¬ reactionEffectIdents.contains ·)
     commands := commands.push (← `(
@@ -111,9 +111,9 @@ def makeReactionInstanceCommands (reactorIdent : Ident) (reactions : Array $ TSy
   let mut commands : Array Command := #[]
   for rcn in reactions do
     let ⟨reactionIdent, reactionSignature, reactionBody⟩ ← getReactionDeclComponents rcn
-    let reactionInstanceIdent := mkIdentFrom reactionIdent (reactorIdent.getId ++ reactionIdent.getId ++ `instance)
+    let reactionInstanceIdent := mkIdentFrom reactionIdent (reactorIdent.getId ++ `Reactions ++ reactionIdent.getId ++ `instance)
     let reactorName := reactorIdent.getId
-    let reactionName := reactorName ++ reactionIdent.getId
+    let reactionName := reactorName ++ `Reactions ++ reactionIdent.getId
     let reactorActionType := mkIdent $ reactorName ++ `Action
     let reactorStateType := mkIdent $ reactorName ++ `State
     let reactionSourceType := mkIdent $ reactionName ++ `Source
@@ -154,11 +154,11 @@ def makeReactorInstanceCommand (name : Ident): MacroM Command := `(
 --
 -- For each reaction:
 -- 
--- inductive ReactorName.ReactionName.Source
--- inductive ReactorName.ReactionName.Effect
--- instance : InjectiveCoe ReactorName.ReactionName.Source ReactorName.Input
--- instance : InjectiveCoe ReactorName.ReactionName.Effect ReactorName.Output
--- def ReactorName.ReactionName.instance
+-- inductive ReactorName.Reactions.ReactionName.Source
+-- inductive ReactorName.Reactions.ReactionName.Effect
+-- instance : InjectiveCoe ReactorName.Reactions.ReactionName.Source ReactorName.Input
+-- instance : InjectiveCoe ReactorName.Reactions.ReactionName.Effect ReactorName.Output
+-- def ReactorName.Reactions.ReactionName.instance
 macro "reactor" name:ident scheme:reactor_scheme : command => do
   let reactionDecls ← getReactorSchemeReactionDecls scheme
   let reactionComponents ← reactionDecls.mapM getReactionDeclComponents

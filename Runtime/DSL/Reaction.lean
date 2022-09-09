@@ -64,8 +64,8 @@ def makeReactionDependenciesCommand (reactorIdent : Ident) (rcn : TSyntax `react
   let dependencies ← getReactionDependencies signature
   let inputs      := dependencies.filterMap (·.input?)
   let effects     := dependencies.filterMap (·.effect?)
-  let inputIdent  := mkIdentFrom name (reactorIdent.getId ++ name.getId ++ `Source)
-  let effectIdent := mkIdentFrom name (reactorIdent.getId ++ name.getId ++ `Effect)
+  let inputIdent  := mkIdentFrom name (reactorIdent.getId ++ `Reactions ++ name.getId ++ `Source)
+  let effectIdent := mkIdentFrom name (reactorIdent.getId ++ `Reactions ++ name.getId ++ `Effect)
   `(  
     inductive $inputIdent  $[| $inputs:ident]* deriving DecidableEq
     inductive $effectIdent $[| $effects:ident]* deriving DecidableEq
@@ -73,6 +73,6 @@ def makeReactionDependenciesCommand (reactorIdent : Ident) (rcn : TSyntax `react
 
 def makeReactionTriggers (reactorName : Name) (reactionName : Name) (signature : TSyntax `reaction_signature) : MacroM Term := do
   let dependencies ← getReactionDependencies signature
-  let sources : Array Ident := dependencies.filterMap fun d => d.source? >>= (mkIdent $ reactorName ++ reactionName ++ `Source ++ ·.getId)
+  let sources : Array Ident := dependencies.filterMap fun d => d.source? >>= (mkIdent $ reactorName ++ `Reactions ++ reactionName ++ `Source ++ ·.getId)
   let actions : Array Ident := dependencies.filterMap fun d => d.action? >>= (mkIdent $ reactorName ++ `Action ++ ·.getId)
   `(#[ $[.source $sources],* , $[.action $actions],*])

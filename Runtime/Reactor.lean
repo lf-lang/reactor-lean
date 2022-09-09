@@ -55,7 +55,8 @@ where
         outputs := rtr.outputs.merge' effects
         state := rtr.state.merge state 
       }
-      go (rcnIdx + 1) rtr' tag
+      let ⟨rtr'', events'⟩ ← go (rcnIdx + 1) rtr' tag
+      return { reactor := rtr'', events := events'.merge events }
     else 
       go (rcnIdx + 1) rtr tag
   termination_by _ => σ.reactions.size - rcnIdx

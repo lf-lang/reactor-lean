@@ -63,7 +63,7 @@ def makeReactorSchemeCommand (name : Ident) (reactions : Array Ident) : MacroM C
   let schemeIdent := mkIdentFrom name (name.getId ++ `scheme)
   let reactionInstanceIdents := reactions.map fun rcn => mkIdentFrom rcn (name.getId ++ `Reactions ++ rcn.getId ++ `instance)
   `(
-    def $schemeIdent : $(mkIdent `Reactor.Scheme) := {
+    abbrev $schemeIdent : $(mkIdent `Reactor.Scheme) := {
       inputs    := $(mkIdent `Input.scheme)
       outputs   := $(mkIdent `Output.scheme)
       actions   := $(mkIdent `Action.scheme)

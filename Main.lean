@@ -15,19 +15,50 @@ reactor Main {
     setState s1 (-1 : Int)
     match ← getState s1 with
     | none => return
-    | some v => setState s1 (v * 12)
+    | some v => 
+      setState s1 (v * 12)
+      setState s2 false
   }
 
   reaction second (i1, @a1, @a2) → (o1) { 
     let _ := (← getAction a1).map (· ++ "suffix")
     let _ ← getInput i1
-    schedule a1 1 (by simp) "First"
-    schedule a1 1 (by simp) "Second"
+    schedule a1 112 (by simp) "First"
+    schedule a1 113 (by simp) "Second"
     -- IO.println "Hello"
     let dir := IO.appDir
     -- let dir' ← IO.appDir
   }
 }
+
+def main : IO Unit := do
+  let initial : Reactor Main.scheme := { Main.instance with 
+    inputs := fun
+      | .i2 => some "input" 
+      | _ => none 
+    actions := fun
+      | .a2 => (true, 1)
+      | _ => none
+  }
+  let ⟨rtr, events⟩ ← initial.run ⟨0, 0⟩
+  let input1  := rtr.inputs .i1
+  let input2  := rtr.inputs .i2
+  let output1 := rtr.outputs .o1
+  let output2 := rtr.outputs .o2
+  let action1 := rtr.actions .a1
+  let action2 := rtr.actions .a2
+  let state1  := rtr.state .s1
+  let state2  := rtr.state .s2
+  IO.println input1
+  IO.println input2
+  IO.println output1
+  IO.println output2
+  IO.println action1
+  IO.println action2
+  IO.println state1
+  IO.println state2
+  for event in events.toArray do
+    IO.println s!"Event: {event.time}"
 
 -- Printing --------------------------------------------------------------------
 instance : Enum Main.Input where   allCases := #[.i1, .i2]

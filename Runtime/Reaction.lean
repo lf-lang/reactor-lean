@@ -7,8 +7,8 @@ structure Event (σAction : Interface.Scheme) (min : Time) where
   time   : Time.After min
   value  : σAction.type action
 
-instance : LE (Event σAction time) where
-  le e₁ e₂ := e₁.time ≤ e₂.time
+instance : Ord (Event σAction time) where
+  compare e₁ e₂ := compare e₁.time e₂.time
 
 namespace ReactionM
 

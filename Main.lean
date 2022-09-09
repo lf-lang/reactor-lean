@@ -12,7 +12,7 @@ reactor Main {
     let b := if i' = 0 then true else false
     setOutput o1 b
     setOutput o1 true
-    -- setState s1 (-1 : Int)
+    setState s1 (-1 : Int)
     match ← getState s1 with
     | none => return
     | some v => setState s1 (v * 12)

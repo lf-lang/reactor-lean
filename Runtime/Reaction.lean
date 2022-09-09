@@ -85,9 +85,9 @@ def setOutput (effect : σEffect.vars) (v : σEffect.type effect) : ReactionM σ
     let output := { effects := effects, state := input.state }
     return (output, ())
 
-def setState (stv : σState.vars) (v : σState.type var) : ReactionM σSource σEffect σAction σState Unit :=
+def setState (stv : σState.vars) (v : σState.type stv) : ReactionM σSource σEffect σAction σState Unit :=
   fun input =>
-    let state := fun s => if h : s = var then some (h ▸ v) else input.state s
+    let state := fun s => if h : s = stv then some (h ▸ v) else input.state s
     let output := { state := state }
     return (output, ())
 

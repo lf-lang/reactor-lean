@@ -41,24 +41,17 @@ def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
 
 -- When this function is called, the reactor should have its actions set to reflect the events
 -- of the given tag.
-def run {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := 
-  go 0 rtr tag
-where 
-  go (rcnIdx : Nat) {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
-  match h : σ.reactions.get? rcnIdx with
-  | none => return { reactor := rtr, events := #[] }
-  | some rcn => 
-    have : rcnIdx < σ.reactions.size := by unfold Array.get? at h; split at h <;> simp [*]
-    if rtr.triggers rcn then
-      let ⟨⟨effects, state, events⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state tag
-      let rtr' := { rtr with 
-        outputs := rtr.outputs.merge' effects
-        state := rtr.state.merge state 
-      }
-      let ⟨rtr'', events'⟩ ← go (rcnIdx + 1) rtr' tag
-      return { reactor := rtr'', events := events'.merge events }
-    else 
-      go (rcnIdx + 1) rtr tag
-  termination_by _ => σ.reactions.size - rcnIdx
+def run {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
+  let mut rtr := rtr
+  let mut events := #[]
+  for rcn in σ.reactions do
+    unless rtr.triggers rcn do continue
+    let ⟨⟨effects, state, newEvents⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state tag
+    rtr := { rtr with 
+      outputs := rtr.outputs.merge' effects
+      state := rtr.state.merge state 
+    }
+    events := events.merge newEvents
+  return { reactor := rtr, events := events }
 
 end Reactor

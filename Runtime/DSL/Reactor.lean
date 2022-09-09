@@ -130,6 +130,15 @@ def makeReactionInstanceCommands (reactorIdent : Ident) (reactions : Array $ TSy
     ))
   return commands
 
+def makeReactorInstanceCommand (name : Ident): MacroM Command := `(
+    def $(mkIdentFrom name $ name.getId ++ `instance) : $(mkIdent `Reactor) $(mkIdentFrom name $ name.getId ++ `scheme) := {
+      inputs  := fun _ => none
+      outputs := fun _ => none
+      actions := fun _ => none
+      state   := fun _ => none
+    }
+  )
+
 -- Generates:
 --
 -- inductive ReactorName.Input
@@ -141,6 +150,7 @@ def makeReactionInstanceCommands (reactorIdent : Ident) (reactions : Array $ TSy
 -- def ReactorName.Action.scheme
 -- def ReactorName.State.scheme
 -- def ReactorName.scheme
+-- def ReactorName.instance
 --
 -- For each reaction:
 -- 
@@ -148,6 +158,7 @@ def makeReactionInstanceCommands (reactorIdent : Ident) (reactions : Array $ TSy
 -- inductive ReactorName.ReactionName.Effect
 -- instance : InjectiveCoe ReactorName.ReactionName.Source ReactorName.Input
 -- instance : InjectiveCoe ReactorName.ReactionName.Effect ReactorName.Output
+-- def ReactorName.ReactionName.instance
 macro "reactor" name:ident scheme:reactor_scheme : command => do
   let reactionDecls ← getReactorSchemeReactionDecls scheme
   let reactionComponents ← reactionDecls.mapM getReactionDeclComponents
@@ -158,5 +169,6 @@ macro "reactor" name:ident scheme:reactor_scheme : command => do
   let reactionInstanceCommands ← makeReactionInstanceCommands name reactionDecls
   let injectiveCoeCommands ← makeInjectiveCoeCommand name scheme (Array.zip reactionIdents reactionSignatures)
   let reactorSchemeCommand ← makeReactorSchemeCommand name reactionIdents
+  let reactorInstanceCommand ← makeReactorInstanceCommand name
   -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Antiquot.20Splice/near/297760730
-  return mkNullNode <| reactionDependenciesCommands ++ interfaceCommands ++ injectiveCoeCommands ++ reactionInstanceCommands ++ [reactorSchemeCommand]
+  return mkNullNode <| reactionDependenciesCommands ++ interfaceCommands ++ injectiveCoeCommands ++ reactionInstanceCommands ++ [reactorSchemeCommand, reactorInstanceCommand]

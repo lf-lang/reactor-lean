@@ -24,8 +24,6 @@ reactor Main {
   }
 }
 
-#print Main.Rcn1.instance
-
 -- Printing --------------------------------------------------------------------
 instance : Enum Main.Input where   allCases := #[.i1, .i2]
 instance : Enum Main.Output where  allCases := #[.o1, .o2]

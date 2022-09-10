@@ -5,19 +5,32 @@ namespace Network
 namespace ReactorID
 
 -- This represents a tree of types for reactors' IDs.
+-- Leaves are constructed with the `Empty` type.
 inductive Tree 
-  | leaf (IDs : Type)
   | node (IDs : Type) (nested : IDs → Tree)
 
 inductive Nested : Tree → Type _
-  | final (id : IDs) : ReactorID.Nested (.leaf IDs)
-  | cons (head : IDs) {nested : IDs → Tree} : (ReactorID.Nested $ nested head) → (ReactorID.Nested $ .node IDs next)
+  | final (id : IDs) : Nested (.node IDs nested)
+  | cons (head : IDs) {nested : IDs → Tree} : (Nested $ nested head) → (Nested $ .node IDs nested)
 
-inductive _root_.ReactorID (tree : Tree)
+end ReactorID
+
+open ReactorID in
+inductive ReactorID (tree : Tree)
   | main
   | nested : Nested tree → ReactorID tree
 
-end ReactorID
+/-
+#check []
+open Lean in
+macro "[" elems:term,*  "]" : term => do
+  let ids := elems.getElems
+  match ids.size with
+  | 0 => `(Network.ReactorID.main)
+  | 1 => `(Network.ReactorID.nested (Network.ReactorID.Nested.final $(ids[0]!)))
+  | _ => 
+    `(Network.ReactorID.nested ($[cons $ids]*))
+-/
 
 structure Scheme where
   tree : ReactorID.Tree

@@ -21,7 +21,7 @@ structure Input (σSource σAction σState : Interface.Scheme) where
 structure Output (σEffect σAction σState : Interface.Scheme) (now : Time) where
   effects : Interface σEffect := fun _ => none
   state   : Interface σState
-  events  : SortedArray (Event σAction now) := #[]
+  events  : SortedArray (Event σAction now) := #[]#
 
 abbrev _root_.ReactionT (σSource σEffect σAction σState : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σSource σAction σState) → m (Output σEffect σAction σState input.tag.time × α)
@@ -95,7 +95,7 @@ def schedule (action : σAction.vars) (delay : Nat) (h : delay > 0 := by simp_ar
   fun input => 
     let time := input.tag.time.advance ⟨delay, h⟩
     let event : Event σAction input.tag.time := { action := action, time := time, value := v }
-    let output := { state := input.state, events := #[event] }
+    let output := { state := input.state, events := #[event]# }
     return (output, ())
 
 end ReactionM

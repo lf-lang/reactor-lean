@@ -43,7 +43,7 @@ def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
 -- of the given tag.
 def run {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
   let mut rtr := rtr
-  let mut events := #[]
+  let mut events := #[]#
   for rcn in σ.reactions do
     unless rtr.triggers rcn do continue
     let ⟨⟨effects, state, newEvents⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state tag

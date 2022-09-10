@@ -15,7 +15,6 @@ structure Scheme where
   outputs   : Interface.Scheme
   actions   : Interface.Scheme
   state     : Interface.Scheme
-  reactions : Array (Reaction inputs outputs actions state)
 
 abbrev Scheme.reactionType (σ : Reactor.Scheme) := Reaction σ.inputs σ.outputs σ.actions σ.state
 
@@ -29,9 +28,17 @@ structure _root_.Reactor (σ : Reactor.Scheme) where
   actions : Interface σ.actions
   state   : Interface σ.state
 
-structure ExecOutput (σ : Reactor.Scheme) (time : Time) where
+-- TODO: Does this ExecInput/-Output correspond to `Network.Tree.reactionType`?
+structure ExecInput {Nested : Type} (nested : Nested → Reactor.Scheme) where
+  tag : Tag
+  scheme : Reactor.Scheme
+  reactor : Reactor σ
+  nestedOutputs : (n : Nested) → (Interface $ (nested n).outputs)
+  
+structure ExecOutput {Nested : Type} (nested : Nested → Reactor.Scheme) (σ : Reactor.Scheme) (time : Time) where
   reactor : Reactor σ
   events : SortedArray (Event σ.actions time)
+  nestedInputs : (n : Nested) → (Interface $ (nested n).inputs)
 
 def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
   rcn.triggers.any fun trigger => 
@@ -41,17 +48,22 @@ def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
 
 -- When this function is called, the reactor should have its actions set to reflect the events
 -- of the given tag.
-def run {σ : Reactor.Scheme} (rtr : Reactor σ) (tag : Tag) : IO (ExecOutput σ tag.time) := do
-  let mut rtr := rtr
+/-def run {Nested : Type} (nested : Nested → Reactor.Scheme) (input : ExecInput nested) : IO (ExecOutput nested input.scheme input.tag.time) := do
+  let mut rtr := input.reactor
   let mut events := #[]#
-  for rcn in σ.reactions do
+  for rcn in input.scheme.reactions do
     unless rtr.triggers rcn do continue
-    let ⟨⟨effects, state, newEvents⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state tag
+    let ⟨⟨effects, state, newEvents⟩, _⟩ ← rcn.run rtr.inputs rtr.actions rtr.state input.tag
     rtr := { rtr with 
       outputs := rtr.outputs.merge' effects
       state := rtr.state.merge state 
     }
     events := events.merge newEvents
   return { reactor := rtr, events := events }
+-/
+-- TODO: Given a reactor R with nested reactors R.Nested identifying the nested reactors,
+--       for each reaction C in R we need injective coercions :
+--       * C.Source to (Sum (R.inputs.vars) (Σ n : R.Nested, (R.Nested.schemes n).outputs)) 
+--       * C.Effect to (Sum (R.outputs.vars) (Σ n : R.Nested, (R.Nested.schemes n).inputs)) 
 
 end Reactor

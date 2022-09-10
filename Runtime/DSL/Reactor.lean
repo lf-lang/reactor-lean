@@ -59,16 +59,16 @@ def getReactorSchemeReactionDecls : (TSyntax `reactor_scheme) → MacroM (Array 
   | `(reactor_scheme| { $__:reactor_scheme_field* $reactions:reaction_decl* }) => return reactions
   | _ => throwUnsupported
 
-def makeReactorSchemeCommand (name : Ident) (reactions : Array Ident) : MacroM Command := do
+def makeReactorSchemeCommand (name : Ident) /-(reactions : Array Ident)-/ : MacroM Command := do
   let schemeIdent := mkIdentFrom name (name.getId ++ `scheme)
-  let reactionInstanceIdents := reactions.map fun rcn => mkIdentFrom rcn (name.getId ++ `Reactions ++ rcn.getId ++ `instance)
+  -- let reactionInstanceIdents := reactions.map fun rcn => mkIdentFrom rcn (name.getId ++ `Reactions ++ rcn.getId ++ `instance)
   `(
     abbrev $schemeIdent : $(mkIdent `Reactor.Scheme) := {
       inputs    := $(mkIdent `Input.scheme)
       outputs   := $(mkIdent `Output.scheme)
       actions   := $(mkIdent `Action.scheme)
       state     := $(mkIdent `State.scheme)
-      reactions := #[$[$reactionInstanceIdents],*]
+      -- reactions := #[$[$reactionInstanceIdents],*]
     }
   ) 
 
@@ -97,7 +97,7 @@ def makeInjectiveCoeCommand (name : Ident) (reactor : TSyntax `reactor_scheme) (
         inv b := match b with $[| $reactionSourceIdentsAsInput => some $reactionSourceIdents']* $[| $nonSourceInputs => none]*
         invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
         coeInvId := (by cases · <;> rfl)
-
+      
       @[reducible]
       instance : $(mkIdent `InjectiveCoe) $reactionEffectType $reactorOutputType where
         coe a := match a with $[| $reactionEffectIdents' => $reactionEffectIdentsAsOutput]*
@@ -168,7 +168,7 @@ macro "reactor" name:ident scheme:reactor_scheme : command => do
   let interfaceCommands ← makeReactorSchemeInterfaceCommands name scheme
   let reactionInstanceCommands ← makeReactionInstanceCommands name reactionDecls
   let injectiveCoeCommands ← makeInjectiveCoeCommand name scheme (Array.zip reactionIdents reactionSignatures)
-  let reactorSchemeCommand ← makeReactorSchemeCommand name reactionIdents
+  let reactorSchemeCommand ← makeReactorSchemeCommand name -- reactionIdents
   let reactorInstanceCommand ← makeReactorInstanceCommand name
   -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Antiquot.20Splice/near/297760730
-  return mkNullNode <| reactionDependenciesCommands ++ interfaceCommands ++ injectiveCoeCommands ++ reactionInstanceCommands ++ [reactorSchemeCommand, reactorInstanceCommand]
+  return mkNullNode <| reactionDependenciesCommands ++ interfaceCommands ++ /-injectiveCoeCommands ++ reactionInstanceCommands ++-/ [reactorSchemeCommand, reactorInstanceCommand]

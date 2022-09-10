@@ -10,7 +10,7 @@ import Runtime
     -- nested := [x : Sub, y : Sub]
     -- connections := [x.o1 → y.i3, o1 → x.i2]
 
-    reaction first (i1, !i2, @a1) → (o1, o2) { 
+    reaction first (i1, !i2, @a1, x.o1) → (o1, x.i2) { 
       let i ← getInput i1
       let i' := (i.getD 0) + 1
       let b := if i' = 0 then true else false
@@ -52,64 +52,81 @@ import Runtime
 
 -- }
 
-inductive Main.Nested | x | y
-inductive Sub.Nested  | a | b
+inductive Main.Nested | x | y deriving DecidableEq
+inductive Sub.Nested  | a | b deriving DecidableEq
 
-abbrev Grand.idTree : Network.ReactorID.Tree := 
-  .node Empty (·.rec)
+abbrev Grand.tree : Network.Tree := 
+  .node (decEq := inferInstance) Grand.scheme Empty (·.rec)
 
-abbrev Sub.idTree : Network.ReactorID.Tree := 
-  .node Sub.Nested fun
-    | .a => Grand.idTree
-    | .b => Grand.idTree
+abbrev Sub.tree : Network.Tree := 
+  .node (decEq := inferInstance) Sub.scheme Sub.Nested fun
+    | .a => Grand.tree
+    | .b => Grand.tree
 
-abbrev Main.idTree : Network.ReactorID.Tree := 
-  .node Main.Nested fun
-    | .x => Sub.idTree
-    | .y => Sub.idTree
+abbrev Main.tree : Network.Tree := 
+  .node (decEq := inferInstance) Main.scheme Main.Nested fun
+    | .x => Sub.tree
+    | .y => Sub.tree
 
-abbrev Grand.Nested.schemes : Network.ReactorID.Nested Grand.idTree → Reactor.Scheme
-  | .final empty => empty.rec
+abbrev Grand.Nested.reactors : (id : Network.ReactorID.Nested Grand.tree) → (Reactor $ Grand.tree[.nested id].scheme)
+  | .final empty .. => empty.rec
 
-abbrev Sub.Nested.schemes : Network.ReactorID.Nested Sub.idTree → Reactor.Scheme
-  | .final .a   => Grand.scheme
-  | .final .b   => Grand.scheme
-  | .cons  .a n => Grand.Nested.schemes n
-  | .cons  .b n => Grand.Nested.schemes n
+abbrev Sub.Nested.reactors : (id : Network.ReactorID.Nested Sub.tree) → (Reactor $ Sub.tree[.nested id].scheme)
+  | .final .a _   => Grand.instance
+  | .final .b _   => Grand.instance
+  | .cons  .a _ n => Grand.Nested.reactors n
+  | .cons  .b _ n => Grand.Nested.reactors n
 
-abbrev Main.Nested.schemes : Network.ReactorID.Nested Main.idTree → Reactor.Scheme
-  | .final .x   => Sub.scheme
-  | .final .y   => Sub.scheme
-  | .cons  .x n => Sub.Nested.schemes n
-  | .cons  .y n => Sub.Nested.schemes n
+abbrev Main.Nested.reactors : (id : Network.ReactorID.Nested Main.tree) → (Reactor $ Main.tree[.nested id].scheme)
+  | .final .x _   => Sub.instance
+  | .final .y _   => Sub.instance
+  | .cons  .x _ n => Sub.Nested.reactors n
+  | .cons  .y _ n => Sub.Nested.reactors n
 
-abbrev Grand.Nested.reactors : (id : Network.ReactorID.Nested Grand.idTree) → (Reactor $ Grand.Nested.schemes id)
-  | .final empty => empty.rec
+instance : InjectiveCoe 
+  Main.Reactions.first.Source
+  (Main.scheme.inputs.sum (Interface.Scheme.sum' Main.Nested fun n => (Main.tree.nested n).scheme.outputs)).vars where
+  coe := fun
+    | .i1 => .inl .i1
+    | .i2 => .inl .i2
+    | .x.o1 => .inr ⟨.x, .o1⟩
+  inv := sorry
+  invInj := sorry
+  coeInvId := sorry
 
-abbrev Sub.Nested.reactors : (id : Network.ReactorID.Nested Sub.idTree) → (Reactor $ Sub.Nested.schemes id)
-  | .final .a   => Grand.instance
-  | .final .b   => Grand.instance
-  | .cons  .a n => Grand.Nested.reactors n
-  | .cons  .b n => Grand.Nested.reactors n
+instance : InjectiveCoe 
+  Main.Reactions.first.Effect
+  (Main.scheme.outputs.sum (Interface.Scheme.sum' Main.Nested fun n => (Main.tree.nested n).scheme.inputs)).vars where
+  coe := fun
+    | .o1 => .inl .o1
+    | .x.i2 => .inr ⟨.x, .i2⟩
+  inv := sorry
+  invInj := sorry
+  coeInvId := sorry
 
-abbrev Main.Nested.reactors : (id : Network.ReactorID.Nested Main.idTree) → (Reactor $ Main.Nested.schemes id)
-  | .final .x   => Sub.instance
-  | .final .y   => Sub.instance
-  | .cons  .x n => Sub.Nested.reactors n
-  | .cons  .y n => Sub.Nested.reactors n
+def rcn : Main.tree.reactionType := {
+  sources := Main.Reactions.first.Source
+  effects := Main.Reactions.first.Effect
+  triggers := #[]
+  body := do
+    let _ := 1
+}
 
 def network : Network := {
-  scheme := {
-    tree := Main.idTree,
-    «reactor» := fun
-      | .main => Main.scheme
-      | .nested n => Main.Nested.schemes n
-  }
-  «reactor» := fun
+  tree := Main.tree
+  reactions := fun
+    | .main => #[rcn]
+    | _ => #[]
+  reactors := fun
     | .main => Main.instance
     | .nested n => Main.Nested.reactors n
   connections := #[]
 }
+
+
+
+
+
 
 
 

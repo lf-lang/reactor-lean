@@ -43,7 +43,7 @@ structure ExecOutput {Nested : Type} (nested : Nested → Reactor.Scheme) (σ : 
 def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
   rcn.triggers.any fun trigger => 
     match trigger with
-    | .source source => rtr.inputs.isPresent source
+    | .port   port   => rtr.inputs.isPresent port
     | .action action => rtr.actions.isPresent action
 
 end Reactor

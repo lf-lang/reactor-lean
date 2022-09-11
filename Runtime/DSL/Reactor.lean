@@ -72,6 +72,7 @@ def makeReactorSchemeCommand (name : Ident) /-(reactions : Array Ident)-/ : Macr
     }
   ) 
 
+/-
 def makeInjectiveCoeCommand (name : Ident) (reactor : TSyntax `reactor_scheme) (reactions : Array (Ident × TSyntax `reaction_signature)) : MacroM (Array Command) := do
   let reactorInterfaces ← getReactorSchemeInterfaces reactor
   let ⟨reactorInputIdents, _⟩ := (← (← getInterfaceSchemeVars (← reactorInterfaces .input)).mapM getInterfaceVarComponents).unzip
@@ -104,6 +105,7 @@ def makeInjectiveCoeCommand (name : Ident) (reactor : TSyntax `reactor_scheme) (
         coeInvId := (by cases · <;> rfl)
     ))
   return commands
+-/
 
 def makeReactionInstanceCommands (reactorIdent : Ident) (reactions : Array $ TSyntax `reaction_decl) : MacroM (Array Command) := do
   let mut commands : Array Command := #[]
@@ -165,7 +167,7 @@ macro "reactor" name:ident scheme:reactor_scheme : command => do
   let reactionDependenciesCommands ← reactionDecls.mapM (makeReactionDependenciesCommand name)
   let interfaceCommands ← makeReactorSchemeInterfaceCommands name scheme
   let reactionInstanceCommands ← makeReactionInstanceCommands name reactionDecls
-  let injectiveCoeCommands ← makeInjectiveCoeCommand name scheme (Array.zip reactionIdents reactionSignatures)
+  -- let injectiveCoeCommands ← makeInjectiveCoeCommand name scheme (Array.zip reactionIdents reactionSignatures)
   let reactorSchemeCommand ← makeReactorSchemeCommand name -- reactionIdents
   let reactorInstanceCommand ← makeReactorInstanceCommand name
   -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Antiquot.20Splice/near/297760730

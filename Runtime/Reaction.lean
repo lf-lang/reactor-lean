@@ -12,34 +12,34 @@ instance : Ord (Event σAction time) where
 
 namespace ReactionM
 
-structure Input (σSource σAction σState : Interface.Scheme) where
-  sources : Interface σSource
-  actions : Interface σAction
+structure Input (σPortSource σActionSource σState : Interface.Scheme) where
+  ports   : Interface σPortSource
+  actions : Interface σActionSource
   state   : Interface σState
   tag     : Tag
 
-structure Output (σEffect σAction σState : Interface.Scheme) (now : Time) where
-  effects : Interface σEffect := fun _ => none
+structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (now : Time) where
+  ports : Interface σPortEffect := fun _ => none
   state   : Interface σState
-  events  : SortedArray (Event σAction now) := #[]#
+  events  : SortedArray (Event σActionEffect now) := #[]#
 
-abbrev _root_.ReactionT (σSource σEffect σAction σState : Interface.Scheme) (m : Type → Type) (α : Type) := 
-  (input : Input σSource σAction σState) → m (Output σEffect σAction σState input.tag.time × α)
+abbrev _root_.ReactionT (σPortSource σPortEffect σActionSource σActionEffect σState : Interface.Scheme) (m : Type → Type) (α : Type) := 
+  (input : Input σPortSource σActionSource σState) → m (Output σPortEffect σActionEffect σState input.tag.time × α)
 
-abbrev _root_.ReactionM (σSource σEffect σAction σState : Interface.Scheme) := ReactionT σSource σEffect σAction σState IO
+abbrev _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect σState : Interface.Scheme) := ReactionT σPortSource σPortEffect σActionSource σActionEffect σState IO
 
-variable {σInput σOutput σSource σEffect σAction σState : Interface.Scheme} 
+variable {σInput σOutput σAction σPortSource σPortEffect σActionSource σActionEffect σState : Interface.Scheme} 
 
-def Output.merge (o₁ o₂ : ReactionM.Output σEffect σAction σState time) : Output σEffect σAction σState time := {
-  effects := o₁.effects.merge o₂.effects,
-  state   := o₁.state.merge   o₂.state,
-  events  := o₁.events.merge  o₂.events
+def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time := {
+  ports  := o₁.ports.merge o₂.ports,
+  state  := o₁.state.merge  o₂.state,
+  events := o₁.events.merge o₂.events
 }
 
-def Input.noop (input : ReactionM.Input σSource σAction σState) : Output σEffect σAction σState input.tag.time := 
+def Input.noop (input : ReactionM.Input σPortSource σActionSource σState) : Output σPortEffect σActionEffect σState input.tag.time := 
   { state := input.state }
 
-instance : Monad (ReactionM σSource σEffect σAction σState) where
+instance : Monad (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
   pure a input := do
     let output := input.noop
     return (output, a)
@@ -58,43 +58,44 @@ instance : Monad (ReactionM σSource σEffect σAction σState) where
     let output := output₁.merge output₂
     return (output, b)
 
-instance : MonadLift IO (ReactionM σSource σEffect σAction σState) where
+instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
   monadLift io input world := 
     match io world with 
     | .error e world' => .error e world'
     | .ok    a world' => .ok (input.noop, a) world'
 
-def getInput (source : σSource.vars) : ReactionM σSource σEffect σAction σState (Option $ σSource.type source) :=
-  fun input => return (input.noop, input.sources source)
+def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σPortSource.type port) :=
+  fun input => return (input.noop, input.ports port)
 
-def getState (stv : σState.vars) : ReactionM σSource σEffect σAction σState (Option $ σState.type stv) :=
+def getState (stv : σState.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σState.type stv) :=
   fun input => return (input.noop, input.state stv)
 
-def getAction (action : σAction.vars) : ReactionM σSource σEffect σAction σState (Option $ σAction.type action) :=
+def getAction (action : σActionSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σActionSource.type action) :=
   fun input => return (input.noop, input.actions action)
 
-def logicalTime : ReactionM σSource σEffect σAction σState Tag := 
+-- TODO: Should this return the tag or just a time?
+def logicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Tag := 
   fun input => return (input.noop, input.tag)
 
-def physicalTime : ReactionM σSource σEffect σAction σState Time :=
+def physicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Time :=
   fun input => return (input.noop, ← IO.monoNanosNow)
 
-def setOutput (effect : σEffect.vars) (v : σEffect.type effect) : ReactionM σSource σEffect σAction σState Unit :=
+def setOutput (port : σPortEffect.vars) (v : σPortEffect.type port) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit :=
   fun input => 
-    let effects := fun e => if h : e = effect then some (h ▸ v) else none
-    let output := { effects := effects, state := input.state }
+    let ports := fun p => if h : p = port then some (h ▸ v) else none
+    let output := { ports := ports, state := input.state }
     return (output, ())
 
-def setState (stv : σState.vars) (v : σState.type stv) : ReactionM σSource σEffect σAction σState Unit :=
+def setState (stv : σState.vars) (v : σState.type stv) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit :=
   fun input =>
     let state := fun s => if h : s = stv then some (h ▸ v) else input.state s
     let output := { state := state }
     return (output, ())
 
-def schedule (action : σAction.vars) (delay : Duration) (v : σAction.type action) : ReactionM σSource σEffect σAction σState Unit := 
+def schedule (action : σActionEffect.vars) (delay : Duration) (v : σActionEffect.type action) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit := 
   fun input => 
     let time := input.tag.time.advance delay
-    let event : Event σAction input.tag.time := { action := action, time := time, value := v }
+    let event : Event σActionEffect input.tag.time := { action := action, time := time, value := v }
     let output := { state := input.state, events := #[event]# }
     return (output, ())
 
@@ -102,31 +103,42 @@ end ReactionM
 
 namespace Reaction
 
-inductive Trigger (Source Action : Type)
-  | source (_ : Source)
+inductive Trigger (Port Action : Type)
+  | port (_ : Port)
   | action (_ : Action)
 
 open Reaction in
 structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme) where
-  sources : Type
-  effects : Type
+  portSources : Type
+  portEffects : Type 
+  actionSources : Type
+  actionEffects : Type
   triggers : Array (Trigger sources σAction.vars)
-  [sourcesDecEq : DecidableEq sources]
-  [effectsDecEq : DecidableEq effects]
-  [sourcesInjCoe : InjectiveCoe sources σInput.vars]
-  [effectsInjCoe : InjectiveCoe effects σOutput.vars]
-  body : ReactionM (σInput.restrict sources) (σOutput.restrict effects) σAction σState Unit
+  [portSourcesDecEq : DecidableEq portSources]
+  [portEffectsDecEq : DecidableEq portEffects]
+  [actionSourcesDecEq : DecidableEq actionSources]
+  [actionEffectsDecEq : DecidableEq actionEffects]
+  [portSourcesInjCoe : InjectiveCoe portSources σInput.vars]
+  [portEffectsInjCoe : InjectiveCoe portEffects σOutput.vars]
+  [actionSourcesInjCoe : InjectiveCoe actionSources σAction.vars]
+  [actionEffectsInjCoe : InjectiveCoe actionEffects σAction.vars]
+  body : ReactionM (σInput.restrict portSources) (σOutput.restrict portEffects) (σAction.restrict actionSources) (σAction.restrict actionEffects) σState Unit
 
-attribute [instance] Reaction.sourcesDecEq Reaction.effectsDecEq
-attribute [instance] Reaction.sourcesInjCoe Reaction.effectsInjCoe
+attribute [instance] Reaction.portSourcesDecEq Reaction.portEffectsDecEq Reaction.actionSourcesDecEq Reaction.actionEffectsDecEq
+attribute [instance] Reaction.portSourcesInjCoe Reaction.portEffectsInjCoe Reaction.actionSourcesInjCoe Reaction.actionEffectsInjCoe
 
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
-  ReactionM.Output (σOutput.restrict rcn.effects) σAction σState 
+  ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
 def run 
   (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) 
   (rcn : Reaction σInput σOutput σAction σState) (tag : Tag) : 
   IO (rcn.outputType tag.time × Unit) := 
-  rcn.body { sources := fun s => inputs s, actions := actions, state := state, tag := tag }
+  rcn.body { 
+    ports   := fun s => inputs s
+    actions := fun a => actions a
+    state   := state
+    tag     := tag 
+  }
 
 end Reaction

@@ -10,7 +10,7 @@ class Enum (α) where
 def Enum.allCasesOf : (α : Type) → [Enum α] → Array α := 
   fun _ => allCases
 
-instance : Repr (Time.After t) where
+instance : Repr (Time.From t) where
   reprPrec t := reprPrec t.val
 
 instance {σ : Interface.Scheme} [Repr σ.vars] [Enum σ.vars] [∀ a, Repr $ σ.type a] : Repr (Interface σ) where

@@ -2,54 +2,72 @@ import Lean
 open Lean Macro
 
 declare_syntax_cat reaction_input
-syntax          ident : reaction_input -- use
-syntax "!" noWs ident : reaction_input -- source trigger
-syntax "@" noWs ident : reaction_input -- action trigger
+syntax           ident : reaction_input -- port use
+syntax  "!" noWs ident : reaction_input -- port trigger
+syntax  "@" noWs ident : reaction_input -- action use
+syntax "!@" noWs ident : reaction_input -- action trigger
+
+declare_syntax_cat reaction_output
+syntax           ident : reaction_output -- port effect
+syntax  "@" noWs ident : reaction_output -- action effect
+
+inductive ReactionDependency.Role
+  | use
+  | trigger
+  | effect
 
 inductive ReactionDependency.Kind
-  | use    
-  | source -- (trigger) 
-  | action -- (trigger) 
-  | effect
+  | port   (role : Role)
+  | action (role : Role)
 
 structure ReactionDependency where
   ident : Ident
   kind : ReactionDependency.Kind
 
-def ReactionDependency.input? (d : ReactionDependency) : Option Ident :=
-  match d.kind with 
-  | .use | .source => d.ident
+def ReactionDependency.portSource? : ReactionDependency → Option Ident
+  | ⟨ident, .port .use⟩ | ⟨ident, .port .trigger⟩ => ident
   | _ => none
 
-def ReactionDependency.source? (d : ReactionDependency) : Option Ident :=
-  match d.kind with 
-  | .source => d.ident
+def ReactionDependency.portEffect? : ReactionDependency → Option Ident
+  | ⟨ident, .port .effect⟩ => ident
   | _ => none
 
-def ReactionDependency.action? (d : ReactionDependency) : Option Ident :=
-  match d.kind with 
-  | .action => d.ident
+def ReactionDependency.portTrigger? : ReactionDependency → Option Ident
+  | ⟨ident, .port .trigger⟩ => ident
   | _ => none
 
-def ReactionDependency.effect? (d : ReactionDependency) : Option Ident :=
-  match d.kind with 
-  | .effect => d.ident
+def ReactionDependency.actionSource? : ReactionDependency → Option Ident
+  | ⟨ident, .action .use⟩ | ⟨ident, .action .trigger⟩ => ident
+  | _ => none
+
+def ReactionDependency.actionEffect? : ReactionDependency → Option Ident
+  | ⟨ident, .action .effect⟩ => ident
+  | _ => none
+
+def ReactionDependency.actionTrigger? : ReactionDependency → Option Ident
+  | ⟨ident, .action .trigger⟩ => ident
   | _ => none
 
 def ReactionDependency.fromReactionInput : TSyntax `reaction_input → MacroM ReactionDependency
-  | `(reaction_input| $i:ident)  => return ⟨i, .use⟩
-  | `(reaction_input| !$i:ident) => return ⟨i, .source⟩
-  | `(reaction_input| @$i:ident) => return ⟨i, .action⟩
+  | `(reaction_input| $i:ident)   => return ⟨i, .port .use⟩
+  | `(reaction_input| !$i:ident)  => return ⟨i, .port .trigger⟩
+  | `(reaction_input| @$i:ident)  => return ⟨i, .action .use⟩
+  | `(reaction_input| !@$i:ident) => return ⟨i, .action .trigger⟩
+  | _ => throwUnsupported
+
+def ReactionDependency.fromReactionOutput : TSyntax `reaction_output → MacroM ReactionDependency
+  | `(reaction_output| $i:ident)  => return ⟨i, .port .effect⟩
+  | `(reaction_output| @$i:ident) => return ⟨i, .action .effect⟩
   | _ => throwUnsupported
 
 declare_syntax_cat reaction_signature
-syntax "(" reaction_input,*  ")" " → " "(" ident,* ")" : reaction_signature
+syntax "(" reaction_input,*  ")" " → " "(" reaction_output,* ")" : reaction_signature
 
 def getReactionDependencies : TSyntax `reaction_signature → MacroM (Array ReactionDependency)
-  | `(reaction_signature| ($inputs:reaction_input,*) → ($effects:ident,*)) => do
-    let effects' := effects.getElems.map (⟨·, .effect⟩)
-    let inputs' ← inputs.getElems.mapM ReactionDependency.fromReactionInput
-    return inputs' ++ effects'
+  | `(reaction_signature| ($sources:reaction_input,*) → ($effects:reaction_output,*)) => do
+    let sources' ← sources.getElems.mapM ReactionDependency.fromReactionInput
+    let effects' ← effects.getElems.mapM ReactionDependency.fromReactionOutput
+    return sources' ++ effects'
   | _ => throwUnsupported
 
 declare_syntax_cat reaction_decl
@@ -61,18 +79,32 @@ def getReactionDeclComponents : TSyntax `reaction_decl → MacroM (Ident × TSyn
 
 def makeReactionDependenciesCommand (reactorIdent : Ident) (rcn : TSyntax `reaction_decl) : MacroM Command := do
   let ⟨name, signature, _⟩ ← getReactionDeclComponents rcn
-  let dependencies ← getReactionDependencies signature
-  let inputs      := dependencies.filterMap (·.input?)
-  let effects     := dependencies.filterMap (·.effect?)
-  let inputIdent  := mkIdentFrom name (reactorIdent.getId ++ `Reactions ++ name.getId ++ `Source)
-  let effectIdent := mkIdentFrom name (reactorIdent.getId ++ `Reactions ++ name.getId ++ `Effect)
+  let dependencies         ← getReactionDependencies signature
+  let portSources          := dependencies.filterMap (·.portSource?)
+  let portEffects          := dependencies.filterMap (·.portEffect?)
+  let actionSources        := dependencies.filterMap (·.actionSource?)
+  let actionEffects        := dependencies.filterMap (·.actionEffect?)
+  let reactionNamespace    := reactorIdent.getId ++ `Reactions ++ name.getId
+  let portSourcesIdent     := mkIdentFrom name (reactionNamespace ++ `Port.Source)
+  let portEffectsIdent     := mkIdentFrom name (reactionNamespace ++ `Port.Effect)
+  let actionSourcesIdent   := mkIdentFrom name (reactionNamespace ++ `Action.Source)
+  let actionEffectsIdent   := mkIdentFrom name (reactionNamespace ++ `Action.Effect)
   `(  
-    inductive $inputIdent  $[| $inputs:ident]* deriving DecidableEq
-    inductive $effectIdent $[| $effects:ident]* deriving DecidableEq
+    inductive $portSourcesIdent   $[| $portSources:ident]*   deriving DecidableEq
+    inductive $portEffectsIdent   $[| $portEffects:ident]*   deriving DecidableEq
+    inductive $actionSourcesIdent $[| $actionSources:ident]* deriving DecidableEq
+    inductive $actionEffectsIdent $[| $actionEffects:ident]* deriving DecidableEq
   )
 
 def makeReactionTriggers (reactorName : Name) (reactionName : Name) (signature : TSyntax `reaction_signature) : MacroM Term := do
   let dependencies ← getReactionDependencies signature
-  let sources : Array Ident := dependencies.filterMap fun d => d.source? >>= (mkIdent $ reactorName ++ `Reactions ++ reactionName ++ `Source ++ ·.getId)
-  let actions : Array Ident := dependencies.filterMap fun d => d.action? >>= (mkIdent $ reactorName ++ `Action ++ ·.getId)
-  `(#[ $[.source $sources],* , $[.action $actions],*])
+  let ports := dependencies.filterMap fun d => do
+    let trigger ← d.portTrigger?
+    return mkIdent $ reactorName ++ `Reactions ++ reactionName ++ `Source ++ trigger.getId
+  let actions := dependencies.filterMap fun d => do
+    let trigger ← d.actionTrigger?
+    return mkIdent $ reactorName ++ `Action ++ trigger.getId
+  let portTerms ← ports.mapM fun ident => `(Trigger.port $ident)
+  let actionTerms ← actions.mapM fun ident => `(Trigger.action $ident)
+  let terms := portTerms ++ actionTerms
+  `(#[$[$terms],*])

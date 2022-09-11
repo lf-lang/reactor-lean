@@ -83,7 +83,6 @@ partial def run (ν : Network) : Network :=
   let ν' := ν.instantaneousRun topo
   let nextTag := ν.nextTag
   let events := ν.events
-  
   -- * set next tag on network
   -- * get filtered event map for next tag
   -- * clear all reactors' ports

@@ -169,21 +169,3 @@ def main : IO Unit := do
   IO.println state2
   for event in events.toArray do
     IO.println s!"Event: {event.time}"
-
--- Printing --------------------------------------------------------------------
-instance : Enum Main.Input where   allCases := #[.i1, .i2]
-instance : Enum Main.Output where  allCases := #[.o1, .o2]
-instance : Enum Main.State where   allCases := #[.s1, .s2]
-instance : Enum Main.Action where  allCases := #[.a1, .a2]
-instance : Enum Main.Reactions.first.Source where allCases := #[.i1, .i2]
-instance : Enum Main.Reactions.first.Effect where allCases := #[.o1]
-
-instance : ∀ a, Repr $ Main.Input.scheme.type a  | .i1 | .i2 => inferInstance
-instance : ∀ a, Repr $ Main.Output.scheme.type a | .o1 | .o2 => inferInstance
-instance : ∀ a, Repr $ Main.State.scheme.type a  | .s1 | .s2 => inferInstance
-instance : ∀ a, Repr $ Main.Action.scheme.type a | .a1 | .a2 => inferInstance
---------------------------------------------------------------------------------
-
--- instance : Repr (Reaction.outputType Main.Reactions.first.instance 12 × Unit) := inferInstance
--- def result := Main.Reactions.first.instance.run Main.instance.inputs Main.instance.actions Main.instance.state ⟨12, 1⟩
--- #eval result

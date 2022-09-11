@@ -4,7 +4,7 @@ import Runtime.SortedArray
 
 structure Event (σAction : Interface.Scheme) (min : Time) where 
   action : σAction.vars
-  time   : Time.After min
+  time   : Time.From min
   value  : σAction.type action
 
 instance : Ord (Event σAction time) where
@@ -91,9 +91,9 @@ def setState (stv : σState.vars) (v : σState.type stv) : ReactionM σSource σ
     let output := { state := state }
     return (output, ())
 
-def schedule (action : σAction.vars) (delay : Nat) (h : delay > 0 := by simp_arith) (v : σAction.type action) : ReactionM σSource σEffect σAction σState Unit := 
+def schedule (action : σAction.vars) (delay : Duration) (v : σAction.type action) : ReactionM σSource σEffect σAction σState Unit := 
   fun input => 
-    let time := input.tag.time.advance ⟨delay, h⟩
+    let time := input.tag.time.advance delay
     let event : Event σAction input.tag.time := { action := action, time := time, value := v }
     let output := { state := input.state, events := #[event]# }
     return (output, ())

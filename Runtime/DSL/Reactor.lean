@@ -85,23 +85,21 @@ def makeInjectiveCoeCommand (name : Ident) (reactor : TSyntax `reactor_scheme) (
     let reactionSourceIdents : Array Ident := (← getReactionDependencies signature).filterMap (·.input?)
     let reactionSourceIdents' := reactionSourceIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Reactions ++ reactionIdent.getId ++ `Source ++ ident.getId.getRoot)
     let reactionSourceIdentsAsInput := reactionSourceIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Input ++ ident.getId.getRoot)
-    let nonSourceInputs := reactorInputIdents.filter (¬ reactionSourceIdents.contains ·)
     let reactionEffectIdents : Array Ident := (← getReactionDependencies signature).filterMap (·.effect?)
     let reactionEffectIdents' := reactionEffectIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Reactions ++ reactionIdent.getId ++ `Effect ++ ident.getId.getRoot)
     let reactionEffectIdentsAsOutput := reactionEffectIdents.map fun ident => mkIdentFrom ident (name.getId ++ `Output ++ ident.getId.getRoot)
-    let nonEffectOutputs := reactorOutputIdents.filter (¬ reactionEffectIdents.contains ·)
     commands := commands.push (← `(
       @[reducible]
       instance : $(mkIdent `InjectiveCoe) $reactionSourceType $reactorInputType where
         coe a := match a with $[| $reactionSourceIdents' => $reactionSourceIdentsAsInput]*
-        inv b := match b with $[| $reactionSourceIdentsAsInput => some $reactionSourceIdents']* $[| $nonSourceInputs => none]*
+        inv b := match b with $[| $reactionSourceIdentsAsInput => some $reactionSourceIdents']* | _ => none
         invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
         coeInvId := (by cases · <;> rfl)
       
       @[reducible]
       instance : $(mkIdent `InjectiveCoe) $reactionEffectType $reactorOutputType where
         coe a := match a with $[| $reactionEffectIdents' => $reactionEffectIdentsAsOutput]*
-        inv b := match b with $[| $reactionEffectIdentsAsOutput => some $reactionEffectIdents']* $[| $nonEffectOutputs => none]*
+        inv b := match b with $[| $reactionEffectIdentsAsOutput => some $reactionEffectIdents']* | _ => none
         invInj := by intro b₁ b₂ _; cases b₁ <;> cases b₂ <;> simp at *
         coeInvId := (by cases · <;> rfl)
     ))

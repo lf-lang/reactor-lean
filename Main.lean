@@ -27,8 +27,8 @@ import Runtime
     reaction second (i1, @a1, @a2) → (o1) { 
       let _ := (← getAction a1).map (· ++ "suffix")
       let _ ← getInput i1
-      schedule a1 112 (by simp) "First"
-      schedule a1 113 (by simp) "Second"
+      schedule a1 112 "First"
+      schedule a1 113 "Second"
       -- IO.println "Hello"
       let dir := IO.appDir
       -- let dir' ← IO.appDir
@@ -86,21 +86,28 @@ abbrev Main.Nested.reactors : (id : Network.ReactorID.Nested Main.tree) → (Rea
 instance : InjectiveCoe 
   Main.Reactions.first.Source
   (Main.scheme.inputs.sum (Interface.Scheme.sum' Main.Nested fun n => (Main.tree.nested n).scheme.outputs)).vars where
-  coe := fun
+  coe 
     | .i1 => .inl .i1
     | .i2 => .inl .i2
     | .x.o1 => .inr ⟨.x, .o1⟩
-  inv := sorry
+  inv
+    | .inl .i1 => some .i1
+    | .inl .i2 => some .i2
+    | .inr ⟨.x, .o1⟩ => some .x.o1
+    | _ => none
   invInj := sorry
   coeInvId := sorry
 
 instance : InjectiveCoe 
   Main.Reactions.first.Effect
   (Main.scheme.outputs.sum (Interface.Scheme.sum' Main.Nested fun n => (Main.tree.nested n).scheme.inputs)).vars where
-  coe := fun
+  coe
     | .o1 => .inl .o1
     | .x.i2 => .inr ⟨.x, .i2⟩
-  inv := sorry
+  inv
+    | .inl .o1 => some .o1
+    | .inr ⟨.x, .i2⟩ => some .x.i2
+    | _ => none
   invInj := sorry
   coeInvId := sorry
 

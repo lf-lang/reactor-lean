@@ -29,7 +29,7 @@ def merge (s₁ s₂ : SortedArray α) : SortedArray α :=
   go 0 0 s₁ s₂ #[]#
 where 
   go (i₁ i₂ : Nat) (s₁ s₂ acc : SortedArray α) (h₁ : i₁ ≤ s₁.size := by simp) (h₂ : i₂ ≤ s₂.size := by simp) : SortedArray α :=
-  -- TODO: temporary
+  -- TODO: temporary - This will only work if the sort is stable!
   let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (Ord.compare · · |>.isLE)
   { toArray := sorted, isSorted := sorry }
 

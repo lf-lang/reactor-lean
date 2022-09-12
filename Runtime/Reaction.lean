@@ -7,9 +7,6 @@ structure Event (σAction : Interface.Scheme) (min : Time) where
   time   : Time.From min
   value  : σAction.type action
 
-instance {later : Time.From earlier} : Coe (Event σAction later) (Event σAction earlier) where
-  coe event := { event with time := event.time }
-
 instance : Ord (Event σAction time) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
@@ -21,10 +18,10 @@ structure Input (σPortSource σActionSource σState : Interface.Scheme) where
   state   : Interface σState
   tag     : Tag
 
-structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (now : Time) where
-  ports : Interface σPortEffect := fun _ => none
-  state   : Interface σState
-  events  : SortedArray (Event σActionEffect now) := #[]#
+structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min : Time) where
+  ports  : Interface σPortEffect := fun _ => none
+  state  : Interface σState
+  events : /-Sorted-/Array (Event σActionEffect min) := #[]--#
 
 abbrev _root_.ReactionT (σPortSource σPortEffect σActionSource σActionEffect σState : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σPortSource σActionSource σState) → m (Output σPortEffect σActionEffect σState input.tag.time × α)
@@ -61,11 +58,12 @@ instance : Monad (ReactionM σPortSource σPortEffect σActionSource σActionEff
     let output := output₁.merge output₂
     return (output, b)
 
-instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
-  monadLift io input world := 
-    match io world with 
-    | .error e world' => .error e world'
-    | .ok    a world' => .ok (input.noop, a) world'
+-- TODO:
+-- instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
+--   monadLift io input world := 
+--     match io world with 
+--     | .error e world' => .error e world'
+--     | .ok    a world' => .ok (input.noop, a) world'
 
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)
@@ -99,7 +97,7 @@ def schedule (action : σActionEffect.vars) (delay : Duration) (v : σActionEffe
   fun input => 
     let time := input.tag.time.advance delay
     let event : Event σActionEffect input.tag.time := { action := action, time := time, value := v }
-    let output := { state := input.state, events := #[event]# }
+    let output := { state := input.state, events := #[event]/-#-/ }
     return (output, ())
 
 end ReactionM
@@ -107,7 +105,7 @@ end ReactionM
 namespace Reaction
 
 inductive Trigger (Port Action : Type)
-  | port (_ : Port)
+  | port   (_ : Port)
   | action (_ : Action)
 
 open Reaction in
@@ -133,9 +131,7 @@ attribute [instance] Reaction.portSourcesInjCoe Reaction.portEffectsInjCoe React
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
-def run 
-  (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) 
-  (rcn : Reaction σInput σOutput σAction σState) (tag : Tag) : 
+def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) : 
   IO (rcn.outputType tag.time × Unit) := 
   rcn.body { 
     ports   := fun s => inputs s

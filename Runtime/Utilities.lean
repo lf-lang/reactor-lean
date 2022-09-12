@@ -31,6 +31,15 @@ instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : Dec
         contradiction
       )
 
+def Array.unique (as : Array α) (f : α → β) [DecidableEq β] : (Array α) × (Array α) := Id.run do
+  let mut included : Array α := #[] 
+  let mut excluded : Array α := #[]
+  for a in as do
+    if included.any (f a = f ·) 
+    then excluded := excluded.push a
+    else included := included.push a
+  return (included, excluded)
+
 def Array.findP? (as : Array α) (p : α → Bool) : Option α := do
   loop 0 as p
 where 
@@ -44,3 +53,7 @@ where
 
 theorem Array.findP?_property {as : Array α} : (as.findP? p = some a) → (p a) := by
   sorry
+
+-- TODO: temporary
+def Array.merge [Ord α] (s₁ s₂ : Array α) : Array α :=
+  (s₁ ++ s₂).insertionSort (Ord.compare · · |>.isLE)

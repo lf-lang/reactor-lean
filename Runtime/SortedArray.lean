@@ -57,12 +57,11 @@ def split (s : SortedArray α) (p : α → Bool) : (SortedArray α) × (SortedAr
   let ⟨fst, snd⟩ := s.toArray.split p
   (⟨fst, sorry⟩, ⟨snd, sorry⟩)
 
-def unique (s : SortedArray α) (f : α → β) [DecidableEq β] : (SortedArray α) × (SortedArray α) := Id.run do
-  let mut included : Array α := #[] 
-  let mut excluded : Array α := #[]
-  for a in s.toArray do
-    if included.any (f a = f ·) 
-    then excluded := excluded.push a
-    else included := included.push a
-  return (⟨included, sorry⟩, ⟨excluded, sorry⟩)
-  
+theorem split_order {s : SortedArray α} : (s.split p = (s₁, s₂)) → s₁ ≤ s₂ := by
+  sorry
+
+theorem split_fst_property {s : SortedArray α} : (s.split p = (s₁, s₂)) → (s₁.all p) := by
+  sorry
+
+theorem split_snd_property {s : SortedArray α} : (s.split p = (s₁, s₂)) → (s₂.all (¬p ·)) := by
+  sorry

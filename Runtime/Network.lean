@@ -41,27 +41,27 @@ notation tree:max "[" id "]" => Tree.subtree tree id
 
 abbrev Tree.reactionType (tree : Tree) : Type _ :=
   Reaction 
-    (tree.scheme.inputs.sum (Interface.Scheme.sum' tree.Nested fun n => (tree.nested n).scheme.outputs))   
-    (tree.scheme.outputs.sum (Interface.Scheme.sum' tree.Nested fun n => (tree.nested n).scheme.inputs))
-    tree.scheme.actions
-    tree.scheme.state
+    ((tree.scheme .inputs).sum (Interface.Scheme.sum' tree.Nested fun n => (tree.nested n).scheme .outputs))   
+    ((tree.scheme .outputs).sum (Interface.Scheme.sum' tree.Nested fun n => (tree.nested n).scheme .inputs))
+    (tree.scheme .actions)
+    (tree.scheme .state)
 
-structure PortID (kind : PortKind) (tree : Tree) where
+structure PortID (kind : Reactor.PortKind) (tree : Tree) where
   reactor : ReactorID tree
-  port : tree[reactor].scheme.ports kind |>.vars
+  port : (tree[reactor].scheme kind).vars
 
 abbrev Connection (tree : Tree) := (PortID .output tree) × (PortID .input tree)
 
 structure Event (tree : Tree) (min : Time) where
   reactor : ReactorID tree
-  «local» : _root_.Event (tree[reactor].scheme.actions) min
+  «local» : _root_.Event (tree[reactor].scheme .actions) min
 
 instance : Ord (Network.Event tree time) where
   compare e₁ e₂ := compare e₁.local.time e₂.local.time
 
 structure ActionID (tree : Tree) where
   reactor : ReactorID tree
-  action : tree[reactor].scheme.actions.vars
+  action : (tree[reactor].scheme .actions).vars
 
 def Event.actionID (event : Event tree time) : ActionID tree := {
   reactor := event.reactor
@@ -100,9 +100,10 @@ def next (ν : Network) (time : Time.From ν.tag.time) : Next ν time :=
   --       of the events in `later` and `postponed` are `≥ time`.
   let ⟨candidates, later⟩ := ν.events.split (·.local.time.val = time)  
   let ⟨current, postponed⟩ := candidates.unique (·.actionID)
-  let remaining := postponed.append later sorry
+  let postponed' : SortedArray _ := ⟨postponed, sorry⟩
+  let remaining := postponed'.append later sorry
   {
-    events := current.toArray,
+    events := current,
     remaining := 
       have : Coe (Event ν.tree ν.tag.time) (Event ν.tree time) := sorry -- This is not provable!
       remaining.coe sorry
@@ -127,7 +128,7 @@ def instantaneousRun (ν : Network) (topo : Array (ReactionID ν)) : Network := 
   sorry
 
 def actionMapForEvents {ν : Network} (events : Array $ Event ν.tree ν.tag.time) : 
-  (id : ActionID ν.tree) → Option ((ν.tree[id.reactor]).scheme.actions.type id.action) := 
+  (id : ActionID ν.tree) → Option (((ν.tree[id.reactor]).scheme .actions).type id.action) := 
   fun id => 
     match h : events.findP? (·.actionID = id) with
     | none => none
@@ -146,11 +147,11 @@ partial def run (ν : Network) : Network :=
     let next := ν'.next nextTag.time
     let actionMap := actionMapForEvents next.events 
     run { ν' with
-      reactors := fun id => { (ν'.reactors id) with
-        inputs := Interface.empty
-        outputs := Interface.empty
-        actions := (actionMap ⟨id, ·⟩)
-      }
+      reactors := fun id => fun
+        | .inputs =>  Interface.empty
+        | .outputs => Interface.empty
+        | .actions => (actionMap ⟨id, ·⟩)
+        | .state =>   (ν'.reactors id) .state
       tag := nextTag
       events := next.remaining
     }  

@@ -7,6 +7,9 @@ structure Event (σAction : Interface.Scheme) (min : Time) where
   time   : Time.From min
   value  : σAction.type action
 
+instance {later : Time.From earlier} : Coe (Event σAction later) (Event σAction earlier) where
+  coe event := { event with time := event.time }
+
 instance : Ord (Event σAction time) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
@@ -113,7 +116,7 @@ structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme)
   portEffects : Type 
   actionSources : Type
   actionEffects : Type
-  triggers : Array (Trigger sources σAction.vars)
+  triggers : Array (Trigger portSources actionSources)
   [portSourcesDecEq : DecidableEq portSources]
   [portEffectsDecEq : DecidableEq portEffects]
   [actionSourcesDecEq : DecidableEq actionSources]

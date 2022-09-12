@@ -3,6 +3,9 @@ class InjectiveCoe (α β) extends Coe α β where
   invInj   : ∀ {b₁ b₂}, (inv b₁ = inv b₂) → (b₁ = b₂) 
   coeInvId : ∀ a, inv (coe a) = a
 
+class OrdCoe (α β) [Ord α] [Ord β] extends Coe α β where
+  coeOrd : ∀ a₁ a₂, compare a₁ a₂ = compare (a₁ : β) (a₂ : β)
+
 instance [Ord α] : LE α := leOfOrd
 
 instance : DecidableEq Empty :=
@@ -27,3 +30,17 @@ instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : Dec
         injection hc
         contradiction
       )
+
+def Array.findP? (as : Array α) (p : α → Bool) : Option α := do
+  loop 0 as p
+where 
+  loop (idx : Nat) (as : Array α) (p : α → Bool) : Option α :=
+  if h : idx < as.size then
+    let a := as[idx]
+    if p a then a else loop (idx + 1) as p
+  else 
+    none
+  termination_by _ => as.size - idx
+
+theorem Array.findP?_property {as : Array α} : (as.findP? p = some a) → (p a) := by
+  sorry

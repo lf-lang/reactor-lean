@@ -16,8 +16,6 @@ structure Scheme where
   actions   : Interface.Scheme
   state     : Interface.Scheme
 
-abbrev Scheme.reactionType (σ : Reactor.Scheme) := Reaction σ.inputs σ.outputs σ.actions σ.state
-
 abbrev Scheme.ports (σ : Reactor.Scheme) : PortKind → Interface.Scheme
   | .input => σ.inputs
   | .output => σ.outputs
@@ -39,11 +37,5 @@ structure ExecOutput {Nested : Type} (nested : Nested → Reactor.Scheme) (σ : 
   reactor : Reactor σ
   events : SortedArray (Event σ.actions time)
   nestedInputs : (n : Nested) → (Interface $ (nested n).inputs)
-
-def triggers (rtr : Reactor σ) (rcn : σ.reactionType) : Bool :=
-  rcn.triggers.any fun trigger => 
-    match trigger with
-    | .port   port   => rtr.inputs.isPresent port
-    | .action action => rtr.actions.isPresent action
 
 end Reactor

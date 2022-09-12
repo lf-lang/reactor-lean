@@ -35,6 +35,8 @@ theorem Scheme.restrict_preserves_type {σ : Scheme} {Sub : Type} [DecidableEq S
 
 abbrev _root_.Interface (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
 
+def empty : Interface σ := fun _ => none
+
 def isPresent (i : Interface σ) (var : σ.vars) : Bool :=
   (i var).isSome
 

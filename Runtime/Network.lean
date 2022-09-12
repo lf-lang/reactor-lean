@@ -14,6 +14,11 @@ abbrev Tree.Nested : Tree → Type
 abbrev Tree.nested : (tree : Tree) → (tree.Nested → Tree)  
   | .node _ _ nested _ => nested
 
+def Tree.decEq : (tree : Tree) → (DecidableEq tree.Nested)  
+  | .node _ _ _ decEq => decEq
+
+attribute [instance] Tree.decEq
+
 def Tree.leaf (scheme : Reactor.Scheme) : Tree :=
   .node scheme Empty (·.rec) inferInstance
 
@@ -34,13 +39,12 @@ abbrev Tree.subtree (tree : Tree) : ReactorID tree → Tree
 
 notation tree:max "[" id "]" => Tree.subtree tree id
 
-abbrev Tree.reactionType : Tree → Type _
-  | .node scheme Nested nested _ =>
-    Reaction 
-      (scheme.inputs.sum (Interface.Scheme.sum' Nested fun n => (nested n).scheme.outputs))   
-      (scheme.outputs.sum (Interface.Scheme.sum' Nested fun n => (nested n).scheme.inputs))
-      scheme.actions
-      scheme.state
+abbrev Tree.reactionType (tree : Tree) : Type _ :=
+  Reaction 
+    (tree.scheme.inputs.sum (Interface.Scheme.sum' tree.Nested fun n => (tree.nested n).scheme.outputs))   
+    (tree.scheme.outputs.sum (Interface.Scheme.sum' tree.Nested fun n => (tree.nested n).scheme.inputs))
+    tree.scheme.actions
+    tree.scheme.state
 
 structure PortID (kind : PortKind) (tree : Tree) where
   reactor : ReactorID tree
@@ -55,11 +59,22 @@ structure Event (tree : Tree) (min : Time) where
 instance : Ord (Network.Event tree time) where
   compare e₁ e₂ := compare e₁.local.time e₂.local.time
 
+structure ActionID (tree : Tree) where
+  reactor : ReactorID tree
+  action : tree[reactor].scheme.actions.vars
+
+def Event.actionID (event : Event tree time) : ActionID tree := {
+  reactor := event.reactor
+  action := event.local.action
+}
+
+instance : DecidableEq (ActionID tree) := sorry
+
 structure _root_.Network where
   tree : Tree
   reactions : (id : ReactorID tree) → Array $ tree[id].reactionType
-  reactors :  (id : ReactorID tree) → Reactor $ tree[id].scheme
   connections : Array (Connection tree)
+  reactors :  (id : ReactorID tree) → Reactor $ tree[id].scheme
   tag : Tag
   events : SortedArray (Event tree tag.time) 
 
@@ -67,28 +82,77 @@ structure ReactionID (ν : Network) where
   reactor : ReactorID ν.tree
   reactionIdx : Fin (ν.reactions reactor).size
 
-def nextTag (ν : Network) : Option Tag :=
+def reaction (ν : Network) (id : ReactionID ν) : ν.tree[id.reactor].reactionType :=
+  (ν.reactions id.reactor)[id.reactionIdx]
+
+structure Next (ν : Network) (min : Time) where
+  events : Array (Event ν.tree ν.tag.time)
+  remaining : SortedArray (Event ν.tree min)
+
+def nextTag (ν : Network) : Option (Tag.From ν.tag.time) :=
   match ν.events.get? 0 with
-  | some nextEvent => ν.tag.advance nextEvent.local.time
   | none => none
-  
+  | some nextEvent => ν.tag.advance nextEvent.local.time
+
+def next (ν : Network) (time : Time.From ν.tag.time) : Next ν time :=
+  -- TODO: somehow use the fact that the given time is in fact the 
+  --       time of the prefix of `ν.events` to show that the times 
+  --       of the events in `later` and `postponed` are `≥ time`.
+  let ⟨candidates, later⟩ := ν.events.split (·.local.time.val = time)  
+  let ⟨current, postponed⟩ := candidates.unique (·.actionID)
+  let remaining := postponed.append later sorry
+  {
+    events := current.toArray,
+    remaining := 
+      have : Coe (Event ν.tree ν.tag.time) (Event ν.tree time) := sorry -- This is not provable!
+      remaining.coe sorry
+  }
+
+def triggers {ν : Network} {id : ReactorID ν.tree} (rtr : Reactor (ν.tree[id]).scheme) (rcn : (ν.tree[id]).reactionType) : Bool :=
+  rcn.triggers.any fun trigger =>
+    match trigger with
+    | .port   port   => true -- rtr.inputs.isPresent port
+    | .action action => true -- rtr.actions.isPresent action
+
 -- Note: Running a reactor at a time isnt possible. Eg:
 --       rcn1 -> subreactor.input -> subreaction -> subreactor.output -> rcn2
 def instantaneousRun (ν : Network) (topo : Array (ReactionID ν)) : Network := Id.run do
+  for reactionID in topo do
+    let reaction := ν.reaction reactionID
+    let reactor := ν.reactors reactionID.reactor
+    if triggers reactor reaction then
+      sorry
+    else
+      sorry
   sorry
 
+def actionMapForEvents {ν : Network} (events : Array $ Event ν.tree ν.tag.time) : 
+  (id : ActionID ν.tree) → Option ((ν.tree[id.reactor]).scheme.actions.type id.action) := 
+  fun id => 
+    match h : events.findP? (·.actionID = id) with
+    | none => none
+    | some event =>
+      have h₁ : id.reactor = event.reactor := by have h' := Array.findP?_property h; simp at h'; rw [←h']; rfl
+      have h₂ : HEq id.action event.local.action := by have h' := Array.findP?_property h; simp at h'; rw [←h']; simp; rfl
+      -- (eq_of_heq h₂) ▸ h₁ ▸ event.local.value
+      sorry
+
 partial def run (ν : Network) : Network :=
-  -- once: compute topological ordering of reactions
   let topo : Array (ReactionID ν) := sorry
   let ν' := ν.instantaneousRun topo
-  let nextTag := ν.nextTag
-  let events := ν.events
-  -- * set next tag on network
-  -- * get filtered event map for next tag
-  -- * clear all reactors' ports
-  -- * set all reactors' actions according to filtered event map
-  -- * remove the filtered events from the event map
-  -- * call this func with the new network
-  sorry
+  match ν'.nextTag with
+  | none => ν'
+  | some nextTag => 
+    let next := ν'.next nextTag.time
+    let actionMap := actionMapForEvents next.events 
+    run { ν' with
+      reactors := fun id => { (ν'.reactors id) with
+        inputs := Interface.empty
+        outputs := Interface.empty
+        actions := (actionMap ⟨id, ·⟩)
+      }
+      tag := nextTag
+      events := next.remaining
+    }  
 
 end Network

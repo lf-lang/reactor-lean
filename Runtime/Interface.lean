@@ -15,14 +15,16 @@ abbrev Scheme.restrict (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCo
   type := fun var => σ.type var
 }
 
-abbrev Scheme.sum (σ₁ σ₂ : Scheme) : Scheme := {
+abbrev Scheme.union (σ₁ σ₂ : Scheme) : Scheme := {
   vars := Sum σ₁.vars σ₂.vars
   type := fun
     | .inl var => σ₁.type var
     | .inr var => σ₂.type var
 }
 
-abbrev Scheme.sum' (Schemes : Type) [DecidableEq Schemes] (σ : Schemes → Scheme) : Scheme := {
+infix:65 " ∪ " => Scheme.union
+
+abbrev Scheme.bUnion (Schemes : Type) [DecidableEq Schemes] (σ : Schemes → Scheme) : Scheme := {
   vars := Σ scheme : Schemes, (σ scheme).vars
   type := fun ⟨scheme, var⟩ => (σ scheme).type var
 }

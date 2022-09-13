@@ -1,4 +1,4 @@
-import Runtime.Utilities
+import Runtime.Utilities.Extensions
 
 inductive List.Sorted [LE α] : List α → Prop
   | nil : Sorted []

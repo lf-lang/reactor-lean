@@ -1,6 +1,6 @@
 import Runtime.Time
 import Runtime.Interface
-import Runtime.SortedArray
+import Runtime.Utilities
 
 structure Event (σAction : Interface.Scheme) (min : Time) where 
   action : σAction.vars

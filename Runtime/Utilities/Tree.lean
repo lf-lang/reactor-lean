@@ -19,18 +19,16 @@ inductive Path : Tree → Type _
   | last {tree : Tree} (branch : tree.branches) : Path tree
   | cons {tree : Tree} (branch : tree.branches) : Path (tree.subtrees branch) → Path tree
 
-abbrev subtree : Path tree → Tree 
+def subtree : Path tree → Tree 
   | @Path.last tree branch => tree.subtrees branch
   | .cons _ subpath => subtree subpath
 
-@[reducible]
-instance : GetElem Tree (Path t₁) Tree (fun t₂ _ => t₁ = t₂) where
-  getElem tree path h := tree.subtree (h ▸ path)
+-- Cf. notation for `Path.Rooted.subtree'` for docs.
+macro:max tree:term noWs "[" path:term "]" : term => `(Tree.subtree (tree := $tree) $path)
 
-def Path.extend (path : Path tree) (extension : tree[path].branches) : Path tree :=
-  match path with
-  | .last branch => .cons branch (.last extension)
-  | .cons branch subpath => .cons branch (subpath.extend extension)
+def Path.extend : (path : Path tree) → tree[path].branches → Path tree
+  | .last branch,         extension => .cons branch (.last extension)
+  | .cons branch subpath, extension => .cons branch (subpath.extend extension)
 
 def Path.extensions (path : Path tree) : tree[path].branches → Path tree :=
   (path.extend ·)
@@ -46,9 +44,12 @@ abbrev subtree' : Path.Rooted tree → Tree
   | .root => tree
   | .branch path => tree.subtree path
 
-@[reducible]
-instance : GetElem Tree (Path.Rooted t₁) Tree (fun t₂ _ => t₁ = t₂) where
-  getElem tree path h := tree.subtree' (h ▸ path)
+-- This is used instead of `GetElem`, because `GetElem` caused problems with 
+-- propagating instances of `DecidableEq tree[path].branches`. We use `macro`
+-- instead of `notation` as the latter conflicted with type class fields in
+-- structures and inductives. The macro is stolen from the one used for `GetElem`:
+-- https://github.com/leanprover/lean4/blob/26b417acf8d85c397847d7ebec32d80a6b88ed51/stage0/src/Init/Tactics.lean#L826
+macro:max tree:term noWs "[" path:term "]" : term => `(Tree.subtree' (tree := $tree) $path)
 
 def Path.Rooted.extend (path : Path.Rooted tree) (extension : tree[path].branches) : Path.Rooted tree :=
   match path with

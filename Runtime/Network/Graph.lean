@@ -29,16 +29,13 @@ structure Event (graph : Graph) (min : Time) where
 abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
   fun branch => graph.schemes (reactorID.extensions branch)
 
-set_option trace.Meta.synthInstance true -- TEMP
-
 abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let scheme := graph.schemes reactorID
   let subschemes := graph.subschemes reactorID
   let branches := graph.tree[reactorID].branches
-  let nestedOutputs := Interface.Scheme.bUnion branches sorry -- fun branch => (subschemes branch) .outputs
-  let nestedInputs := sorry -- Interface.Scheme.bUnion branches sorry -- fun branch => (subschemes branch) .inputs
-  let sources := scheme .inputs ∪ nestedOutputs
-  let effects := scheme .outputs ∪ nestedInputs
-  Reaction sources effects (scheme .actions) (scheme .state)
+  let nested interface := Interface.Scheme.bUnion branches fun branch => (subschemes branch) interface
+  let inputs := scheme .inputs ∪ (nested .outputs)
+  let outputs := scheme .outputs ∪ (nested .inputs)
+  Reaction inputs outputs (scheme .actions) (scheme .state)
 
 end Network

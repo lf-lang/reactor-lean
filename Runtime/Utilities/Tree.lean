@@ -1,5 +1,3 @@
-set_option trace.Meta.synthInstance true -- TEMP
-
 inductive Tree 
   | node (branches : Type) (subtrees : branches → Tree) [decEq : DecidableEq branches]
 
@@ -17,13 +15,13 @@ private def decEq : (tree : Tree) → DecidableEq tree.branches
 attribute [instance] decEq
 
 -- A path defined by the branches taken through the tree.
-inductive Path (tree : Tree) : Type _
-  | last (branch : tree.branches)
-  | cons (branch : tree.branches) [DecidableEq Branches] {subtrees} : (Path $ subtrees branch) → (Path $ .node Branches subtrees)
+inductive Path : Tree → Type _
+  | last {tree : Tree} (branch : tree.branches) : Path tree
+  | cons {tree : Tree} (branch : tree.branches) : Path (tree.subtrees branch) → Path tree
 
 abbrev subtree : Path tree → Tree 
-  | @Path.last branches _ _ subtrees => .node branches subtrees
-  | Path.cons _ subpath => subtree subpath
+  | @Path.last tree branch => tree.subtrees branch
+  | .cons _ subpath => subtree subpath
 
 @[reducible]
 instance : GetElem Tree (Path t₁) Tree (fun t₂ _ => t₁ = t₂) where
@@ -31,10 +29,8 @@ instance : GetElem Tree (Path t₁) Tree (fun t₂ _ => t₁ = t₂) where
 
 def Path.extend (path : Path tree) (extension : tree[path].branches) : Path tree :=
   match path with
-  | @last _ branch _ subtrees => sorry
-    -- let y : Path (tree[path].subtrees extension) := Path.last extension
-    -- .cons branch 
-  | @cons _ _ _ _ _ => sorry
+  | .last branch => .cons branch (.last extension)
+  | .cons branch subpath => .cons branch (subpath.extend extension)
 
 def Path.extensions (path : Path tree) : tree[path].branches → Path tree :=
   (path.extend ·)
@@ -54,22 +50,13 @@ abbrev subtree' : Path.Rooted tree → Tree
 instance : GetElem Tree (Path.Rooted t₁) Tree (fun t₂ _ => t₁ = t₂) where
   getElem tree path h := tree.subtree' (h ▸ path)
 
--- Used in `Graph.reactionType`.
-instance {tree : Tree} {path : Path.Rooted tree} : DecidableEq tree[path].branches :=
-  fun b₁ b₂ => sorry
-
--- theorem getElem_root_eq_tree (tree : Tree) : tree[@Path.Rooted.root tree] = tree := rfl
-
 def Path.Rooted.extend (path : Path.Rooted tree) (extension : tree[path].branches) : Path.Rooted tree :=
   match path with
-  | .root => 
-    -- let x : Path.Rooted tree := getElem_root_eq_tree tree ▸ Path.last extension
-    -- let y := .branch (.last extension)
-    sorry
+  | .root => Path.last extension
   | .branch path => path.extend extension
 
-def Path.Rooted.extensions (path : Path.Rooted tree) : tree[path].branches → Path tree :=
-  sorry
-
+def Path.Rooted.extensions : (path : Path.Rooted tree) → tree[path].branches → Path tree
+  | .root => (.last ·)
+  | .branch path => (path.extend ·)
 
 end Tree

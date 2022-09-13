@@ -29,6 +29,8 @@ structure Event (graph : Graph) (min : Time) where
 abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
   fun branch => graph.schemes (reactorID.extensions branch)
 
+set_option trace.Meta.synthInstance true -- TEMP
+
 abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let scheme := graph.schemes reactorID
   let subschemes := graph.subschemes reactorID

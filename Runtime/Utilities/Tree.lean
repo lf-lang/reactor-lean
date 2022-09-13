@@ -30,9 +30,6 @@ def Path.extend : (path : Path tree) → tree[path].branches → Path tree
   | .last branch,         extension => .cons branch (.last extension)
   | .cons branch subpath, extension => .cons branch (subpath.extend extension)
 
-def Path.extensions (path : Path tree) : tree[path].branches → Path tree :=
-  (path.extend ·)
-
 inductive Path.Rooted (tree : Tree)
   | root
   | branch (_ : Path tree)
@@ -55,9 +52,5 @@ def Path.Rooted.extend (path : Path.Rooted tree) (extension : tree[path].branche
   match path with
   | .root => Path.last extension
   | .branch path => path.extend extension
-
-def Path.Rooted.extensions : (path : Path.Rooted tree) → tree[path].branches → Path tree
-  | .root => (.last ·)
-  | .branch path => (path.extend ·)
 
 end Tree

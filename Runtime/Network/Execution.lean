@@ -2,9 +2,13 @@ import Runtime.Network.Basic
 
 namespace Network
 
+structure Event (graph : Graph) where
+  id    : ActionID graph
+  value : (graph.schemes id.reactor .actions).type id.action
+
 structure Executable extends Network where
   tag : Tag
-  events : /-Sorted-/Array (Event toNetwork.graph tag.time) 
+  events : /-Sorted-/Array (Event toNetwork.graph) 
   reactors : (id : ReactorID tree) → Reactor (toNetwork.schemes id)
 
 structure Next (ν : Network) (min : Time) where

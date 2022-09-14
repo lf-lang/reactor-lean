@@ -20,11 +20,6 @@ structure PortID (kind : Reactor.PortKind) (graph : Graph) where
 
 abbrev Connection (graph : Graph) := (PortID .output graph) × (PortID .input graph)
 
-structure Event (graph : Graph) (min : Time) where
-  id    : ActionID graph
-  time  : Time.From min
-  value : (graph.schemes id.reactor .actions).type id.action
-
 abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
   fun branch => graph.schemes (reactorID.extend branch)
 

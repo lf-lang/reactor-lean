@@ -7,34 +7,46 @@ structure Event (graph : Graph) where
   id    : ActionID graph
   value : (graph.schemes id.reactor .actions).type id.action
 
-structure Executable extends Network where
+structure Executable (net : Network) where
   tag : Tag
-  queue : /-Sorted-/Array (Event toNetwork.graph) 
-  reactors : (id : ReactorID tree) → Reactor (toNetwork.schemes id)
+  queue : Array (Event net.graph) 
+  reactors : (id : ReactorID net.tree) → Reactor (net.schemes id)
 
-abbrev Executable.network (exec : Executable) := exec.toNetwork
+namespace Executable
 
-def Executable.reactionInputs (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionInputScheme reactorID) 
+-- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
+def reactionInputs (exec : Executable net) (reactorID : ReactorID net.tree) : Interface (net.reactionInputScheme reactorID) 
   | .inl localInput => (exec.reactors reactorID) .inputs localInput
   | .inr ⟨subreactor, nestedOutput⟩ => exec.reactors (reactorID.extend subreactor) .outputs nestedOutput
 
-def Executable.reactionOutputs (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionOutputScheme reactorID) 
-  | .inl localOutput => (exec.reactors reactorID) .outputs localOutput
-  | .inr ⟨subreactor, nestedInput⟩ => exec.reactors (reactorID.extend subreactor) .inputs nestedInput
-
-def triggers (exec : Executable) (reactionID : ReactionID exec.network) : Bool :=
-  let reaction := exec.network.reaction reactionID
+def triggers (exec : Executable net) {reactorID : ReactorID net.tree} (reaction : net.reactionType reactorID) : Bool :=
   reaction.triggers.any fun trigger =>
     match trigger with
-    | .port   port   => (exec.reactionInputs reactionID.reactor).isPresent port
-    | .action action => (exec.reactors reactionID.reactor .actions).isPresent action
+    | .port   port   => (exec.reactionInputs reactorID).isPresent port
+    | .action action => (exec.reactors reactorID .actions).isPresent action
+
+def merge (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
+  queue := sorry
+  reactors := fun id =>
+    if h : id = reactorID then 
+      fun
+        | .state => h ▸ output.state
+        | .outputs => sorry -- local outputs
+        | other => exec.reactors id other
+    else if h : True /-id.isChildOf reactorID-/ then
+      fun
+        | .inputs => sorry -- nested inputs
+        | other => exec.reactors id other
+    else
+      exec.reactors id
+}
 
 structure Next (net : Network) where
   tag    : Tag
   events : Array (Event net.graph)
   queue  : Array (Event net.graph)
 
-def next (exec : Executable) : Option (Next exec.toNetwork) := do
+def next (exec : Executable net) : Option (Next net) := do
   let nextEvent ← exec.queue[0]?
   let nextTag := exec.tag.advance nextEvent.time
   let ⟨candidates, later⟩ := exec.queue.split (·.time = nextTag.time)  
@@ -45,50 +57,35 @@ def next (exec : Executable) : Option (Next exec.toNetwork) := do
     queue := postponed ++ later
   }
 
+def advance (exec : Executable net) (next : Next net) : Executable net := {  
+  tag := next.tag
+  queue := next.queue
+  reactors := fun id => fun
+    | .inputs | .outputs => Interface.empty
+    | .state             => exec.reactors id .state
+    | .actions           => 
+        fun action =>
+          match next.events.findP? (·.id = ⟨id, action⟩) with
+          | none => none
+          | some event => some sorry -- event.value
+}
 
-
-
-  
-
--- Note: Running a reactor at a time isnt possible. Eg:
---       rcn1 -> subreactor.input -> subreaction -> subreactor.output -> rcn2
-def instantaneousRun (ν : Network) (topo : Array (ReactionID ν)) : Network := Id.run do
+-- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
+partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Unit := do
+  let mut exec := exec
   for reactionID in topo do
-    let reaction := ν.reaction reactionID
-    let reactor := ν.reactors reactionID.reactor
-    if triggers reactor reaction then
-      sorry
-    else
-      sorry
-  sorry
+    let reaction := net.reaction reactionID
+    unless exec.triggers reaction do continue
+    let reactorID := reactionID.reactor
+    let ports     := exec.reactionInputs reactorID
+    let actions   := exec.reactors reactorID .actions
+    let state     := exec.reactors reactorID .state
+    let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
+    sorry -- exec := exec.merge output
+  match exec.next with
+  | some next => run (exec.advance next) topo
+  | none => return
 
-def actionMapForEvents {ν : Network} (events : Array $ Event ν.tree ν.tag.time) : 
-  (id : ActionID ν.tree) → Option (((ν.tree[id.reactor]).scheme .actions).type id.action) := 
-  fun id => 
-    match h : events.findP? (·.actionID = id) with
-    | none => none
-    | some event =>
-      have h₁ : id.reactor = event.reactor := by have h' := Array.findP?_property h; simp at h'; rw [←h']; rfl
-      have h₂ : HEq id.action event.local.action := by have h' := Array.findP?_property h; simp at h'; rw [←h']; simp; rfl
-      -- (eq_of_heq h₂) ▸ h₁ ▸ event.local.value
-      sorry
-
-partial def run (ν : Network) : Network :=
-  let topo : Array (ReactionID ν) := sorry
-  let ν' := ν.instantaneousRun topo
-  match ν'.nextTag with
-  | none => ν'
-  | some nextTag => 
-    let next := ν'.next nextTag.time
-    let actionMap := actionMapForEvents next.events 
-    run { ν' with
-      reactors := fun id => fun
-        | .inputs =>  Interface.empty
-        | .outputs => Interface.empty
-        | .actions => (actionMap ⟨id, ·⟩)
-        | .state =>   (ν'.reactors id) .state
-      tag := nextTag
-      events := next.remaining
-    }  
+end Executable
 
 end Network

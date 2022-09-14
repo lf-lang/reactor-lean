@@ -77,7 +77,7 @@ structure ReactionID (net : Network) where
   reactor : ReactorID net.tree
   reactionIdx : Fin (net.reactions reactor).size
 
-abbrev reaction (net : Network) (id : ReactionID net) : net.graph.reactionType id.reactor :=
+abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType id.reactor :=
   (net.reactions id.reactor)[id.reactionIdx]
 
 end Network

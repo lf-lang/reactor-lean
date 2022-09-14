@@ -47,6 +47,14 @@ def Path.extend : (path : Path tree) → tree[path].branches → Path tree
   | .last branch,         extension => .cons branch (.last extension)
   | .cons branch subpath, extension => .cons branch (subpath.extend extension)
 
+def Path.isChildOf : Path tree → Path tree → Bool
+  | .cons branch₁ (.last _), .last branch₂ => branch₁ = branch₂ 
+  | .cons branch₁ subpath₁, .cons branch₂ subpath₂ => 
+    if h : branch₁ = branch₂ 
+    then subpath₁.isChildOf (h ▸ subpath₂) 
+    else false
+  | _, _ => false
+
 inductive Path.Rooted (tree : Tree)
   | root
   | branch (_ : Path tree)
@@ -79,5 +87,10 @@ def Path.Rooted.extend (path : Path.Rooted tree) (extension : tree[path].branche
   match path with
   | .root => Path.last extension
   | .branch path => path.extend extension
+
+def Path.Rooted.isChildOf : Path.Rooted tree → Path.Rooted tree → Bool
+  | .branch (.last _), .root => true
+  | .branch path₁, .branch path₂ => path₁.isChildOf path₂
+  | _, _ => false
 
 end Tree

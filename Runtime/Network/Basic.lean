@@ -62,6 +62,11 @@ abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let localScheme := graph.schemes reactorID
   Reaction (graph.reactionInputScheme reactorID) (graph.reactionOutputScheme reactorID) (localScheme .actions) (localScheme .state)
 
+-- Lean can't automatically infer this for some reason.
+instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
+  InjectiveCoe reaction.portSources (graph.reactionInputScheme reactorID).vars :=
+  reaction.portSourcesInjCoe
+
 structure _root_.Network extends Graph where
   connections : Array (Connection graph)
   reactions : (id : ReactorID toGraph.tree) → Array (toGraph.reactionType id)
@@ -72,7 +77,7 @@ structure ReactionID (net : Network) where
   reactor : ReactorID net.tree
   reactionIdx : Fin (net.reactions reactor).size
 
-def reaction (net : Network) (id : ReactionID net) : net.graph.reactionType id.reactor :=
+abbrev reaction (net : Network) (id : ReactionID net) : net.graph.reactionType id.reactor :=
   (net.reactions id.reactor)[id.reactionIdx]
 
 end Network

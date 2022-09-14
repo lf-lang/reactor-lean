@@ -14,25 +14,25 @@ structure Executable extends Network where
 
 abbrev Executable.network (exec : Executable) := exec.toNetwork
 
-def Executable.reactionInput (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionInputScheme reactorID) 
+def Executable.reactionInputs (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionInputScheme reactorID) 
   | .inl localInput => (exec.reactors reactorID) .inputs localInput
   | .inr ⟨subreactor, nestedOutput⟩ => exec.reactors (reactorID.extend subreactor) .outputs nestedOutput
 
-def Executable.reactionOutput (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionOutputScheme reactorID) 
+def Executable.reactionOutputs (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionOutputScheme reactorID) 
   | .inl localOutput => (exec.reactors reactorID) .outputs localOutput
   | .inr ⟨subreactor, nestedInput⟩ => exec.reactors (reactorID.extend subreactor) .inputs nestedInput
 
--- TODO: `port` and `action` should have coercions to the correct type. 
-def triggers (exec : Executable) {reactorID : ReactorID exec.tree} (reaction : exec.graph.reactionType reactorID) : Bool :=
+def triggers (exec : Executable) (reactionID : ReactionID exec.network) : Bool :=
+  let reaction := exec.network.reaction reactionID
   reaction.triggers.any fun trigger =>
     match trigger with
-    | .port   port   => (exec.reactionInput reactorID).isPresent port
-    | .action action => (exec.reactionInput reactorID).isPresent action
+    | .port   port   => (exec.reactionInputs reactionID.reactor).isPresent port
+    | .action action => (exec.reactors reactionID.reactor .actions).isPresent action
 
 structure Next (net : Network) where
-  tag : Tag
+  tag    : Tag
   events : Array (Event net.graph)
-  queue : Array (Event net.graph)
+  queue  : Array (Event net.graph)
 
 def next (exec : Executable) : Option (Next exec.toNetwork) := do
   let nextEvent ← exec.queue[0]?

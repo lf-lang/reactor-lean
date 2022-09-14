@@ -63,12 +63,14 @@ def advance (exec : Executable net) (next : Next net) : Executable net := {
   reactors := fun id => fun
     | .inputs | .outputs => Interface.empty
     | .state             => exec.reactors id .state
-    | .actions           => 
-        fun action =>
-          match next.events.findP? (·.id = ⟨id, action⟩) with
-          | none => none
-          | some event => some sorry -- event.value
+    | .actions           => (actionForEvents next.events ⟨id, ·⟩)
 }
+where actionForEvents (events : Array $ Event net.graph) (id : ActionID net.graph) : Option $ (net.graph.schemes id.reactor .actions).type id.action :=
+  match h : events.findP? (·.id = id) with
+  | none => none
+  | some event => 
+    have h := Array.findP?_property h
+    (of_decide_eq_true h) ▸ event.value
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Unit := do
@@ -82,6 +84,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Uni
     let state     := exec.reactors reactorID .state
     let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
     sorry -- exec := exec.merge output
+    -- TODO: You're not propagating ports at the moment.
   match exec.next with
   | some next => run (exec.advance next) topo
   | none => return

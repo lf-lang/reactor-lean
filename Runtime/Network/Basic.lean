@@ -43,14 +43,24 @@ abbrev Connection (graph : Graph) := (PortID .output graph) × (PortID .input gr
 abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
   fun branch => graph.schemes (reactorID.extend branch)
 
-abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
-  let scheme := graph.schemes reactorID
+abbrev Graph.subscheme (graph : Graph) (reactorID : ReactorID graph.tree) (kind : Reactor.InterfaceKind) :=
   let subschemes := graph.subschemes reactorID
   let branches := graph.tree[reactorID].branches
-  let nested interface := Interface.Scheme.bUnion branches fun branch => (subschemes branch) interface
-  let inputs := scheme .inputs ∪ (nested .outputs)
-  let outputs := scheme .outputs ∪ (nested .inputs)
-  Reaction inputs outputs (scheme .actions) (scheme .state)
+  Interface.Scheme.bUnion branches fun branch => (subschemes branch) kind
+
+abbrev Graph.reactionInputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
+  let localInputs := (graph.schemes reactorID) .inputs
+  let nestedOutputs := graph.subscheme reactorID .outputs
+  localInputs ∪ nestedOutputs
+
+abbrev Graph.reactionOutputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
+  let localOutputs := (graph.schemes reactorID) .outputs
+  let nestedInputs := graph.subscheme reactorID .inputs
+  localOutputs ∪ nestedInputs
+
+abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
+  let localScheme := graph.schemes reactorID
+  Reaction (graph.reactionInputScheme reactorID) (graph.reactionOutputScheme reactorID) (localScheme .actions) (localScheme .state)
 
 structure _root_.Network extends Graph where
   connections : Array (Connection graph)

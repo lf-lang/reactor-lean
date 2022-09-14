@@ -9,46 +9,46 @@ structure Event (graph : Graph) where
 
 structure Executable extends Network where
   tag : Tag
-  events : /-Sorted-/Array (Event toNetwork.graph) 
+  queue : /-Sorted-/Array (Event toNetwork.graph) 
   reactors : (id : ReactorID tree) → Reactor (toNetwork.schemes id)
+
+abbrev Executable.network (exec : Executable) := exec.toNetwork
+
+def Executable.reactionInput (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionInputScheme reactorID) 
+  | .inl localInput => (exec.reactors reactorID) .inputs localInput
+  | .inr ⟨subreactor, nestedOutput⟩ => exec.reactors (reactorID.extend subreactor) .outputs nestedOutput
+
+def Executable.reactionOutput (exec : Executable) (reactorID : ReactorID exec.tree) : Interface (exec.graph.reactionOutputScheme reactorID) 
+  | .inl localOutput => (exec.reactors reactorID) .outputs localOutput
+  | .inr ⟨subreactor, nestedInput⟩ => exec.reactors (reactorID.extend subreactor) .inputs nestedInput
+
+-- TODO: `port` and `action` should have coercions to the correct type. 
+def triggers (exec : Executable) {reactorID : ReactorID exec.tree} (reaction : exec.graph.reactionType reactorID) : Bool :=
+  reaction.triggers.any fun trigger =>
+    match trigger with
+    | .port   port   => (exec.reactionInput reactorID).isPresent port
+    | .action action => (exec.reactionInput reactorID).isPresent action
 
 structure Next (net : Network) where
   tag : Tag
   events : Array (Event net.graph)
-  remaining : Array (Event net.graph)
+  queue : Array (Event net.graph)
 
-def next (exec : Executable) : Option (Next exec.toNetwork) := 
-  match exec.events[0]? with
-  | none => none
-  | some nextEvent => 
-    let nextTag := exec.tag.advance nextEvent.time
-    let ⟨candidates, later⟩ := exec.events.split (·.time = nextTag.time)  
-    let ⟨current, postponed⟩ := candidates.unique (·.id)
-    sorry
-
-
-def nextTag (ν : Network) : Option (Tag.From ν.tag.time) :=
-  
-def next (ν : Network) (time : Time.From ν.tag.time) : Next ν time :=
-  -- TODO: somehow use the fact that the given time is in fact the 
-  --       time of the prefix of `ν.events` to show that the times 
-  --       of the events in `later` and `postponed` are `≥ time`.
-  let ⟨candidates, later⟩ := ν.events.split (·.local.time.val = time)  
-  let ⟨current, postponed⟩ := candidates.unique (·.actionID)
-  let postponed' : SortedArray _ := ⟨postponed, sorry⟩
-  let remaining := postponed'.append later sorry
-  {
-    events := current,
-    remaining := 
-      have : Coe (Event ν.tree ν.tag.time) (Event ν.tree time) := sorry -- This is not provable!
-      remaining.coe sorry
+def next (exec : Executable) : Option (Next exec.toNetwork) := do
+  let nextEvent ← exec.queue[0]?
+  let nextTag := exec.tag.advance nextEvent.time
+  let ⟨candidates, later⟩ := exec.queue.split (·.time = nextTag.time)  
+  let ⟨current, postponed⟩ := candidates.unique (·.id)
+  return {
+    tag := nextTag
+    events := current
+    queue := postponed ++ later
   }
 
-def triggers {ν : Network} {id : ReactorID ν.tree} (rtr : Reactor (ν.tree[id]).scheme) (rcn : (ν.tree[id]).reactionType) : Bool :=
-  rcn.triggers.any fun trigger =>
-    match trigger with
-    | .port   port   => true -- rtr.inputs.isPresent port
-    | .action action => true -- rtr.actions.isPresent action
+
+
+
+  
 
 -- Note: Running a reactor at a time isnt possible. Eg:
 --       rcn1 -> subreactor.input -> subreaction -> subreactor.output -> rcn2

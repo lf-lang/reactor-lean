@@ -14,6 +14,26 @@ structure ActionID (graph : Graph) where
   reactor : ReactorID graph.tree
   action : (graph.schemes reactor .actions).vars
 
+-- TODO: This is exactly the same as the instance for `DecidableEq (Σ a : Type, a)`.
+instance : DecidableEq (ActionID graph) :=
+  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 
+    if h : a₁ = a₂ then 
+      if h' : (h ▸ b₁) = b₂ then
+        .isTrue (by subst h h'; rfl)
+      else 
+        .isFalse (by 
+          subst h
+          intro hc
+          injection hc
+          contradiction
+        )
+    else
+      .isFalse (by
+        intro hc
+        injection hc
+        contradiction
+      )
+
 structure PortID (kind : Reactor.PortKind) (graph : Graph) where
   reactor : ReactorID graph.tree
   port : (graph.schemes reactor kind).vars

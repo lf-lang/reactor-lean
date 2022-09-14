@@ -3,6 +3,7 @@ import Runtime.Network.Basic
 namespace Network
 
 structure Event (graph : Graph) where
+  time  : Time
   id    : ActionID graph
   value : (graph.schemes id.reactor .actions).type id.action
 
@@ -11,15 +12,23 @@ structure Executable extends Network where
   events : /-Sorted-/Array (Event toNetwork.graph) 
   reactors : (id : ReactorID tree) → Reactor (toNetwork.schemes id)
 
-structure Next (ν : Network) (min : Time) where
-  events : Array (Event ν.tree ν.tag.time)
-  remaining : SortedArray (Event ν.tree min)
+structure Next (net : Network) where
+  tag : Tag
+  events : Array (Event net.graph)
+  remaining : Array (Event net.graph)
+
+def next (exec : Executable) : Option (Next exec.toNetwork) := 
+  match exec.events[0]? with
+  | none => none
+  | some nextEvent => 
+    let nextTag := exec.tag.advance nextEvent.time
+    let ⟨candidates, later⟩ := exec.events.split (·.time = nextTag.time)  
+    let ⟨current, postponed⟩ := candidates.unique (·.id)
+    sorry
+
 
 def nextTag (ν : Network) : Option (Tag.From ν.tag.time) :=
-  match ν.events.get? 0 with
-  | none => none
-  | some nextEvent => ν.tag.advance nextEvent.local.time
-
+  
 def next (ν : Network) (time : Time.From ν.tag.time) : Next ν time :=
   -- TODO: somehow use the fact that the given time is in fact the 
   --       time of the prefix of `ν.events` to show that the times 

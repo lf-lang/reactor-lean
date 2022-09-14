@@ -19,6 +19,23 @@ inductive Path : Tree → Type _
   | last {tree : Tree} (branch : tree.branches) : Path tree
   | cons {tree : Tree} (branch : tree.branches) : Path (tree.subtrees branch) → Path tree
 
+instance : DecidableEq (Path tree) :=
+  fun p₁ p₂ => aux p₁ p₂
+where aux : {tree : Tree} → (p₁ : Path tree) → (p₂ : Path tree) → Decidable (p₁ = p₂) 
+  | _, .last branch₁, .last branch₂ =>
+    if h : branch₁ = branch₂ 
+    then .isTrue (by rw [h])
+    else .isFalse (by simp [h])
+  | _, .cons branch₁ subpath₁, .cons branch₂ subpath₂ =>
+    if h : branch₁ = branch₂ then
+      match aux subpath₁ (h ▸ subpath₂) with
+      | .isTrue h' => .isTrue (by subst h' h; rfl)
+      | .isFalse h' => .isFalse (by subst h; simp [h'])  
+    else 
+      .isFalse (by simp [h])
+  | _, .last .., .cons .. => .isFalse (by simp)
+  | _, .cons .., .last .. => .isFalse (by simp)
+
 def subtree : Path tree → Tree 
   | @Path.last tree branch => tree.subtrees branch
   | .cons _ subpath => subtree subpath
@@ -36,6 +53,16 @@ inductive Path.Rooted (tree : Tree)
 
 instance : Coe (Path tree) (Path.Rooted tree) where
   coe := .branch
+
+instance : DecidableEq (Path.Rooted tree) :=
+  fun
+    | .root, .root => .isTrue (by simp)
+    | .branch p₁, .branch p₂ =>
+      match _root_.decEq p₁ p₂ with
+      | .isTrue h => .isTrue (by rw [h])
+      | .isFalse h => .isFalse (by simp [h])
+    | .root, .branch _ => .isFalse (by simp)
+    | .branch _, .root => .isFalse (by simp)
 
 abbrev subtree' : Path.Rooted tree → Tree
   | .root => tree

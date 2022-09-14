@@ -38,8 +38,6 @@ structure PortID (kind : Reactor.PortKind) (graph : Graph) where
   reactor : ReactorID graph.tree
   port : (graph.schemes reactor kind).vars
 
-abbrev Connection (graph : Graph) := (PortID .output graph) × (PortID .input graph)
-
 abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
   fun branch => graph.schemes (reactorID.extend branch)
 
@@ -66,6 +64,11 @@ abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
 instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
   InjectiveCoe reaction.portSources (graph.reactionInputScheme reactorID).vars :=
   reaction.portSourcesInjCoe
+
+structure Connection (graph : Graph) where
+  output : PortID .output graph
+  input : PortID .input graph
+  matchingTypes : (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port
 
 structure _root_.Network extends Graph where
   connections : Array (Connection graph)

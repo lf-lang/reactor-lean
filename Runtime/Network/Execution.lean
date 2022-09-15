@@ -36,11 +36,14 @@ def apply (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : n
   }
   reactors := fun id =>
     if h : id = reactorID then 
+      -- Updates the output ports of the reaction's reactor.
       targetReactor exec (reaction := h ▸ reaction) (h ▸ output)
     else if h : id.isChildOf reactorID then 
+      -- Updates the input ports of nested reactors.
       nestedReactor exec output id h
     else
-      exec.reactors id
+      -- TODO: Propagates the reaction's reactor's updated output ports.
+      exec.reactors id 
 }
 where 
   targetReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Reactor (net.graph.schemes reactorID) :=
@@ -80,14 +83,6 @@ where
               sorry
             h ▸ val
     | interface => currentReactor interface 
-
-def propagatePorts (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := 
-  { exec with
-    reactors := fun reactorID =>
-      fun 
-      | .inputs => sorry
-      | interface => exec.reactors reactorID interface
-  }
 
 structure Next (net : Network) where
   tag    : Tag
@@ -136,9 +131,8 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       let ports     := exec.reactionInputs reactorID
       let actions   := exec.reactors reactorID .actions
       let state     := exec.reactors reactorID .state
-      let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
+      let output ← reaction.run ports actions state exec.tag
       exec := exec.apply output
-      exec := exec.propagatePorts output
     run exec topo (reactionIdx + 1)
 
 end Executable

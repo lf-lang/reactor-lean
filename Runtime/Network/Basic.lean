@@ -76,13 +76,15 @@ instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.re
   InjectiveCoe reaction.portEffects (graph.reactionOutputScheme reactorID).vars :=
   reaction.portEffectsInjCoe
 
-structure Connection (graph : Graph) where
-  output : PortID .output graph
-  input : PortID .input graph
-  matchingTypes : (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port
+-- A map from input ports to output ports with matching type.
+-- Since each input port can have at most one output port that connects to it,
+-- the return type is an optional output port.
+def Connections (graph : Graph) :=
+  (input : PortID .input graph) → 
+  Option { output : PortID .output graph // (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port }
 
 structure _root_.Network extends Graph where
-  connections : Array (Connection graph)
+  connections : Connections graph
   reactions : (id : ReactorID toGraph.tree) → Array (toGraph.reactionType id)
 
 abbrev graph (net : Network) : Graph := net.toGraph

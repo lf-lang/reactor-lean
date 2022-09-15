@@ -135,12 +135,13 @@ abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
 def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) : 
-  IO (rcn.outputType tag.time × Unit) := 
-  rcn.body { 
+  IO (rcn.outputType tag.time) := do
+  let ⟨output, _⟩ ← rcn.body { 
     ports   := fun s => inputs s
     actions := fun a => actions a
     state   := state
     tag     := tag 
   }
+  return output
 
 end Reaction

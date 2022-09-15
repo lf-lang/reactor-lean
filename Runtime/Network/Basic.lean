@@ -42,19 +42,17 @@ abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : gra
   fun branch => graph.schemes (reactorID.extend branch)
 
 abbrev Graph.subscheme (graph : Graph) (reactorID : ReactorID graph.tree) (kind : Reactor.InterfaceKind) :=
-  let subschemes := graph.subschemes reactorID
-  let branches := graph.tree[reactorID].branches
-  Interface.Scheme.bUnion branches fun branch => (subschemes branch) kind
+  ⨄ fun branch => (graph.subschemes reactorID branch) kind
 
 abbrev Graph.reactionInputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let localInputs := (graph.schemes reactorID) .inputs
   let nestedOutputs := graph.subscheme reactorID .outputs
-  localInputs ∪ nestedOutputs
+  localInputs ⊎ nestedOutputs
 
 abbrev Graph.reactionOutputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let localOutputs := (graph.schemes reactorID) .outputs
   let nestedInputs := graph.subscheme reactorID .inputs
-  localOutputs ∪ nestedInputs
+  localOutputs ⊎ nestedInputs
 
 abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let localScheme := graph.schemes reactorID
@@ -64,6 +62,11 @@ abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
 instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
   InjectiveCoe reaction.portSources (graph.reactionInputScheme reactorID).vars :=
   reaction.portSourcesInjCoe
+
+-- Lean can't automatically infer this for some reason.
+instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
+  InjectiveCoe reaction.portEffects (graph.reactionOutputScheme reactorID).vars :=
+  reaction.portEffectsInjCoe
 
 structure Connection (graph : Graph) where
   output : PortID .output graph

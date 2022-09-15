@@ -7,6 +7,9 @@ structure Event (graph : Graph) where
   id    : ActionID graph
   value : (graph.schemes id.reactor .actions).type id.action
 
+instance {graph} : Ord (Event graph) where
+  compare e₁ e₂ := compare e₁.time e₂.time
+
 structure Executable (net : Network) where
   tag : Tag
   queue : Array (Event net.graph) 
@@ -25,21 +28,47 @@ def triggers (exec : Executable net) {reactorID : ReactorID net.tree} (reaction 
     | .port   port   => (exec.reactionInputs reactorID).isPresent port
     | .action action => (exec.reactors reactorID .actions).isPresent action
 
-def merge (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
-  queue := sorry
+def apply (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
+  queue := exec.queue.merge $ output.events.map fun event => {
+    time := event.time
+    id := ⟨reactorID, event.action⟩
+    value := event.value
+  }
   reactors := fun id =>
     if h : id = reactorID then 
-      fun
-        | .state => h ▸ output.state
-        | .outputs => sorry -- local outputs
-        | other => exec.reactors id other
-    else if h : True /-id.isChildOf reactorID-/ then
-      fun
-        | .inputs => sorry -- nested inputs
-        | other => exec.reactors id other
+      targetReactor exec (reaction := h ▸ reaction) (h ▸ output)
+    else if h : id.isChildOf reactorID then 
+      nestedReactor exec output id h
     else
       exec.reactors id
 }
+where 
+  targetReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Reactor (net.graph.schemes reactorID) :=
+    fun
+      | .state => output.state
+      | .outputs => 
+        -- TODO: This should be achievable with `Interface.merge'`.
+        let i₁ : Interface (net.schemes reactorID .outputs) := exec.reactors reactorID .outputs
+        let i₂ : Interface ((net.reactionOutputScheme reactorID).restrict reaction.portEffects) := output.ports
+        -- have h₁ : net.reactionOutputScheme reactorID = net.schemes reactorID .outputs := sorry
+        -- have h₂ : InjectiveCoe reaction.portEffects (net.schemes reactorID .outputs).vars := sorry
+        -- let a := @Interface.merge' (net.schemes reactorID .outputs) reaction.portEffects inferInstance h₂ i₁ i₂
+        fun var =>
+          let var := var
+          let fallback := i₁ var
+          sorry
+        -- fun var => do
+        -- let var : (net.reactionOutputScheme reactorID).vars := .inl (h ▸ var)
+        -- let var' : reaction.portEffects ← InjectiveCoe.inv var
+        -- let value ← output.ports var'
+        -- have h := Interface.Scheme.restrict_preserves_type (net.graph.reactionOutputScheme reactorID) reaction.portEffects var'
+        -- have h' := InjectiveCoe.coeInvId var
+        -- sorry
+      | other => exec.reactors reactorID other
+  nestedReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net.tree) (h : id.isChildOf reactorID) : Reactor (net.graph.schemes id) :=
+  fun
+    | .inputs => sorry -- nested inputs
+    | other => exec.reactors id other
 
 structure Next (net : Network) where
   tag    : Tag
@@ -83,7 +112,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Uni
     let actions   := exec.reactors reactorID .actions
     let state     := exec.reactors reactorID .state
     let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
-    sorry -- exec := exec.merge output
+    sorry -- exec := exec.apply output
     -- TODO: You're not propagating ports at the moment.
   match exec.next with
   | some next => run (exec.advance next) topo

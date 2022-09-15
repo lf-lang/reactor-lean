@@ -18,21 +18,23 @@ abbrev Scheme.restrict (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCo
 abbrev Scheme.union (σ₁ σ₂ : Scheme) : Scheme := {
   vars := Sum σ₁.vars σ₂.vars
   type := fun
-    | .inl var => σ₁.type var
+    | .inl var => σ₁.type var 
     | .inr var => σ₂.type var
 }
 
-infix:65 " ∪ " => Scheme.union
+infix:65 " ⊎ " => Scheme.union
 
-abbrev Scheme.bUnion (Schemes : Type) [DecidableEq Schemes] (σ : Schemes → Scheme) : Scheme := {
+abbrev Scheme.bUnion {Schemes : Type} [DecidableEq Schemes] (σ : Schemes → Scheme) : Scheme := {
   vars := Σ scheme : Schemes, (σ scheme).vars
   type := fun ⟨scheme, var⟩ => (σ scheme).type var
 }
 
+prefix:100 "⨄ " => Scheme.bUnion
+
 instance {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars] : InjectiveCoe (σ.restrict Sub).vars σ.vars := 
   inferInstance
 
-theorem Scheme.restrict_preserves_type {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars] {var : Sub} : 
+theorem Scheme.restrict_preserves_type (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCoe Sub σ.vars] (var : Sub) : 
   (σ.restrict Sub).type var = σ.type var := rfl
 
 abbrev _root_.Interface (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
@@ -52,7 +54,7 @@ def merge' {Sub : Type} [DecidableEq Sub] [injCoe : InjectiveCoe Sub σ.vars] (i
     match h : injCoe.inv var with 
     | none => i₁ var
     | some sub => 
-      have h₁ : (σ.restrict Sub).type sub = σ.type sub := Scheme.restrict_preserves_type
+      have h₁ := Scheme.restrict_preserves_type σ Sub sub 
       have h₂ : Coe.coe sub = var := h.symm ▸ injCoe.coeInvId sub |> injCoe.invInj
       h₂ ▸ h₁ ▸ i₂ sub
 

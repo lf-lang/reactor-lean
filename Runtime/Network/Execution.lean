@@ -44,30 +44,22 @@ def apply (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : n
 }
 where 
   targetReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Reactor (net.graph.schemes reactorID) :=
+    let currentReactor := exec.reactors reactorID
     fun
     | .state => output.state
     | .outputs => 
-      let i₁ : Interface (net.schemes reactorID .outputs) := exec.reactors reactorID .outputs
-      let i₂ : Interface ((net.reactionOutputScheme reactorID).restrict reaction.portEffects) := output.ports
       fun var =>
-        let fallback := i₁ var
-        let var' : (net.reactionOutputScheme reactorID).vars := .inl var
-        let var'' : Option reaction.portEffects := InjectiveCoe.inv var'
-        match h : var'' with 
-        | none => fallback
-        | some var''' =>
-          let val : Option $ ((net.graph.reactionOutputScheme reactorID).restrict reaction.portEffects).type var''' := i₂ var'''
-          match val with
-          | none => fallback
+        let var₁ : (net.reactionOutputScheme reactorID).vars := .inl var
+        match h : InjectiveCoe.inv var₁ with 
+        | none => currentReactor .outputs var
+        | some var₂ =>
+          match output.ports var₂ with
+          | none => currentReactor .outputs var
           | some val =>
-            let val' := (Interface.Scheme.restrict_preserves_type (net.graph.reactionOutputScheme reactorID) reaction.portEffects var''') ▸ val
-            have H : Interface.Scheme.type (Graph.reactionOutputScheme (graph net) reactorID) (Coe.coe var''') = Interface.Scheme.type (Graph.reactionOutputScheme (graph net) reactorID) (var') := by
-              simp [InjectiveCoe.invCoeId _ h]
-            let val'' := H ▸ val'
-            have a := net.graph.reactionOutputScheme_local_type reactorID var
-            let val''' := a ▸ val''
-            some val'''
-    | other => exec.reactors reactorID other
+            have h : (net.schemes reactorID .outputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var₂ := by
+              rw [(net.reactionOutputScheme reactorID).restrict_preserves_type, InjectiveCoe.invCoeId _ h]
+            h ▸ val
+    | interface => currentReactor interface
   nestedReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net.tree) (h : id.isChildOf reactorID) : Reactor (net.graph.schemes id) :=
     fun
     | .inputs => sorry -- nested inputs

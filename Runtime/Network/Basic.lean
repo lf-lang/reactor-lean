@@ -44,6 +44,10 @@ abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : gra
 abbrev Graph.subscheme (graph : Graph) (reactorID : ReactorID graph.tree) (kind : Reactor.InterfaceKind) :=
   ⨄ fun branch => (graph.subschemes reactorID branch) kind
 
+theorem Graph.child_schemes_eq_parent_subschemes {graph : Graph} {child parent : ReactorID graph.tree} (h : child.isChildOf parent) : 
+  graph.schemes child = graph.subschemes parent (Tree.Path.Rooted.last child h) := by
+  sorry
+
 abbrev Graph.reactionInputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let localInputs := (graph.schemes reactorID) .inputs
   let nestedOutputs := graph.subscheme reactorID .outputs

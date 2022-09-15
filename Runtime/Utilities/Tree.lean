@@ -90,7 +90,13 @@ def Path.Rooted.extend (path : Path.Rooted tree) (extension : tree[path].branche
 
 def Path.Rooted.isChildOf : Path.Rooted tree → Path.Rooted tree → Bool
   | .branch (.last _), .root => true
-  | .branch path₁, .branch path₂ => path₁.isChildOf path₂
+  | .branch child, .branch parent => child.isChildOf parent
   | _, _ => false
 
+def Path.Rooted.last (child : Path.Rooted tree) {parent} (h : child.isChildOf parent) : tree[parent].branches :=
+  match child with
+  | .root => by contradiction
+  | .branch (.last last) => sorry -- last
+  | .branch (.cons _ subpath) => sorry
+  
 end Tree

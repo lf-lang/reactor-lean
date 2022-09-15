@@ -48,25 +48,46 @@ where
     fun
     | .outputs => 
       fun var =>
-        let var₁ : (net.reactionOutputScheme reactorID).vars := .inl var
-        match h : InjectiveCoe.inv var₁ with 
+        match h : InjectiveCoe.inv (Sum.inl var) with 
         | none => currentReactor .outputs var
-        | some var₂ =>
-          match output.ports var₂ with
+        | some var' =>
+          match output.ports var' with
           | none => currentReactor .outputs var
           | some val =>
-            have h : (net.schemes reactorID .outputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var₂ := by
+            have h : (net.schemes reactorID .outputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var' := by
               rw [(net.reactionOutputScheme reactorID).restrict_preserves_type, InjectiveCoe.invCoeId _ h]
             h ▸ val
     | .state => output.state
     | interface => currentReactor interface
   nestedReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net.tree) (h : id.isChildOf reactorID) : Reactor (net.graph.schemes id) :=
+    let currentReactor := exec.reactors id
     fun
     | .inputs => 
       fun var =>
-        let var₁ : (net.reactionOutputScheme id).vars := .inr ⟨reactorID, var⟩
-        sorry
-    | interface => exec.reactors id interface
+        let nestedID := id.last h
+        have h₁ : (net.schemes id .inputs).vars = (net.subschemes reactorID nestedID .inputs).vars := by rw [Graph.child_schemes_eq_parent_subschemes]
+        let var₁ : (net.reactionOutputScheme reactorID).vars := .inr ⟨nestedID, h₁ ▸ var⟩
+        match hv : InjectiveCoe.inv var₁ with 
+        | none => currentReactor .inputs var
+        | some var₂ =>
+          match output.ports var₂ with
+          | none => currentReactor .inputs var
+          | some val =>
+            have h : (net.schemes id .inputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var₂ := by
+              rw [(net.reactionOutputScheme reactorID).restrict_preserves_type, InjectiveCoe.invCoeId _ hv]
+              simp
+              have := Graph.child_schemes_eq_parent_subschemes h
+              sorry
+            h ▸ val
+    | interface => currentReactor interface 
+
+def propagatePorts (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := 
+  { exec with
+    reactors := fun reactorID =>
+      fun 
+      | .inputs => sorry
+      | interface => exec.reactors reactorID interface
+  }
 
 structure Next (net : Network) where
   tag    : Tag
@@ -100,6 +121,8 @@ where actionForEvents (events : Array $ Event net.graph) (id : ActionID net.grap
     (of_decide_eq_true h) ▸ event.value
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
+-- TODO: Don't use do-notation and handle the IO "manually" (to avoid for loop notation). 
+--       https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/do.20block.3A.20invalid.20reassignment/near/299025604
 partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Unit := do
   IO.sleepUntil exec.tag.time
   let mut exec := exec

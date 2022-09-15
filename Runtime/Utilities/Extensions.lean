@@ -1,3 +1,5 @@
+import Runtime.Time
+
 class InjectiveCoe (α β) extends Coe α β where
   inv      : β → Option α
   invInj   : ∀ {b₁ b₂}, (inv b₁ = inv b₂) → (b₁ = b₂) 
@@ -59,3 +61,17 @@ theorem Array.findP?_property {as : Array α} : (as.findP? p = some a) → (p a)
 -- TODO: temporary
 def Array.merge [Ord α] (s₁ s₂ : Array α) : Array α :=
   (s₁ ++ s₂).insertionSort (Ord.compare · · |>.isLE)
+
+def UInt32.clipping (n : Nat) : UInt32 := 
+  UInt32.ofNatCore (min n (UInt32.size - 1)) (by
+    unfold min
+    split
+    case inr => simp
+    case inl h => exact Nat.lt_succ_of_le h
+  )
+
+def IO.sleepUntil (time : Time) : IO Unit := do
+  -- Note: this value clips at 0.
+  let offsetNanos : Duration := time - (← IO.monoNanosNow) 
+  let offsetMicros : UInt32 := .clipping (offsetNanos / 1000)
+  sleep offsetMicros

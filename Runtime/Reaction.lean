@@ -75,11 +75,13 @@ def getState (stv : σState.vars) : ReactionM σPortSource σPortEffect σAction
 def getAction (action : σActionSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σActionSource.type action) :=
   fun input => return (input.noop, input.actions action)
 
--- TODO: Should this return the tag or just a time?
-def logicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Tag := 
+def getTag : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Tag := 
   fun input => return (input.noop, input.tag)
 
-def physicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Time :=
+def getLogicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Time := 
+  return (← getTag).time
+
+def getPhysicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Time :=
   fun input => return (input.noop, ← IO.monoNanosNow)
 
 def setOutput (port : σPortEffect.vars) (v : σPortEffect.type port) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit :=

@@ -1,5 +1,8 @@
 import Runtime
 
+-- Can ports/state be non-optional?
+
+
 -- network {
 
   /- main -/ reactor Main {

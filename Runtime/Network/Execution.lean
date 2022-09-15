@@ -46,7 +46,6 @@ where
   targetReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Reactor (net.graph.schemes reactorID) :=
     let currentReactor := exec.reactors reactorID
     fun
-    | .state => output.state
     | .outputs => 
       fun var =>
         let var₁ : (net.reactionOutputScheme reactorID).vars := .inl var
@@ -59,11 +58,15 @@ where
             have h : (net.schemes reactorID .outputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var₂ := by
               rw [(net.reactionOutputScheme reactorID).restrict_preserves_type, InjectiveCoe.invCoeId _ h]
             h ▸ val
+    | .state => output.state
     | interface => currentReactor interface
   nestedReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net.tree) (h : id.isChildOf reactorID) : Reactor (net.graph.schemes id) :=
     fun
-    | .inputs => sorry -- nested inputs
-    | other => exec.reactors id other
+    | .inputs => 
+      fun var =>
+        let var₁ : (net.reactionOutputScheme id).vars := .inr ⟨reactorID, var⟩
+        sorry
+    | interface => exec.reactors id interface
 
 structure Next (net : Network) where
   tag    : Tag
@@ -98,6 +101,7 @@ where actionForEvents (events : Array $ Event net.graph) (id : ActionID net.grap
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Unit := do
+  IO.sleepUntil exec.tag.time
   let mut exec := exec
   for reactionID in topo do
     let reaction := net.reaction reactionID

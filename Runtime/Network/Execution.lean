@@ -121,24 +121,25 @@ where actionForEvents (events : Array $ Event net.graph) (id : ActionID net.grap
     (of_decide_eq_true h) ▸ event.value
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
--- TODO: Don't use do-notation and handle the IO "manually" (to avoid for loop notation). 
---       https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/do.20block.3A.20invalid.20reassignment/near/299025604
-partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Unit := do
-  IO.sleepUntil exec.tag.time
-  let mut exec := exec
-  for reactionID in topo do
+partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do
+  match topo[reactionIdx]? with 
+  | none => 
+    match exec.next with
+    | some next => run (exec.advance next) topo 0
+    | none => return
+  | some reactionID =>
+    IO.sleepUntil exec.tag.time
+    let mut exec := exec
     let reaction := net.reaction reactionID
-    unless exec.triggers reaction do continue
-    let reactorID := reactionID.reactor
-    let ports     := exec.reactionInputs reactorID
-    let actions   := exec.reactors reactorID .actions
-    let state     := exec.reactors reactorID .state
-    let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
-    -- exec := exec.apply output
-    -- TODO: You're not propagating ports at the moment.
-  match exec.next with
-  | some next => run (exec.advance next) topo
-  | none => return
+    if exec.triggers reaction then
+      let reactorID := reactionID.reactor
+      let ports     := exec.reactionInputs reactorID
+      let actions   := exec.reactors reactorID .actions
+      let state     := exec.reactors reactorID .state
+      let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
+      exec := exec.apply output
+      exec := exec.propagatePorts output
+    run exec topo (reactionIdx + 1)
 
 end Executable
 

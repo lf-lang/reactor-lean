@@ -2,7 +2,12 @@ class InjectiveCoe (α β) extends Coe α β where
   inv      : β → Option α
   invInj   : ∀ {b₁ b₂}, (inv b₁ = inv b₂) → (b₁ = b₂) 
   coeInvId : ∀ a, inv (coe a) = a
-
+  
+theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b = some a) → (inst.coe a = b) := by
+  intro b h
+  rw [←inst.coeInvId a] at h
+  exact (invInj h).symm  
+  
 class OrdCoe (α β) [Ord α] [Ord β] extends Coe α β where
   coeOrd : ∀ a₁ a₂, compare a₁ a₂ = compare (a₁ : β) (a₂ : β)
 

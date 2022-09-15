@@ -54,16 +54,20 @@ abbrev Graph.reactionOutputScheme (graph : Graph) (reactorID : ReactorID graph.t
   let nestedInputs := graph.subscheme reactorID .inputs
   localOutputs ⊎ nestedInputs
 
+-- Lean can't "see through" this automatically.
+theorem Graph.reactionOutputScheme_local_type (graph : Graph) (reactorID output) :
+  (graph.reactionOutputScheme reactorID).type (.inl output) = ((graph.schemes reactorID) .outputs).type output := rfl
+
 abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
   let localScheme := graph.schemes reactorID
   Reaction (graph.reactionInputScheme reactorID) (graph.reactionOutputScheme reactorID) (localScheme .actions) (localScheme .state)
 
--- Lean can't automatically infer this for some reason.
+-- Lean can't automatically infer this automatically.
 instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
   InjectiveCoe reaction.portSources (graph.reactionInputScheme reactorID).vars :=
   reaction.portSourcesInjCoe
 
--- Lean can't automatically infer this for some reason.
+-- Lean can't automatically infer this automatically.
 instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
   InjectiveCoe reaction.portEffects (graph.reactionOutputScheme reactorID).vars :=
   reaction.portEffectsInjCoe

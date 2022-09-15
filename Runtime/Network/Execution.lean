@@ -47,23 +47,26 @@ where
     fun
     | .state => output.state
     | .outputs => 
-      -- TODO: This should be achievable with `Interface.merge'`.
       let i₁ : Interface (net.schemes reactorID .outputs) := exec.reactors reactorID .outputs
       let i₂ : Interface ((net.reactionOutputScheme reactorID).restrict reaction.portEffects) := output.ports
-      -- have h₁ : net.reactionOutputScheme reactorID = net.schemes reactorID .outputs := sorry
-      -- have h₂ : InjectiveCoe reaction.portEffects (net.schemes reactorID .outputs).vars := sorry
-      -- let a := @Interface.merge' (net.schemes reactorID .outputs) reaction.portEffects inferInstance h₂ i₁ i₂
       fun var =>
-        let var := var
         let fallback := i₁ var
-        sorry
-      -- fun var => do
-      -- let var : (net.reactionOutputScheme reactorID).vars := .inl (h ▸ var)
-      -- let var' : reaction.portEffects ← InjectiveCoe.inv var
-      -- let value ← output.ports var'
-      -- have h := Interface.Scheme.restrict_preserves_type (net.graph.reactionOutputScheme reactorID) reaction.portEffects var'
-      -- have h' := InjectiveCoe.coeInvId var
-      -- sorry
+        let var' : (net.reactionOutputScheme reactorID).vars := .inl var
+        let var'' : Option reaction.portEffects := InjectiveCoe.inv var'
+        match h : var'' with 
+        | none => fallback
+        | some var''' =>
+          let val : Option $ ((net.graph.reactionOutputScheme reactorID).restrict reaction.portEffects).type var''' := i₂ var'''
+          match val with
+          | none => fallback
+          | some val =>
+            let val' := (Interface.Scheme.restrict_preserves_type (net.graph.reactionOutputScheme reactorID) reaction.portEffects var''') ▸ val
+            have H : Interface.Scheme.type (Graph.reactionOutputScheme (graph net) reactorID) (Coe.coe var''') = Interface.Scheme.type (Graph.reactionOutputScheme (graph net) reactorID) (var') := by
+              simp [InjectiveCoe.invCoeId _ h]
+            let val'' := H ▸ val'
+            have a := net.graph.reactionOutputScheme_local_type reactorID var
+            let val''' := a ▸ val''
+            some val'''
     | other => exec.reactors reactorID other
   nestedReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net.tree) (h : id.isChildOf reactorID) : Reactor (net.graph.schemes id) :=
     fun
@@ -112,7 +115,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) : IO Uni
     let actions   := exec.reactors reactorID .actions
     let state     := exec.reactors reactorID .state
     let ⟨output, _⟩ ← reaction.run ports actions state exec.tag
-    sorry -- exec := exec.apply output
+    -- exec := exec.apply output
     -- TODO: You're not propagating ports at the moment.
   match exec.next with
   | some next => run (exec.advance next) topo

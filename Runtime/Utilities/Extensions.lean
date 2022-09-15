@@ -8,9 +8,6 @@ theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b =
   rw [←inst.coeInvId a] at h
   exact (invInj h).symm  
   
-class OrdCoe (α β) [Ord α] [Ord β] extends Coe α β where
-  coeOrd : ∀ a₁ a₂, compare a₁ a₂ = compare (a₁ : β) (a₂ : β)
-
 instance [Ord α] : LE α := leOfOrd
 
 instance : DecidableEq Empty :=

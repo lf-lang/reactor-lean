@@ -45,28 +45,28 @@ def apply (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : n
 where 
   targetReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Reactor (net.graph.schemes reactorID) :=
     fun
-      | .state => output.state
-      | .outputs => 
-        -- TODO: This should be achievable with `Interface.merge'`.
-        let i₁ : Interface (net.schemes reactorID .outputs) := exec.reactors reactorID .outputs
-        let i₂ : Interface ((net.reactionOutputScheme reactorID).restrict reaction.portEffects) := output.ports
-        -- have h₁ : net.reactionOutputScheme reactorID = net.schemes reactorID .outputs := sorry
-        -- have h₂ : InjectiveCoe reaction.portEffects (net.schemes reactorID .outputs).vars := sorry
-        -- let a := @Interface.merge' (net.schemes reactorID .outputs) reaction.portEffects inferInstance h₂ i₁ i₂
-        fun var =>
-          let var := var
-          let fallback := i₁ var
-          sorry
-        -- fun var => do
-        -- let var : (net.reactionOutputScheme reactorID).vars := .inl (h ▸ var)
-        -- let var' : reaction.portEffects ← InjectiveCoe.inv var
-        -- let value ← output.ports var'
-        -- have h := Interface.Scheme.restrict_preserves_type (net.graph.reactionOutputScheme reactorID) reaction.portEffects var'
-        -- have h' := InjectiveCoe.coeInvId var
-        -- sorry
-      | other => exec.reactors reactorID other
+    | .state => output.state
+    | .outputs => 
+      -- TODO: This should be achievable with `Interface.merge'`.
+      let i₁ : Interface (net.schemes reactorID .outputs) := exec.reactors reactorID .outputs
+      let i₂ : Interface ((net.reactionOutputScheme reactorID).restrict reaction.portEffects) := output.ports
+      -- have h₁ : net.reactionOutputScheme reactorID = net.schemes reactorID .outputs := sorry
+      -- have h₂ : InjectiveCoe reaction.portEffects (net.schemes reactorID .outputs).vars := sorry
+      -- let a := @Interface.merge' (net.schemes reactorID .outputs) reaction.portEffects inferInstance h₂ i₁ i₂
+      fun var =>
+        let var := var
+        let fallback := i₁ var
+        sorry
+      -- fun var => do
+      -- let var : (net.reactionOutputScheme reactorID).vars := .inl (h ▸ var)
+      -- let var' : reaction.portEffects ← InjectiveCoe.inv var
+      -- let value ← output.ports var'
+      -- have h := Interface.Scheme.restrict_preserves_type (net.graph.reactionOutputScheme reactorID) reaction.portEffects var'
+      -- have h' := InjectiveCoe.coeInvId var
+      -- sorry
+    | other => exec.reactors reactorID other
   nestedReactor (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net.tree) (h : id.isChildOf reactorID) : Reactor (net.graph.schemes id) :=
-  fun
+    fun
     | .inputs => sorry -- nested inputs
     | other => exec.reactors id other
 

@@ -18,9 +18,6 @@ def coe [Ord β] [Coe α β] (s : SortedArray α) (h : ∀ a₁ a₂, compare a�
   isSorted := sorry
 }
 
-instance [Ord β] [ordCoe : OrdCoe α β] : Coe (SortedArray α) (SortedArray β) where
-  coe s := s.coe ordCoe.coeOrd
-
 def nil : SortedArray α := {
   isSorted := List.Sorted.nil
 }
@@ -31,16 +28,7 @@ def singleton (a : α) : SortedArray α := {
   isSorted := List.Sorted.singleton (a := a)
 }
 
-notation (priority := default - 1) "#[" a "]#" => SortedArray.singleton a
-
-instance : LE (SortedArray α) where
-  le s₁ s₂ := 
-    match s₁.toArray[s₁.size - 1]?, s₂.toArray[0]? with
-    | _, none | none, _ => True
-    | some last₁, some first₂ => last₁ ≤ first₂
-
-def append (s₁ s₂ : SortedArray α) (h : s₁ ≤ s₂) : SortedArray α :=
-  ⟨s₁.toArray ++ s₂.toArray, sorry⟩ 
+notation "#[" a "]#" => SortedArray.singleton a
 
 -- Note: For the purposes of reactor execution, it is important that this merge is stable
 --       in the sense that for elements of equal ordering, those from s₁ are sorted earlier 
@@ -50,18 +38,3 @@ def merge (s₁ s₂ : SortedArray α) : SortedArray α :=
   -- TODO: temporary
   let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (Ord.compare · · |>.isLE)
   { toArray := sorted, isSorted := sorry }
-  
--- Note: For the purposes of reactor execution, it is important that this split is stable.
-def split (s : SortedArray α) (p : α → Bool) : (SortedArray α) × (SortedArray α) :=
-  -- TODO: temporary - This can be done more efficiently (note: Array.split is stable)
-  let ⟨fst, snd⟩ := s.toArray.split p
-  (⟨fst, sorry⟩, ⟨snd, sorry⟩)
-
-theorem split_order {s : SortedArray α} : (s.split p = (s₁, s₂)) → s₁ ≤ s₂ := by
-  sorry
-
-theorem split_fst_property {s : SortedArray α} : (s.split p = (s₁, s₂)) → (s₁.all p) := by
-  sorry
-
-theorem split_snd_property {s : SortedArray α} : (s.split p = (s₁, s₂)) → (s₂.all (¬p ·)) := by
-  sorry

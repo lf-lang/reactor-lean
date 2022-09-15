@@ -2,15 +2,16 @@ import Runtime.Time
 import Runtime.Interface
 import Runtime.Utilities
 
-structure Event (σAction : Interface.Scheme) (min : Time) where 
+structure Reaction.Event (σAction : Interface.Scheme) (min : Time) where 
   action : σAction.vars
   time   : Time.From min
   value  : σAction.type action
 
-instance : Ord (Event σAction time) where
+instance : Ord (Reaction.Event σAction time) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
 namespace ReactionM
+open Reaction
 
 structure Input (σPortSource σActionSource σState : Interface.Scheme) where
   ports   : Interface σPortSource
@@ -21,7 +22,7 @@ structure Input (σPortSource σActionSource σState : Interface.Scheme) where
 structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min : Time) where
   ports  : Interface σPortEffect := fun _ => none
   state  : Interface σState
-  events : /-Sorted-/Array (Event σActionEffect min) := #[]--#
+  events : SortedArray (Event σActionEffect min) := #[]#
 
 abbrev _root_.ReactionT (σPortSource σPortEffect σActionSource σActionEffect σState : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σPortSource σActionSource σState) → m (Output σPortEffect σActionEffect σState input.tag.time × α)
@@ -32,7 +33,7 @@ variable {σInput σOutput σAction σPortSource σPortEffect σActionSource σA
 
 def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time := {
   ports  := o₁.ports.merge o₂.ports,
-  state  := o₁.state.merge  o₂.state,
+  state  := o₁.state.merge o₂.state,
   events := o₁.events.merge o₂.events
 }
 
@@ -97,7 +98,7 @@ def schedule (action : σActionEffect.vars) (delay : Duration) (v : σActionEffe
   fun input => 
     let time := input.tag.time.advance delay
     let event : Event σActionEffect input.tag.time := { action := action, time := time, value := v }
-    let output := { state := input.state, events := #[event]/-#-/ }
+    let output := { state := input.state, events := #[event]# }
     return (output, ())
 
 end ReactionM

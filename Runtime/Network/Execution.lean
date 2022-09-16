@@ -93,11 +93,11 @@ where
           if h : source.reactor = reactorID then
             match hi : InjectiveCoe.inv (Sum.inl (h ▸ source.port)) with 
             | none => currentReactor .inputs var
-            | some var₂ => 
-              match output.ports var₂ with
+            | some var' => 
+              match output.ports var' with
               | none => currentReactor .inputs var
               | some val =>
-                have h : (net.schemes id .inputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var₂ := by
+                have h : (net.schemes id .inputs).type var = ((net.reactionOutputScheme reactorID).restrict reaction.portEffects).type var' := by
                   rw [(net.reactionOutputScheme reactorID).restrict_preserves_type, InjectiveCoe.invCoeId _ hi, ←net.connections.eqType hc]
                   subst h; rfl
                 h ▸ val

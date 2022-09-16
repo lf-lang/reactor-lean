@@ -55,6 +55,14 @@ def Path.isChildOf : Path tree → Path tree → Bool
     else false
   | _, _ => false
 
+def Path.isSiblingOf : Path tree → Path tree → Bool
+  | .last _, .last _ => true
+  | .cons branch₁ subpath₁, .cons branch₂ subpath₂ =>
+    if h : branch₁ = branch₂ 
+    then subpath₁.isSiblingOf (h ▸ subpath₂) 
+    else false
+  | _, _ => false
+
 inductive Path.Rooted (tree : Tree)
   | root
   | branch (_ : Path tree)
@@ -99,4 +107,9 @@ def Path.Rooted.last (child : Path.Rooted tree) {parent} (h : child.isChildOf pa
   | .branch (.last last) => sorry -- last
   | .branch (.cons _ subpath) => sorry
   
+def Path.Rooted.isSiblingOf : Path.Rooted tree → Path.Rooted tree → Bool 
+  | .root, .root => true
+  | .branch path₁, .branch path₂ => path₁.isSiblingOf path₂
+  | _, _ => false
+
 end Tree

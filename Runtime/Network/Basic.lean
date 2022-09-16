@@ -79,9 +79,13 @@ instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.re
 -- A map from input ports to output ports with matching type.
 -- Since each input port can have at most one output port that connects to it,
 -- the return type is an optional output port.
-def Connections (graph : Graph) :=
-  (input : PortID .input graph) → 
-  Option { output : PortID .output graph // (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port }
+structure Connections (graph : Graph) where
+  map : (PortID .input graph) → Option (PortID .output graph)
+  eqType : (map input = some output) → (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port
+  siblings : (map input = some output) → input.reactor.isSiblingOf output.reactor
+
+instance : CoeFun (Connections graph) (fun _ => PortID .input graph → Option (PortID .output graph)) where
+  coe c := c.map
 
 structure _root_.Network extends Graph where
   connections : Connections graph

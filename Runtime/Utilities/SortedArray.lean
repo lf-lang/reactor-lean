@@ -13,11 +13,6 @@ namespace SortedArray
 
 variable [Ord α]
 
-def coe [Ord β] [Coe α β] (s : SortedArray α) (h : ∀ a₁ a₂, compare a₁ a₂ = compare (a₁ : β) (a₂ : β)) : SortedArray β := {
-  toArray := s.toArray.map Coe.coe
-  isSorted := sorry
-}
-
 def nil : SortedArray α := {
   isSorted := List.Sorted.nil
 }
@@ -30,10 +25,9 @@ def singleton (a : α) : SortedArray α := {
 
 notation "#[" a "]#" => SortedArray.singleton a
 
--- Note: For the purposes of reactor execution, it is important that this merge is stable
---       in the sense that for elements of equal ordering, those from s₁ are sorted earlier 
---       than those from s₂. Also the order present within a given array (s₁ or s₂) is not 
---       disturbed.
+-- Note: For the purposes of reactor execution, it is important that this merge is stable.
+-- That is, it should be the same as would be produced by a stable sorting algorithm on
+-- input `s₁ ++ s₂`.
 def merge (s₁ s₂ : SortedArray α) : SortedArray α :=
   -- TODO: temporary
   let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (Ord.compare · · |>.isLE)

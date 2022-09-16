@@ -38,7 +38,7 @@ where aux : {tree : Tree} → (p₁ : Path tree) → (p₂ : Path tree) → Deci
 
 def subtree : Path tree → Tree 
   | @Path.last tree branch => tree.subtrees branch
-  | .cons _ subpath => subtree subpath
+  | .cons _ subpath        => subtree subpath
 
 -- Cf. notation for `Path.Rooted.subtree'` for docs.
 macro:max tree:term noWs "[" path:term "]" : term => `(Tree.subtree (tree := $tree) $path)
@@ -54,6 +54,23 @@ def Path.isChildOf : Path tree → Path tree → Bool
     then subpath₁.isChildOf (h ▸ subpath₂) 
     else false
   | _, _ => false
+
+theorem Path.isChildOf_cons_eq_branch : isChildOf (.cons branch₁ child) (.cons branch₂ parent) → branch₁ = branch₂ := by
+  intro h
+  simp [isChildOf] at h
+  split at h <;> simp [*]
+
+theorem Path.isChildOf_cons : isChildOf (.cons branch child) (.cons branch parent) → child.isChildOf parent :=
+  fun _ => by simp_all [isChildOf]
+
+def Path.last' (child : Path tree) {parent} (h : child.isChildOf parent) : tree[parent].branches :=
+  match child, parent with
+  | .cons branch₁ (.last l), .last branch₂ => 
+    have h : branch₁ = branch₂ := by simp_all [isChildOf]
+    h ▸ l
+  | .cons branch₁ subpath₁,  .cons branch₂ subpath₂ =>
+    have hb : branch₁ = branch₂ := isChildOf_cons_eq_branch h
+    (hb ▸ subpath₁).last' (by subst hb; exact isChildOf_cons h)
 
 def Path.isSiblingOf : Path tree → Path tree → Bool
   | .last _, .last _ => true
@@ -93,23 +110,25 @@ macro:max tree:term noWs "[" path:term "]" : term => `(Tree.subtree' (tree := $t
 
 def Path.Rooted.extend (path : Path.Rooted tree) (extension : tree[path].branches) : Path.Rooted tree :=
   match path with
-  | .root => Path.last extension
+  | .root        => Path.last extension
   | .branch path => path.extend extension
 
 def Path.Rooted.isChildOf : Path.Rooted tree → Path.Rooted tree → Bool
-  | .branch (.last _), .root => true
-  | .branch child, .branch parent => child.isChildOf parent
-  | _, _ => false
+  | .branch (.last _), .root          => true
+  | .branch child,     .branch parent => child.isChildOf parent
+  | _,                 _              => false
+
+theorem Path.Rooted.isChildOf_cons : isChildOf (.branch child) (.branch parent) → child.isChildOf parent :=
+  fun _ => by simp_all [isChildOf]
 
 def Path.Rooted.last (child : Path.Rooted tree) {parent} (h : child.isChildOf parent) : tree[parent].branches :=
-  match child with
-  | .root => by contradiction
-  | .branch (.last last) => sorry -- last
-  | .branch (.cons _ subpath) => sorry
-  
+  match child, parent with
+  | .branch (.last last), .root     => last
+  | .branch path₁,        .branch _ => path₁.last' (isChildOf_cons h)
+    
 def Path.Rooted.isSiblingOf : Path.Rooted tree → Path.Rooted tree → Bool 
-  | .root, .root => true
+  | .root,         .root         => true
   | .branch path₁, .branch path₂ => path₁.isSiblingOf path₂
-  | _, _ => false
+  | _,             _             => false
 
 end Tree

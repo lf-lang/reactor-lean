@@ -55,8 +55,17 @@ where
     none
   termination_by _ => as.size - idx
 
-theorem Array.findP?_property {as : Array α} : (as.findP? p = some a) → (p a) := by
-  sorry
+theorem Array.findP?_property {as : Array α} : (Array.findP? as p = some a) → (p a) :=
+  let rec go {idx} : (Array.findP?.loop idx as p = some a) → (p a) := by
+    intro h
+    unfold findP?.loop at h
+    split at h <;> simp at h
+    case inl hi => 
+      split at h
+      case inl => simp_all
+      case inr => exact go h
+  go
+termination_by _ => as.size - idx
 
 -- TODO: temporary
 def Array.merge [Ord α] (s₁ s₂ : Array α) : Array α :=

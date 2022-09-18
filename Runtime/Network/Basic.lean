@@ -38,6 +38,27 @@ structure PortID (kind : Reactor.PortKind) (graph : Graph) where
   reactor : ReactorID graph.tree
   port : (graph.schemes reactor kind).vars
 
+-- TODO: This isn't needed if constructing a network's connections via pattern matching works.
+-- TODO: This is exactly the same as the instance for `DecidableEq (Σ a : Type, a)`.
+instance : DecidableEq (PortID kind graph) := 
+  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 
+    if h : a₁ = a₂ then 
+      if h' : (h ▸ b₁) = b₂ then
+        .isTrue (by subst h h'; rfl)
+      else 
+        .isFalse (by 
+          subst h
+          intro hc
+          injection hc
+          contradiction
+        )
+    else
+      .isFalse (by
+        intro hc
+        injection hc
+        contradiction
+      )
+
 abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
   fun branch => graph.schemes (reactorID.extend branch)
 
@@ -82,13 +103,12 @@ instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.re
 structure Connections (graph : Graph) where
   map : (PortID .input graph) → Option (PortID .output graph)
   eqType : (map input = some output) → (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port
-  siblings : (map input = some output) → input.reactor.isSiblingOf output.reactor
 
 instance : CoeFun (Connections graph) (fun _ => PortID .input graph → Option (PortID .output graph)) where
   coe c := c.map
 
 structure _root_.Network extends Graph where
-  connections : Connections graph
+  connections : Connections toGraph
   reactions : (id : ReactorID toGraph.tree) → Array (toGraph.reactionType id)
 
 abbrev graph (net : Network) : Graph := net.toGraph

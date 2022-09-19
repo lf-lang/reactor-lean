@@ -186,9 +186,32 @@ abbrev graph : Network.Graph := {
     | .root => Main.scheme
 }
 
-/-
-def Sub.reactions : Array (graph.reactionType )
+instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .root).vars := {
+  coe := fun
+    | .i1   => .inl .i1
+    | .i2   => .inl .i2
+    | .x.o1 => .inr ⟨.x, .o1⟩
+  inv := fun
+    | .inl .i1       => some .i1
+    | .inl .i2       => some .i2
+    | .inr ⟨.x, .o1⟩ => some .x.o1 
+    | _              => none
+  invInj := sorry
+  coeInvId := sorry
+}
 
+instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .root).vars := {
+  coe := fun
+    | .o1   => .inl .o1
+    | .x.i2 => .inr ⟨.x, .i2⟩
+  inv := fun
+    | .inl .o1       => some .o1
+    | .inr ⟨.x, .i2⟩ => some .x.i2 
+    | _              => none
+  invInj := sorry
+  coeInvId := sorry
+}
+  
 def Main.reactions : Array (graph.reactionType .root) := #[
   {
     portSources   := Main.Reaction1.PortSource
@@ -208,6 +231,7 @@ def Main.reactions : Array (graph.reactionType .root) := #[
   }
 ]
 
+/-
 def Sub.subreactions : (id : Tree.Path Sub.tree) → Array (graph.reactionType (.branch id))
   | .last .a    => sorry -- Grand.reactions
   | .last .b    => sorry -- Grand.reactions
@@ -227,15 +251,16 @@ def network : Network := {
     | .root => #[] -- Main.reactions
     | .branch id => #[] -- Main.subreactions id
   connections := {
-    map := fun port => 
+    map := 
       -- TODO: This is probably a bug similar to https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Pattern.20matching.20limitations.3F 
       -- set_option pp.all true in
-      -- match port with
+      -- fun
       -- | ⟨.branch (.last .y), .i3⟩ => some ⟨.branch (.last .x), .o1⟩
       -- | ⟨.branch (.last .x), .i2⟩ => some ⟨.root, .o1⟩
       -- | _ => none
       --
       -- Workaround:
+      fun port => 
       if      port = ⟨.branch (.last .y), .i3⟩ then some ⟨.branch (.last .x), .o1⟩
       else if port = ⟨.branch (.last .x), .i2⟩ then some ⟨.root, .o1⟩
       else                                          none

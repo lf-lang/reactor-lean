@@ -21,7 +21,12 @@ instance : Coe PortKind InterfaceKind where
     | .input => .inputs
     | .output => .outputs
 
-def Scheme := InterfaceKind → Interface.Scheme 
-def _root_.Reactor (σ : Reactor.Scheme) := (kind : InterfaceKind) → (Interface $ σ kind)
+structure Scheme (Classes : Type) where
+  interface : InterfaceKind → Interface.Scheme 
+  children : Type
+  «class» : children → Classes
+  [decEqChildren : DecidableEq children]
+
+attribute [instance] Scheme.decEqChildren
 
 end Reactor

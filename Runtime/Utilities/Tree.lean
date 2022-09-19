@@ -1,7 +1,12 @@
+import Runtime.Utilities.Extensions
+
 inductive Tree 
   | node (branches : Type) (subtrees : branches → Tree) [decEq : DecidableEq branches]
 
 namespace Tree
+
+instance : Inhabited Tree where
+  default := .node Empty (·.rec)
 
 abbrev branches : Tree → Type 
   | @node branches _ _ => branches

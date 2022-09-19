@@ -2,17 +2,78 @@ import Runtime.Reactor
 
 namespace Network
 
-abbrev ReactorID := Tree.Path.Rooted
+structure Graph (Classes : Type) where 
+  schemes : Classes → (Reactor.Scheme Classes)
 
--- A network graph is a tree of reactor ids with a function 
--- that maps each path in that tree to a reactor scheme.
-structure Graph where
-  tree : Tree
-  schemes : (ReactorID tree) → Reactor.Scheme
+def Graph.subschemes (graph : Graph Classes) («class» : Classes) : (graph.schemes «class»).children → Reactor.Scheme Classes := 
+  fun child => graph.schemes «class» |>.class child |> graph.schemes
 
-structure ActionID (graph : Graph) where
-  reactor : ReactorID graph.tree
-  action : (graph.schemes reactor .actions).vars
+def Graph.subscheme (graph : Graph Classes) («class» : Classes) (kind : Reactor.InterfaceKind) :=
+  ⨄ fun child => (graph.subschemes «class» child).interface kind
+
+def Graph.reactionInputScheme (graph : Graph Classes) («class» : Classes) :=
+  let localInputs := (graph.schemes «class»).interface .inputs
+  let nestedOutputs := graph.subscheme «class» .outputs
+  localInputs ⊎ nestedOutputs
+
+def Graph.reactionOutputScheme (graph : Graph Classes) («class» : Classes) :=
+  let localOutputs := (graph.schemes «class»).interface .outputs
+  let nestedInputs := graph.subscheme «class» .inputs
+  localOutputs ⊎ nestedInputs
+
+def Graph.reactionType (graph : Graph Classes) («class» : Classes) :=
+  let localScheme := graph.schemes «class» |>.interface
+  Reaction (graph.reactionInputScheme «class») (graph.reactionOutputScheme «class») (localScheme .actions) (localScheme .state)
+
+structure Network where
+  classes : Type
+  graph : Graph classes
+  main : Class
+  reactions : («class» : classes) → graph.reactionType «class»
+
+def Network.schemes (net : Network) : net.classes → (Reactor.Scheme net.classes) :=
+  net.graph.schemes
+
+
+
+
+
+
+
+partial def Network.instances (net : Network) : Tree :=
+  aux net net.main
+where 
+  aux (net : Network) («class» : net.classes) : Tree :=
+    let scheme := net.schemes «class»
+    .node scheme.children fun child => aux net (scheme.class child)
+
+mutual
+
+inductive ReactorID (net : Network)
+  | main
+  | cons (hd : ReactorID net) (tl : Network.class net hd)
+
+def Network.class (net : Network) : (ReactorID net) → net.classes
+  | .main => net.main
+  | .cons _ _ => sorry
+
+end 
+
+
+
+
+
+
+
+
+
+
+
+
+
+structure ActionID (net : Network) where
+  reactor : ReactorID net
+  action : (net.schemes reactor .actions).vars
 
 -- TODO: This is exactly the same as the instance for `DecidableEq (Σ a : Type, a)`.
 instance : DecidableEq (ActionID graph) :=
@@ -59,26 +120,6 @@ instance : DecidableEq (PortID kind graph) :=
         contradiction
       )
 
-abbrev Graph.subschemes (graph : Graph) (reactorID : ReactorID graph.tree) : graph.tree[reactorID].branches → Reactor.Scheme := 
-  fun branch => graph.schemes (reactorID.extend branch)
-
-abbrev Graph.subscheme (graph : Graph) (reactorID : ReactorID graph.tree) (kind : Reactor.InterfaceKind) :=
-  ⨄ fun branch => (graph.subschemes reactorID branch) kind
-
-theorem Graph.child_schemes_eq_parent_subschemes {graph : Graph} {child parent : ReactorID graph.tree} (h : child.isChildOf parent) : 
-  graph.schemes child = graph.subschemes parent (child.last h) := by
-  rw [subschemes, Tree.Path.Rooted.extend_parent_child_last_eq_child h]
-
-abbrev Graph.reactionInputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
-  let localInputs := (graph.schemes reactorID) .inputs
-  let nestedOutputs := graph.subscheme reactorID .outputs
-  localInputs ⊎ nestedOutputs
-
-abbrev Graph.reactionOutputScheme (graph : Graph) (reactorID : ReactorID graph.tree) :=
-  let localOutputs := (graph.schemes reactorID) .outputs
-  let nestedInputs := graph.subscheme reactorID .inputs
-  localOutputs ⊎ nestedInputs
-
 -- Lean can't "see through" this automatically.
 theorem Graph.reactionOutputScheme_local_type (graph : Graph) (reactorID output) :
   (graph.reactionOutputScheme reactorID).type (.inl output) = ((graph.schemes reactorID) .outputs).type output := rfl
@@ -109,7 +150,9 @@ instance : CoeFun (Connections graph) (fun _ => PortID .input graph → Option (
 
 structure _root_.Network extends Graph where
   connections : Connections toGraph
-  reactions : (id : ReactorID toGraph.tree) → Array (toGraph.reactionType id)
+  reactions : (id : ReactorID toGraph.tree) → Array (toGraph.reactionType id) 
+  -- TODO: We only want a mapping from each reactor scheme to an array of reactions.
+  --       This also means that we could map each 
 
 abbrev graph (net : Network) : Graph := net.toGraph
 

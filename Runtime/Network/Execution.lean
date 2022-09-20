@@ -2,36 +2,43 @@ import Runtime.Network.Basic
 
 namespace Network
 
-structure Event (graph : Graph) where
+structure Event (net : Network) where
   time  : Time
-  id    : ActionID graph
-  value : (graph.schemes id.reactor .actions).type id.action
+  id    : ActionID net
+  value : (net.scheme id.reactor).interface .actions |>.type id.action
 
 instance {graph} : Ord (Event graph) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
 structure Executable (net : Network) where
   tag : Tag
-  queue : Array (Event net.graph) 
-  reactors : (id : ReactorID net.tree) → Reactor (net.schemes id)
+  queue : Array (Event net) 
+  reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → Interface (net.scheme id |>.interface kind)
 
 namespace Executable
 
 -- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
-def reactionInputs (exec : Executable net) (reactorID : ReactorID net.tree) : Interface (net.reactionInputScheme reactorID) 
-  | .inl localInput => (exec.reactors reactorID) .inputs localInput
-  | .inr ⟨subreactor, nestedOutput⟩ => exec.reactors (reactorID.extend subreactor) .outputs nestedOutput
+def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interface (net.reactionInputScheme reactorID) 
+  | .inl localInput => 
+    have h : ((net.scheme reactorID).interface .inputs).type (scheme_def ▸ localInput) = (net.reactionInputScheme reactorID).type (.inl localInput) := by cases reactorID <;> rfl
+    h ▸ (exec.reactors reactorID) .inputs (Network.scheme_def ▸ localInput)
+  | .inr ⟨child, nestedOutput⟩ => 
+    let nested := reactorID.extend (scheme_def ▸ child)
+    have h₁ : ((net.schemes ((net.schemes $ net.class reactorID).class child)).interface .outputs).vars = ((net.scheme nested).interface .outputs).vars := sorry
+    have h₂ : ((net.scheme nested).interface .outputs).type (h₁ ▸ nestedOutput) = (reactionInputScheme net reactorID).type (.inr ⟨child, nestedOutput⟩) := sorry
+    h₂ ▸ (exec.reactors nested) .outputs (h₁ ▸ nestedOutput)
 
-def triggers (exec : Executable net) {reactorID : ReactorID net.tree} (reaction : net.reactionType reactorID) : Bool :=
+def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net.reactionType reactorID) : Bool :=
   reaction.triggers.any fun trigger =>
     match trigger with
     | .port   port   => (exec.reactionInputs reactorID).isPresent port
     | .action action => (exec.reactors reactorID .actions).isPresent action
 
-def apply (exec : Executable net) {reactorID : ReactorID net.tree} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
+/-
+def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
   queue := exec.queue.merge $ output.events.map fun event => {
     time := event.time
-    id := ⟨reactorID, event.action⟩
+    id := ⟨reactorID, scheme_def ▸ event.action⟩
     value := event.value
   }
   reactors := fun id =>
@@ -104,11 +111,12 @@ where
           else
             currentReactor .inputs var
     | interface => currentReactor interface 
+-/
 
 structure Next (net : Network) where
   tag    : Tag
-  events : Array (Event net.graph)
-  queue  : Array (Event net.graph)
+  events : Array (Event net)
+  queue  : Array (Event net)
 
 def next (exec : Executable net) : Option (Next net) := do
   let nextEvent ← exec.queue[0]?
@@ -129,7 +137,7 @@ def advance (exec : Executable net) (next : Next net) : Executable net := {
     | .state             => exec.reactors id .state
     | .actions           => (actionForEvents next.events ⟨id, ·⟩)
 }
-where actionForEvents (events : Array $ Event net.graph) (id : ActionID net.graph) : Option $ (net.graph.schemes id.reactor .actions).type id.action :=
+where actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=
   match h : events.findP? (·.id = id) with
   | none => none
   | some event => 
@@ -152,8 +160,8 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       let ports     := exec.reactionInputs reactorID
       let actions   := exec.reactors reactorID .actions
       let state     := exec.reactors reactorID .state
-      let output ← reaction.run ports actions state exec.tag
-      exec := exec.apply output
+      let output ← reaction.run ports (scheme_def ▸ actions) (scheme_def ▸ state) exec.tag
+      -- exec := exec.apply output
     run exec topo (reactionIdx + 1)
 
 end Executable

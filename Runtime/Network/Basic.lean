@@ -1,166 +1,118 @@
+import Runtime.Reaction
 import Runtime.Reactor
 
 namespace Network
 
-structure Graph (Classes : Type) where 
-  schemes : Classes → (Reactor.Scheme Classes)
+structure Graph where
+  classes : Type
+  schemes : classes → (Reactor.Scheme classes)
+  root : classes
 
-def Graph.subschemes (graph : Graph Classes) («class» : Classes) : (graph.schemes «class»).children → Reactor.Scheme Classes := 
-  fun child => graph.schemes «class» |>.class child |> graph.schemes
+abbrev Graph.rootScheme (graph : Graph) := graph.schemes graph.root
 
-def Graph.subscheme (graph : Graph Classes) («class» : Classes) (kind : Reactor.InterfaceKind) :=
-  ⨄ fun child => (graph.subschemes «class» child).interface kind
+abbrev Graph.subgraph (graph : Graph) (newRoot : graph.classes) : Graph := 
+  { graph with root := newRoot }
 
-def Graph.reactionInputScheme (graph : Graph Classes) («class» : Classes) :=
-  let localInputs := (graph.schemes «class»).interface .inputs
-  let nestedOutputs := graph.subscheme «class» .outputs
+abbrev Graph.subinterface (graph : Graph) («class» : graph.classes) (kind : Reactor.InterfaceKind) :=
+  ⨄ fun child => graph |>.schemes «class» |>.class child |> graph.schemes |>.interface kind
+
+abbrev Graph.reactionInputScheme (graph : Graph) («class» : graph.classes) :=
+  let localInputs := graph.schemes «class» |>.interface .inputs
+  let nestedOutputs := graph.subinterface «class» .outputs
   localInputs ⊎ nestedOutputs
 
-def Graph.reactionOutputScheme (graph : Graph Classes) («class» : Classes) :=
-  let localOutputs := (graph.schemes «class»).interface .outputs
-  let nestedInputs := graph.subscheme «class» .inputs
+abbrev Graph.reactionOutputScheme (graph : Graph) («class» : graph.classes) :=
+  let localOutputs := graph.schemes «class» |>.interface .outputs
+  let nestedInputs := graph.subinterface «class» .inputs
   localOutputs ⊎ nestedInputs
 
-def Graph.reactionType (graph : Graph Classes) («class» : Classes) :=
+abbrev Graph.reactionType (graph : Graph) («class» : graph.classes) :=
   let localScheme := graph.schemes «class» |>.interface
   Reaction (graph.reactionInputScheme «class») (graph.reactionOutputScheme «class») (localScheme .actions) (localScheme .state)
 
-structure Network where
-  classes : Type
-  graph : Graph classes
-  main : Class
-  reactions : («class» : classes) → graph.reactionType «class»
+inductive Graph.Path : Graph → Type _
+  | last (child : graph.rootScheme.children) : Path graph
+  | cons (child : graph.rootScheme.children) : Path (graph.rootScheme.class child |> graph.subgraph) → Path graph
+  deriving DecidableEq
 
-def Network.schemes (net : Network) : net.classes → (Reactor.Scheme net.classes) :=
-  net.graph.schemes
+def Graph.class (graph : Graph) : (Path graph) → graph.classes
+  | .last child         => graph.rootScheme.class child
+  | .cons child subpath => graph.rootScheme.class child |> graph.subgraph |>.class subpath
 
+abbrev Graph.scheme (graph : Graph) (path : Path graph) : Reactor.Scheme graph.classes :=
+  graph.class path |> graph.schemes
 
+abbrev Graph.Path.extend {graph} (path : Path graph) (extension : graph.scheme path |>.children) : Path graph :=
+  match path with
+  | .last child         => .cons child (.last extension)
+  | .cons child subpath => .cons child (subpath.extend extension)
 
+structure _root_.Network extends Graph where
+  reactions : («class» : toGraph.classes) → Array (toGraph.reactionType «class»)
 
-
-
-
-partial def Network.instances (net : Network) : Tree :=
-  aux net net.main
-where 
-  aux (net : Network) («class» : net.classes) : Tree :=
-    let scheme := net.schemes «class»
-    .node scheme.children fun child => aux net (scheme.class child)
-
-mutual
+abbrev graph (net : Network) : Graph := net.toGraph
 
 inductive ReactorID (net : Network)
-  | main
-  | cons (hd : ReactorID net) (tl : Network.class net hd)
+  | main 
+  | nested (path : Graph.Path net.graph)
+  deriving DecidableEq
 
-def Network.class (net : Network) : (ReactorID net) → net.classes
-  | .main => net.main
-  | .cons _ _ => sorry
+abbrev «class» (net : Network) : (ReactorID net) → net.classes
+  | .main => net.root
+  | .nested path => net.graph.class path
 
-end 
+abbrev scheme (net : Network) : (ReactorID net) → (Reactor.Scheme net.classes)
+  | .main => net.rootScheme
+  | .nested path => net.graph.scheme path
 
+theorem scheme_def : {reactorID : ReactorID net} → net.scheme reactorID = net.schemes (net.class reactorID)
+  | .main | .nested _ => rfl
 
+abbrev ReactorID.extend (id : ReactorID net) (extension : net.scheme id |>.children) : ReactorID net :=
+  match id with
+  | .main => .nested <| .last extension
+  | .nested path => .nested <| path.extend extension
 
+abbrev reactionInputScheme (net : Network) (reactorID : ReactorID net) :=
+  net.graph.reactionInputScheme <| net.class reactorID
 
+abbrev reactionType (net : Network) (reactorID : ReactorID net) :=
+  net.graph.reactionType <| net.class reactorID
 
+-- Lean can't infer this automatically.
+instance {net : Network} {reactorID : ReactorID net} {reaction : net.reactionType reactorID} : 
+  InjectiveCoe reaction.portSources (net.reactionInputScheme reactorID).vars :=
+  reaction.portSourcesInjCoe
 
-
-
-
-
-
-
+-- Lean can't infer this automatically.
+instance {net : Network} {reactorID : ReactorID net} {reaction : net.reactionType reactorID} : 
+  InjectiveCoe reaction.actionSources ((net.scheme reactorID).interface .actions).vars :=
+  scheme_def.symm ▸ reaction.actionSourcesInjCoe
 
 structure ActionID (net : Network) where
   reactor : ReactorID net
-  action : (net.schemes reactor .actions).vars
+  action : net.scheme reactor |>.interface .actions |>.vars
+  deriving DecidableEq
 
--- TODO: This is exactly the same as the instance for `DecidableEq (Σ a : Type, a)`.
-instance : DecidableEq (ActionID graph) :=
-  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 
-    if h : a₁ = a₂ then 
-      if h' : (h ▸ b₁) = b₂ then
-        .isTrue (by subst h h'; rfl)
-      else 
-        .isFalse (by 
-          subst h
-          intro hc
-          injection hc
-          contradiction
-        )
-    else
-      .isFalse (by
-        intro hc
-        injection hc
-        contradiction
-      )
-
-structure PortID (kind : Reactor.PortKind) (graph : Graph) where
-  reactor : ReactorID graph.tree
-  port : (graph.schemes reactor kind).vars
-
--- TODO: This isn't needed if constructing a network's connections via pattern matching works.
--- TODO: This is exactly the same as the instance for `DecidableEq (Σ a : Type, a)`.
-instance : DecidableEq (PortID kind graph) := 
-  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 
-    if h : a₁ = a₂ then 
-      if h' : (h ▸ b₁) = b₂ then
-        .isTrue (by subst h h'; rfl)
-      else 
-        .isFalse (by 
-          subst h
-          intro hc
-          injection hc
-          contradiction
-        )
-    else
-      .isFalse (by
-        intro hc
-        injection hc
-        contradiction
-      )
-
--- Lean can't "see through" this automatically.
-theorem Graph.reactionOutputScheme_local_type (graph : Graph) (reactorID output) :
-  (graph.reactionOutputScheme reactorID).type (.inl output) = ((graph.schemes reactorID) .outputs).type output := rfl
-
-abbrev Graph.reactionType (graph : Graph) (reactorID : ReactorID graph.tree) :=
-  let localScheme := graph.schemes reactorID
-  Reaction (graph.reactionInputScheme reactorID) (graph.reactionOutputScheme reactorID) (localScheme .actions) (localScheme .state)
-
--- Lean can't automatically infer this automatically.
-instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
-  InjectiveCoe reaction.portSources (graph.reactionInputScheme reactorID).vars :=
-  reaction.portSourcesInjCoe
-
--- Lean can't automatically infer this automatically.
-instance {graph : Graph} {reactorID : ReactorID graph.tree} {reaction : graph.reactionType reactorID} : 
-  InjectiveCoe reaction.portEffects (graph.reactionOutputScheme reactorID).vars :=
-  reaction.portEffectsInjCoe
+structure PortID (kind : Reactor.PortKind) (net : Network) where
+  reactor : ReactorID net
+  port : net.scheme reactor |>.interface kind |>.vars
 
 -- A map from input ports to output ports with matching type.
 -- Since each input port can have at most one output port that connects to it,
 -- the return type is an optional output port.
-structure Connections (graph : Graph) where
-  map : (PortID .input graph) → Option (PortID .output graph)
-  eqType : (map input = some output) → (graph.schemes output.reactor .outputs).type output.port = (graph.schemes input.reactor .inputs).type input.port
+structure Connections (net : Network) where
+  map : (PortID .input net) → Option (PortID .output net)
+  eqType : (map input = some output) → (net.scheme output.reactor |>.interface .outputs).type output.port = (net.scheme input.reactor |>.interface .inputs).type input.port
 
-instance : CoeFun (Connections graph) (fun _ => PortID .input graph → Option (PortID .output graph)) where
-  coe c := c.map
-
-structure _root_.Network extends Graph where
-  connections : Connections toGraph
-  reactions : (id : ReactorID toGraph.tree) → Array (toGraph.reactionType id) 
-  -- TODO: We only want a mapping from each reactor scheme to an array of reactions.
-  --       This also means that we could map each 
-
-abbrev graph (net : Network) : Graph := net.toGraph
+instance : CoeFun (Connections net) (fun _ => PortID .input net → Option (PortID .output net)) where
+  coe := (·.map)
 
 structure ReactionID (net : Network) where
-  reactor : ReactorID net.tree
-  reactionIdx : Fin (net.reactions reactor).size
+  reactor : ReactorID net
+  reactionIdx : Fin (net.class reactor |> net.reactions).size
 
 abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType id.reactor :=
-  (net.reactions id.reactor)[id.reactionIdx]
+  (net.class id.reactor |> net.reactions)[id.reactionIdx]
 
 end Network

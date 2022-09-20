@@ -1,4 +1,4 @@
-import Runtime.Reaction
+import Runtime.Interface
 
 namespace Reactor
 
@@ -26,7 +26,7 @@ structure Scheme (Classes : Type) where
   children : Type
   «class» : children → Classes
   [decEqChildren : DecidableEq children]
-
+  
 attribute [instance] Scheme.decEqChildren
 
 end Reactor

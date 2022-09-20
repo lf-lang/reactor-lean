@@ -11,7 +11,7 @@ network {
     nested := [x : Sub, y : Sub]
     connections := [x.o1 → y.i3, o1 → x.i2]
 
-    reaction first (i1, !i2, @a1, x.o1) → (o1, x.i2) { 
+    reaction (i1, !i2, @a1, x.o1) → (o1, x.i2) { 
       let i ← getInput i1
       let i' := (i.getD 0) + 1
       let b := if i' = 0 then true else false
@@ -25,7 +25,7 @@ network {
         setState s2 false
     }
 
-    reaction second (i1, !@a1) → (o1, @a2) { 
+    reaction (i1, !@a1) → (o1, @a2) { 
       let _ := (← getAction a1).map (· ++ "suffix")
       let _ ← getInput i1
       schedule a2 112 "First"
@@ -43,6 +43,10 @@ network {
     state  := []
     nested := [a : Grand, b : Grand]
     connections := []
+    
+    reaction (!i1) → (o1) { 
+      let _ ← getInput i1
+    }
   }
 
   reactor Grand {
@@ -65,7 +69,7 @@ inductive Main.Nested | x  | y  deriving DecidableEq
 inductive Main.Reaction1.PortSource   | i1 | i2 | x.o1 deriving DecidableEq
 inductive Main.Reaction1.PortEffect   | o1 | x.i2 deriving DecidableEq
 inductive Main.Reaction1.ActionSource | a1 deriving DecidableEq
-inductive Main.Reaction1.ActionEffect deriving DecidableEq
+-- inductive Main.Reaction1.ActionEffect deriving DecidableEq 
 
 inductive Main.Reaction2.PortSource   | i1 deriving DecidableEq
 inductive Main.Reaction2.PortEffect   | o1 | o2 deriving DecidableEq
@@ -98,11 +102,55 @@ def Main.scheme : Reactor.Scheme
       | .s2 => Bool
   }
 
+def Main.reactions 
+  [InjectiveCoe Reaction1.PortSource σInput.vars]
+  [InjectiveCoe Reaction1.PortEffect σOutput.vars]
+  [InjectiveCoe Reaction1.ActionSource σAction.vars]
+  [InjectiveCoe Empty σAction.vars] -- [InjectiveCoe Reaction1.ActionEffect σAction.vars]
+  [InjectiveCoe Reaction2.PortSource σInput.vars]
+  [InjectiveCoe Reaction2.PortEffect σOutput.vars]
+  [InjectiveCoe Reaction2.ActionSource σAction.vars]
+  [InjectiveCoe Reaction2.ActionEffect σAction.vars] : 
+  Array (Reaction σInput σOutput σAction σState) := #[
+  {
+    portSources   := Reaction1.PortSource
+    portEffects   := Reaction1.PortEffect
+    actionSources := Reaction1.ActionSource
+    actionEffects := Empty -- Reaction1.ActionEffect
+    triggers      := #[.port .i2]
+    body          := open ReactionM Reaction1.PortSource Reaction1.PortEffect Reaction1.ActionSource in do
+      let i ← getInput i1
+      let i' := (i.getD 0) + 1
+      let b := if i' = 0 then true else false
+      setOutput o1 b
+      setOutput o1 true
+      setState s1 (-1 : Int)
+      match ← getState s1 with
+      | none => return
+      | some v => 
+        setState s1 (v * 12)
+        setState s2 false
+  },
+  {
+    portSources   := Reaction2.PortSource
+    portEffects   := Reaction2.PortEffect
+    actionSources := Reaction2.ActionSource
+    actionEffects := Reaction2.ActionEffect
+    triggers      := #[.action .a1]
+    body          := sorry
+  }
+]
+
 inductive Sub.Input  | i1 | i2 | i3 deriving DecidableEq
 inductive Sub.Output | o1 deriving DecidableEq
 inductive Sub.Action deriving DecidableEq
 inductive Sub.State  deriving DecidableEq
 inductive Sub.Nested | a | b deriving DecidableEq
+
+inductive Sub.Reaction1.PortSource   | i1 deriving DecidableEq
+inductive Sub.Reaction1.PortEffect   | o1 deriving DecidableEq
+-- inductive Sub.Reaction1.ActionSource deriving DecidableEq
+-- inductive Sub.Reaction1.ActionEffect deriving DecidableEq
 
 def Sub.scheme : Reactor.Scheme
   | .inputs => { 
@@ -125,6 +173,22 @@ def Sub.scheme : Reactor.Scheme
     vars := State
     type := (·.rec)
   }
+
+def Sub.reactions 
+  [InjectiveCoe Reaction1.PortSource σInput.vars]
+  [InjectiveCoe Reaction1.PortEffect σOutput.vars] 
+  [InjectiveCoe Empty σAction.vars] -- [InjectiveCoe Reaction1.ActionSource σAction.vars]
+  [InjectiveCoe Empty σAction.vars] : -- [InjectiveCoe Reaction1.ActionEffect σAction.vars]   
+  Array (Reaction σInput σOutput σAction σState) := #[
+  {
+    portSources   := Reaction1.PortSource
+    portEffects   := Reaction1.PortEffect
+    actionSources := Empty -- Reaction1.ActionSource
+    actionEffects := Empty -- Reaction1.ActionEffect
+    triggers      := #[.port .i1]
+    body          := sorry
+  }
+]
 
 inductive Grand.Input  deriving DecidableEq
 inductive Grand.Output deriving DecidableEq
@@ -150,6 +214,9 @@ def Grand.scheme : Reactor.Scheme
     type := (·.rec)
   }
 
+def Grand.reactions : Array (Reaction σInput σOutput σAction σState) := #[
+]  
+
 abbrev Grand.tree : Tree :=
   .node Empty (·.rec) --! Empty, not Nested
 
@@ -163,17 +230,17 @@ abbrev Main.tree : Tree :=
     | .x => Sub.tree
     | .y => Sub.tree
 
-def Grand.subschemes : (Tree.Path Grand.tree) → Reactor.Scheme 
+abbrev Grand.subschemes : (Tree.Path Grand.tree) → Reactor.Scheme 
   | .last empty   => empty.rec
   | .cons empty _ => empty.rec
 
-def Sub.subschemes : (Tree.Path Sub.tree) → Reactor.Scheme
+abbrev Sub.subschemes : (Tree.Path Sub.tree) → Reactor.Scheme
   | .last .a    => Grand.scheme
   | .last .b    => Grand.scheme
   | .cons .a id => Grand.subschemes id
   | .cons .b id => Grand.subschemes id
 
-def Main.subschemes : (Tree.Path Main.tree) → Reactor.Scheme
+abbrev Main.subschemes : (Tree.Path Main.tree) → Reactor.Scheme
   | .last .x    => Sub.scheme
   | .last .y    => Sub.scheme
   | .cons .x id => Sub.subschemes id
@@ -186,46 +253,154 @@ abbrev graph : Network.Graph := {
     | .root => Main.scheme
 }
 
-/-
-def Sub.reactions : Array (graph.reactionType )
+instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .root).vars where 
+  coe := fun
+    | .i1   => .inl .i1
+    | .i2   => .inl .i2
+    | .x.o1 => .inr ⟨.x, .o1⟩
+  inv := fun
+    | .inl .i1       => some .i1  
+    | .inl .i2       => some .i2  
+    | .inr ⟨.x, .o1⟩ => some .x.o1
+    | _              => none
+  invInj := sorry
+  coeInvId := sorry
 
-def Main.reactions : Array (graph.reactionType .root) := #[
-  {
-    portSources   := Main.Reaction1.PortSource
-    portEffects   := Main.Reaction1.PortEffect
-    actionSources := Main.Reaction1.ActionSource
-    actionEffects := Main.Reaction1.ActionEffect
-    triggers      := #[.port .i2]
-    body          := sorry
-  },
-  {
-    portSources   := Main.Reaction2.PortSource
-    portEffects   := Main.Reaction2.PortEffect
-    actionSources := Main.Reaction2.ActionSource
-    actionEffects := Main.Reaction2.ActionEffect
-    triggers      := #[.action .a1]
-    body          := sorry
-  }
-]
+instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .root).vars where 
+  coe := fun
+    | .o1   => .inl .o1
+    | .x.i2 => .inr ⟨.x, .i2⟩
+  inv := fun
+    | .inl .o1       => some .o1  
+    | .inr ⟨.x, .i2⟩ => some .x.i2
+    | _              => none
+  invInj := sorry
+  coeInvId := sorry
 
-def Sub.subreactions : (id : Tree.Path Sub.tree) → Array (graph.reactionType (.branch id))
-  | .last .a    => sorry -- Grand.reactions
-  | .last .b    => sorry -- Grand.reactions
-  | .cons .a id => sorry -- Grand.subreactions id
-  | .cons .b id => sorry -- Grand.subreactions id
+instance : InjectiveCoe Main.Reaction1.ActionSource (Main.scheme .actions).vars where 
+  coe := fun
+   | .a1 => .a1
+  inv := fun
+   | .a1 => some .a1  
+   | _ => none
+  invInj := sorry
+  coeInvId := sorry
 
-def Main.subreactions : (id : Tree.Path Main.tree) → Array (graph.reactionType (.branch id))
-  | .last .x    => Sub.reactions
-  | .last .y    => Sub.reactions
-  | .cons .x id => Sub.subreactions id
-  | .cons .y id => Sub.subreactions id
--/
+instance : InjectiveCoe Empty (Main.scheme .actions).vars where 
+  coe := Empty.rec
+  inv := fun _ => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .root).vars where 
+  coe := fun
+    | .i1 => .inl .i1
+  inv := fun
+    | .inl .i1 => some .i1  
+    | _        => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .root).vars where
+  coe := fun
+    | .o1 => .inl .o1
+    | .o2 => .inl .o2
+  inv := fun
+    | .inl .o1 => some .o1  
+    | .inl .o2 => some .o2  
+    | _        => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Main.Reaction2.ActionSource (Main.scheme .actions).vars where 
+  coe := fun
+    | .a1 => .a1
+  inv := fun
+    | .a1 => some .a1  
+    | _ => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Main.Reaction2.ActionEffect (Main.scheme .actions).vars where 
+  coe := fun
+    | .a2 => .a2
+  inv := fun
+    | .a2 => some .a2  
+    | _ => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Sub.Reaction1.PortSource (graph.reactionInputScheme $ .branch $ .last .x).vars where 
+  coe := fun
+    | .i1 => .inl .i1
+  inv := fun
+    | .inl .i1 => some .i1  
+    | _        => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Sub.Reaction1.PortEffect (graph.reactionOutputScheme $ .branch $ .last .x).vars where 
+  coe := fun
+    | .o1 => .inl .o1
+  inv := fun
+    | .inl .o1 => some .o1  
+    | _        => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Empty (Sub.scheme .actions).vars where 
+  coe := Empty.rec
+  inv := fun _ => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Empty (Sub.scheme .actions).vars where 
+  coe := Empty.rec
+  inv := fun _ => none
+  invInj := sorry
+  coeInvId := sorry
+
+
+instance : InjectiveCoe Sub.Reaction1.PortSource (graph.reactionInputScheme $ .branch $ .last .y).vars where 
+  coe := fun
+    | .i1 => .inl .i1
+  inv := fun
+    | .inl .i1 => some .i1  
+    | _        => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Sub.Reaction1.PortEffect (graph.reactionOutputScheme $ .branch $ .last .y).vars where 
+  coe := fun
+    | .o1 => .inl .o1
+  inv := fun
+    | .inl .o1 => some .o1  
+    | _        => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Empty (Sub.scheme .actions).vars where 
+  coe := Empty.rec
+  inv := fun _ => none
+  invInj := sorry
+  coeInvId := sorry
+
+instance : InjectiveCoe Empty (Sub.scheme .actions).vars where 
+  coe := Empty.rec
+  inv := fun _ => none
+  invInj := sorry
+  coeInvId := sorry
 
 def network : Network := {
   toGraph := graph
   reactions := fun
-    | .root => #[] -- Main.reactions
-    | .branch id => #[] -- Main.subreactions id
+    | .root => Main.reactions
+    | .branch $ .last .x => Sub.reactions
+    | .branch $ .last .y => Sub.reactions
+    | .branch $ .cons .x $ .last .a => Grand.reactions
+    | .branch $ .cons .x $ .last .b => Grand.reactions
+    | .branch $ .cons .y $ .last .a => Grand.reactions
+    | .branch $ .cons .y $ .last .b => Grand.reactions
   connections := {
     map := fun port => 
       -- TODO: This is probably a bug similar to https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Pattern.20matching.20limitations.3F 

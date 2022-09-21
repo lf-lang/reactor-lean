@@ -18,17 +18,14 @@ structure Executable (net : Network) where
 namespace Executable
 
 -- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
-def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interface (net.reactionInputScheme reactorID) 
-  | .inl localInput => 
-    have h : ((net.scheme reactorID).interface .inputs).type (scheme_def ▸ localInput) = (net.reactionInputScheme reactorID).type (.inl localInput) := by cases reactorID <;> rfl
-    h ▸ (exec.reactors reactorID) .inputs (Network.scheme_def ▸ localInput)
+def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interface (net.reactionInputScheme' reactorID) 
+  | .inl localInput => (exec.reactors reactorID) .inputs localInput
   | .inr ⟨child, nestedOutput⟩ => 
-    let nested := reactorID.extend (scheme_def ▸ child)
-    have h₁ : ((net.schemes ((net.schemes $ net.class reactorID).class child)).interface .outputs).vars = ((net.scheme nested).interface .outputs).vars := sorry
-    have h₂ : ((net.scheme nested).interface .outputs).type (h₁ ▸ nestedOutput) = (reactionInputScheme net reactorID).type (.inr ⟨child, nestedOutput⟩) := sorry
-    h₂ ▸ (exec.reactors nested) .outputs (h₁ ▸ nestedOutput)
+    have h₁ : ((net.schemes ((net.schemes (net.class reactorID)).class child)).interface .outputs).vars = ((net.scheme (reactorID.extend child)).interface .outputs).vars := sorry
+    have h₂ : ((net.scheme (reactorID.extend child)).interface .outputs).type (h₁ ▸ nestedOutput) = (net.reactionInputScheme' reactorID).type (.inr ⟨child, nestedOutput⟩) := sorry
+    h₂ ▸ (exec.reactors $ reactorID.extend child) .outputs (h₁ ▸ nestedOutput)
 
-def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net.reactionType reactorID) : Bool :=
+def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net.reactionType' reactorID) : Bool :=
   reaction.triggers.any fun trigger =>
     match trigger with
     | .port   port   => (exec.reactionInputs reactorID).isPresent port
@@ -160,7 +157,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       let ports     := exec.reactionInputs reactorID
       let actions   := exec.reactors reactorID .actions
       let state     := exec.reactors reactorID .state
-      let output ← reaction.run ports (scheme_def ▸ actions) (scheme_def ▸ state) exec.tag
+      let output ← reaction.run ports actions state exec.tag
       -- exec := exec.apply output
     run exec topo (reactionIdx + 1)
 

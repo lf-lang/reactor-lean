@@ -5,8 +5,8 @@ namespace Network
 
 structure Graph where
   classes : Type
-  schemes : classes → (Reactor.Scheme classes)
   root : classes
+  schemes : classes → (Reactor.Scheme classes)
 
 abbrev Graph.rootScheme (graph : Graph) := graph.schemes graph.root
 
@@ -31,12 +31,12 @@ abbrev Graph.reactionType (graph : Graph) («class» : graph.classes) :=
   Reaction (graph.reactionInputScheme «class») (graph.reactionOutputScheme «class») (localScheme .actions) (localScheme .state)
 
 inductive Graph.Path : Graph → Type _
-  | last (child : graph.rootScheme.children) : Path graph
+  | nil : Path graph
   | cons (child : graph.rootScheme.children) : Path (graph.rootScheme.class child |> graph.subgraph) → Path graph
   deriving DecidableEq
 
 def Graph.class (graph : Graph) : (Path graph) → graph.classes
-  | .last child         => graph.rootScheme.class child
+  | .nil                => graph.root
   | .cons child subpath => graph.rootScheme.class child |> graph.subgraph |>.class subpath
 
 abbrev Graph.scheme (graph : Graph) (path : Path graph) : Reactor.Scheme graph.classes :=
@@ -44,75 +44,61 @@ abbrev Graph.scheme (graph : Graph) (path : Path graph) : Reactor.Scheme graph.c
 
 abbrev Graph.Path.extend {graph} (path : Path graph) (extension : graph.scheme path |>.children) : Path graph :=
   match path with
-  | .last child         => .cons child (.last extension)
+  | .nil                => .cons extension .nil
   | .cons child subpath => .cons child (subpath.extend extension)
 
-structure _root_.Network extends Graph where
-  reactions : («class» : toGraph.classes) → Array (toGraph.reactionType «class»)
+abbrev ReactorID (graph : Graph) := Graph.Path graph
 
-abbrev graph (net : Network) : Graph := net.toGraph
+abbrev Graph.reactionInputScheme' (graph : Graph) (reactorID : ReactorID graph) :=
+  graph.reactionInputScheme <| graph.class reactorID
 
-inductive ReactorID (net : Network)
-  | main 
-  | nested (path : Graph.Path net.graph)
-  deriving DecidableEq
-
-abbrev «class» (net : Network) : (ReactorID net) → net.classes
-  | .main => net.root
-  | .nested path => net.graph.class path
-
-abbrev scheme (net : Network) : (ReactorID net) → (Reactor.Scheme net.classes)
-  | .main => net.rootScheme
-  | .nested path => net.graph.scheme path
-
-theorem scheme_def : {reactorID : ReactorID net} → net.scheme reactorID = net.schemes (net.class reactorID)
-  | .main | .nested _ => rfl
-
-abbrev ReactorID.extend (id : ReactorID net) (extension : net.scheme id |>.children) : ReactorID net :=
-  match id with
-  | .main => .nested <| .last extension
-  | .nested path => .nested <| path.extend extension
-
-abbrev reactionInputScheme (net : Network) (reactorID : ReactorID net) :=
-  net.graph.reactionInputScheme <| net.class reactorID
-
-abbrev reactionType (net : Network) (reactorID : ReactorID net) :=
-  net.graph.reactionType <| net.class reactorID
+abbrev Graph.reactionType' (graph : Graph) (reactorID : ReactorID graph) :=
+  graph.reactionType <| graph.class reactorID
 
 -- Lean can't infer this automatically.
-instance {net : Network} {reactorID : ReactorID net} {reaction : net.reactionType reactorID} : 
-  InjectiveCoe reaction.portSources (net.reactionInputScheme reactorID).vars :=
+instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
+  InjectiveCoe reaction.portSources (graph.reactionInputScheme' reactorID).vars :=
   reaction.portSourcesInjCoe
 
 -- Lean can't infer this automatically.
-instance {net : Network} {reactorID : ReactorID net} {reaction : net.reactionType reactorID} : 
-  InjectiveCoe reaction.actionSources ((net.scheme reactorID).interface .actions).vars :=
-  scheme_def.symm ▸ reaction.actionSourcesInjCoe
+instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
+  InjectiveCoe reaction.actionSources ((graph.scheme reactorID).interface .actions).vars :=
+  reaction.actionSourcesInjCoe
 
-structure ActionID (net : Network) where
-  reactor : ReactorID net
-  action : net.scheme reactor |>.interface .actions |>.vars
+structure ActionID (graph : Graph) where
+  reactor : ReactorID graph
+  action : graph.scheme reactor |>.interface .actions |>.vars
   deriving DecidableEq
 
-structure PortID (kind : Reactor.PortKind) (net : Network) where
-  reactor : ReactorID net
-  port : net.scheme reactor |>.interface kind |>.vars
+structure PortID (kind : Reactor.PortKind) (graph : Graph) where
+  reactor : ReactorID graph
+  port : graph.scheme reactor |>.interface kind |>.vars
+  deriving DecidableEq
 
+-- TODO: Connections can also be constructed at the class-level instead of the
+--       instance level!
 -- A map from input ports to output ports with matching type.
 -- Since each input port can have at most one output port that connects to it,
 -- the return type is an optional output port.
-structure Connections (net : Network) where
-  map : (PortID .input net) → Option (PortID .output net)
-  eqType : (map input = some output) → (net.scheme output.reactor |>.interface .outputs).type output.port = (net.scheme input.reactor |>.interface .inputs).type input.port
+structure Connections (graph : Graph) where
+  outForIn : (PortID .input graph) → Option (PortID .output graph)
+  eqType : (outForIn input = some output) → (graph.scheme output.reactor |>.interface .outputs).type output.port = (graph.scheme input.reactor |>.interface .inputs).type input.port
 
-instance : CoeFun (Connections net) (fun _ => PortID .input net → Option (PortID .output net)) where
-  coe := (·.map)
+instance : CoeFun (Connections graph) (fun _ => PortID .input graph → Option (PortID .output graph)) where
+  coe := (·.outForIn)
+
+structure _root_.Network extends Graph where
+  reactions : («class» : toGraph.classes) → Array (toGraph.reactionType «class»)
+  connections : Connections toGraph
+
+instance : Coe Network Graph where
+  coe := (·.toGraph)
 
 structure ReactionID (net : Network) where
   reactor : ReactorID net
   reactionIdx : Fin (net.class reactor |> net.reactions).size
 
-abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType id.reactor :=
+abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType' id.reactor :=
   (net.class id.reactor |> net.reactions)[id.reactionIdx]
 
 end Network

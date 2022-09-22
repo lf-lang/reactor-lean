@@ -9,7 +9,7 @@ network {
     action := [a1 : String, a2 : Bool × Nat]
     state  := [s1 : Int,    s2 : Bool]
     nested := [x : Sub, y : Sub]
-    connections := [x.o1 → y.i3, o1 → x.i2]
+    connections := [x.o1 → y.i3]
 
     reaction first (i1, !i2, @a1, x.o1) → (o1, x.i2) { 
       let i ← getInput i1
@@ -180,13 +180,22 @@ def graph : Network.Graph := {
     | .Grand => Grand.scheme
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Main).vars := {
-  coe := sorry
-  inv := sorry
-  invInj := sorry
-  coeInvId := sorry
+  coe := fun
+    | .i1   => .inl .i1
+    | .i2   => .inl .i2
+    | .x.o1 => .inr ⟨.x, .o1⟩
+  inv := fun
+    | .inl .i1       => some .i1  
+    | .inl .i2       => some .i2  
+    | .inr ⟨.x, .o1⟩ => some .x.o1
+    | _              => none
+  invInj := by intro b₁ b₂; cases b₁ <;> cases b₂; repeat rename_i v₁ v₂; cases v₁ <;> cases v₂ <;> simp
+  coeInvId := (by cases · <;> rfl)
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .Main).vars := {
   coe := sorry
   inv := sorry
@@ -194,6 +203,7 @@ instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .M
   coeInvId := sorry
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) := {
   coe := sorry
   inv := sorry
@@ -201,6 +211,7 @@ instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.inte
   coeInvId := sorry
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) := {
   coe := sorry
   inv := sorry
@@ -208,6 +219,7 @@ instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.inte
   coeInvId := sorry
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Main).vars := {
   coe := sorry
   inv := sorry
@@ -215,6 +227,7 @@ instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Ma
   coeInvId := sorry
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .Main).vars := {
   coe := sorry
   inv := sorry
@@ -222,6 +235,7 @@ instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .M
   coeInvId := sorry
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) := {
   coe := sorry
   inv := sorry
@@ -229,6 +243,7 @@ instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.inte
   coeInvId := sorry
 }
 
+@[reducible]
 instance : InjectiveCoe Main.Reaction2.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) := {
   coe := sorry
   inv := sorry
@@ -246,7 +261,20 @@ def network : Network := {
         actionSources := Main.Reaction1.ActionSource
         actionEffects := Main.Reaction1.ActionEffect
         triggers      := #[.port .i2]
-        body          := sorry
+        body := open ReactionM Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
+          let i ← getInput i1
+          let i' := (i.getD 0) + 1 
+          -- TODO: Create an isolated test case where you create a scheme, restrict it, etc. and then
+          --       try to use the veiled type.
+          let b := if i' = 0 then true else false
+          setOutput o1 b
+          setOutput o1 true
+          setState s1 (-1 : Int)
+          match ← getState s1 with
+          | none => return
+          | some v => 
+            setState s1 (v * 12)
+            setState s2 false
       },
       {
         portSources   := Main.Reaction2.PortSource
@@ -259,13 +287,15 @@ def network : Network := {
     ]
     | .Sub => #[]
     | .Grand => #[]
-  connections := {
-    outForIn := fun input => -- TODO: Try to get pattern matching working for this.
-      if      input = ⟨.cons .y .nil, .i3⟩ then some ⟨.cons .x .nil, .o1⟩
-      else if input = ⟨.cons .x .nil, .i2⟩ then some ⟨.nil, .o1⟩
-      else                                      none
-    eqType := sorry
-  }
+  connections := fun
+    | .Main => {
+      outForIn := fun input => -- TODO: Try to get pattern matching working for this.
+        if input = ⟨.y, .i3⟩ then some ⟨.x, .o1⟩
+        else none
+      eqType := by intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp; rfl
+    }
+    | .Sub => .empty
+    | .Grand => .empty
 }
 
 def main : IO Unit := do

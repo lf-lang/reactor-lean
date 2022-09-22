@@ -31,6 +31,7 @@ abbrev Scheme.bUnion {Schemes : Type} [DecidableEq Schemes] (σ : Schemes → Sc
 
 prefix:100 "⨄ " => Scheme.bUnion
 
+@[reducible]
 instance {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars] : InjectiveCoe (σ.restrict Sub).vars σ.vars := 
   inferInstance
 

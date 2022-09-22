@@ -128,20 +128,15 @@ structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme)
   [actionEffectsInjCoe : InjectiveCoe actionEffects σAction.vars]
   body : ReactionM (σInput.restrict portSources) (σOutput.restrict portEffects) (σAction.restrict actionSources) (σAction.restrict actionEffects) σState Unit
 
-attribute [instance] Reaction.portSourcesDecEq Reaction.portEffectsDecEq Reaction.actionSourcesDecEq Reaction.actionEffectsDecEq
-attribute [instance] Reaction.portSourcesInjCoe Reaction.portEffectsInjCoe Reaction.actionSourcesInjCoe Reaction.actionEffectsInjCoe
+open Reaction in
+attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq actionEffectsDecEq portSourcesInjCoe portEffectsInjCoe actionSourcesInjCoe actionEffectsInjCoe
 
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
 def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) : 
   IO (rcn.outputType tag.time) := do
-  let ⟨output, _⟩ ← rcn.body { 
-    ports   := fun s => inputs s
-    actions := fun a => actions a
-    state   := state
-    tag     := tag 
-  }
+  let ⟨output, _⟩ ← rcn.body { ports := (inputs ·), actions := (actions ·), state := state, tag := tag }
   return output
 
 end Reaction

@@ -6,16 +6,13 @@ inductive PortKind
   | input
   | output
 
-abbrev PortKind.opposite : PortKind → PortKind 
-  | .input => .output
-  | .output => .input
-
 inductive InterfaceKind 
   | inputs 
   | outputs 
   | actions
   | state
 
+@[reducible]
 instance : Coe PortKind InterfaceKind where
   coe
     | .input => .inputs
@@ -28,5 +25,7 @@ structure Scheme (Classes : Type) where
   [decEqChildren : DecidableEq children]
   
 attribute [instance] Scheme.decEqChildren
+attribute [reducible] Scheme.interface
+attribute [reducible] Scheme.class
 
 end Reactor

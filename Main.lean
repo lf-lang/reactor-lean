@@ -11,7 +11,7 @@ network {
     nested := [x : Sub, y : Sub]
     connections := [x.o1 → y.i3]
 
-    reaction first (i1, !i2, !@a1, x.o1) → (o1, x.i2) { 
+    reaction first (startup, i1, !i2, !@a1, x.o1) → (o1, x.i2) { 
       let i ← getInput i1
       let i' := (i.getD 0) + 1
       let b := if i' = 0 then true else false
@@ -259,7 +259,7 @@ abbrev network : Network := {
         portEffects   := Main.Reaction1.PortEffect
         actionSources := Main.Reaction1.ActionSource
         actionEffects := Main.Reaction1.ActionEffect
-        triggers      := #[.port .i2, .action .a1]
+        triggers      := #[.startup, .port .i2, .action .a1]
         body := open ReactionM Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
           let i ← getInput i1
           let i' := (i.getD 0) + 1 

@@ -106,8 +106,9 @@ end ReactionM
 namespace Reaction
 
 inductive Trigger (Port Action : Type)
-  | port   : Port → Trigger Port Action
-  | action : Action → Trigger Port Action
+  | startup
+  | port (p : Port)
+  | action (a : Action)
 
 open Reaction in
 structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme) where

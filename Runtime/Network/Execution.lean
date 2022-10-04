@@ -27,6 +27,7 @@ def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interfa
 def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net.reactionType' reactorID) : Bool :=
   reaction.triggers.any fun trigger =>
     match trigger with
+    | .startup       => exec.tag = { time := 0, microstep := 0 }
     | .port   port   => (exec.reactionInputs reactorID).isPresent port
     | .action action => (exec.reactors reactorID .actions).isPresent action
 

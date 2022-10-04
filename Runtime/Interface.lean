@@ -49,14 +49,4 @@ def isPresent (i : Interface σ) (var : σ.vars) : Bool :=
 def merge (i₁ i₂ : Interface σ) : Interface σ :=
   fun var => (i₂ var).orElse (fun _ => i₁ var)
 
--- Merge i₂ into i₁.
-def merge' {Sub : Type} [DecidableEq Sub] [injCoe : InjectiveCoe Sub σ.vars] (i₁ : Interface σ) (i₂ : Interface $ σ.restrict Sub) : Interface σ :=
-  fun var => 
-    match h : injCoe.inv var with 
-    | none => i₁ var
-    | some sub => 
-      have h₁ := Scheme.restrict_preserves_type σ Sub sub 
-      have h₂ : Coe.coe sub = var := h.symm ▸ injCoe.coeInvId sub |> injCoe.invInj
-      h₂ ▸ h₁ ▸ i₂ sub
-
 end Interface

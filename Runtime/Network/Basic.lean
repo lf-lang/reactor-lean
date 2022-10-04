@@ -32,6 +32,76 @@ abbrev Graph.Path.extend {graph} (path : Path graph) (extension : graph.scheme p
   | .nil                => .cons extension .nil
   | .cons child subpath => .cons child (subpath.extend extension)
 
+theorem Graph.Path.extend_scheme {graph : Graph} {path : Path graph} {child : graph.scheme path |>.children} : 
+  (graph.scheme path |>.class child |> graph.schemes) = (path.extend child |> graph.scheme) := by
+  induction path <;> simp [extend, scheme, «class»]
+  case cons graph hd tl hi =>
+    congr
+    specialize @hi child
+    cases hc : extend tl child
+    · sorry
+    · sorry
+
+def Graph.Path.isChildOf : Path graph → Path graph → Bool
+  | .cons _ .nil, .nil => true 
+  | .cons child₁ subpath₁, .cons child₂ subpath₂ => 
+    if h : child₁ = child₂ 
+    then subpath₁.isChildOf (h ▸ subpath₂) 
+    else false
+  | _, _ => false
+
+theorem Graph.Path.isChildOf_cons_eq_child : isChildOf (.cons child₁ child) (.cons child₂ parent) → child₁ = child₂ := by
+  intro h
+  simp [isChildOf] at h
+  split at h <;> simp [*]
+
+theorem Graph.Path.isChildOf_cons : isChildOf (.cons child' child) (.cons child' parent) → child.isChildOf parent :=
+  fun _ => by simp_all [isChildOf]
+
+def Graph.Path.last (child : Path graph) {parent} (h : child.isChildOf parent) : (graph.scheme parent).children :=
+  match child, parent with
+  | .cons child₁ .nil, .nil => child₁
+  | .cons child₁ subpath₁, .cons child₂ subpath₂ =>
+    have hc : child₁ = child₂ := isChildOf_cons_eq_child h
+    (hc ▸ subpath₁).last (by subst hc; exact isChildOf_cons h)
+
+def Graph.Path.isSiblingOf : Path graph → Path graph → Bool
+  | .cons _ .nil, .cons _ .nil => true -- we allow a child to be its own sibling
+  | .cons child₁ subpath₁, .cons child₂ subpath₂ =>
+    if h : child₁ = child₂ 
+    then subpath₁.isSiblingOf (h ▸ subpath₂) 
+    else false
+  | _, _ => false
+
+/-
+theorem Graph.Path.isSiblingOf_symm {path₁ path₂ : Path graph} : (path₁.isSiblingOf path₂) → (path₂.isSiblingOf path₁) := by
+  intro h
+  unfold isSiblingOf at h
+  split at h <;> simp [isSiblingOf] at *
+  split at h <;> simp [isSiblingOf] at *
+  rename_i hc
+  have h' := isSiblingOf_symm h
+  sorry -- sibling -> cons is also sibling
+-/
+
+theorem Graph.Path.isSiblingOf_is_cons : isSiblingOf path₁ path₂ → ∃ child parent, path₁ = .cons child parent := by
+  intro h
+  unfold isSiblingOf at h
+  split at h
+  · rename_i child _
+    exists child, nil
+  · rename_i subpath _ _ _
+    sorry
+  · contradiction
+
+-- Note the prefix of `.nil` is `.nil`.
+def Graph.Path.prefix : Path graph → Path graph
+  | .nil | .cons _ .nil => .nil
+  | .cons head subpath => .cons head subpath.prefix
+
+theorem Graph.Path.cons_isChildOf_prefix : isChildOf (.cons child parent) («prefix» <| .cons child parent) := by
+  sorry
+
 abbrev ReactorID (graph : Graph) := Graph.Path graph
 
 abbrev Graph.interface (graph : Graph) («class» : graph.classes) :=
@@ -63,6 +133,9 @@ abbrev Graph.reactionType (graph : Graph) («class» : graph.classes) :=
 abbrev Graph.reactionInputScheme' (graph : Graph) (reactorID : ReactorID graph) :=
   graph.reactionInputScheme <| graph.class reactorID
 
+abbrev Graph.reactionOutputScheme' (graph : Graph) (reactorID : ReactorID graph) :=
+  graph.reactionOutputScheme <| graph.class reactorID
+
 abbrev Graph.reactionType' (graph : Graph) (reactorID : ReactorID graph) :=
   graph.reactionType <| graph.class reactorID
 
@@ -72,6 +145,13 @@ abbrev Graph.reactionType' (graph : Graph) (reactorID : ReactorID graph) :=
 instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
   InjectiveCoe reaction.portSources (graph.reactionInputScheme' reactorID).vars :=
   reaction.portSourcesInjCoe
+
+-- TODO: Recheck this:
+-- Lean can't infer this automatically.
+@[reducible]
+instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
+  InjectiveCoe reaction.portEffects (graph.reactionOutputScheme' reactorID).vars :=
+  reaction.portEffectsInjCoe
 
 -- TODO: Recheck this:
 -- Lean can't infer this automatically.
@@ -91,12 +171,12 @@ structure Subport (graph : Graph) («class» : graph.classes) (kind : Reactor.Po
   deriving DecidableEq -- TODO: Remove this if pattern matching works for connections in Main.lean.
 
 structure Connections (graph : Graph) («class» : graph.classes) where
-  outForIn : (Subport graph «class» .input) → Option (Subport graph «class» .output)
-  eqType : (outForIn input = some output) → (graph.subinterface «class» output.reactor .outputs).type output.port = (graph.subinterface «class» input.reactor .inputs).type input.port
+  source : (Subport graph «class» .input) → Option (Subport graph «class» .output)
+  eqType : (source input = some output) → (graph.subinterface «class» output.reactor .outputs).type output.port = (graph.subinterface «class» input.reactor .inputs).type input.port
 
 def Connections.empty {graph : Graph} {«class» : graph.classes} : Connections graph «class» := {
-  outForIn := fun _ => none
-  eqType := by simp [outForIn]
+  source := fun _ => none
+  eqType := by simp [source]
 }
 
 structure _root_.Network extends Graph where
@@ -112,5 +192,8 @@ structure ReactionID (net : Network) where
 
 abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType' id.reactor :=
   (net.class id.reactor |> net.reactions)[id.reactionIdx]
+
+abbrev connections' (net : Network) (reactorID : ReactorID net) : (Connections net <| net.class reactorID) :=
+  net.class reactorID |> net.connections
 
 end Network

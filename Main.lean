@@ -77,7 +77,7 @@ inductive Main.Reaction2.PortEffect   | o1 | o2 deriving DecidableEq
 inductive Main.Reaction2.ActionSource | a1 deriving DecidableEq
 inductive Main.Reaction2.ActionEffect | a2 deriving DecidableEq
 
-def Main.scheme : Reactor.Scheme Classes := {
+abbrev Main.scheme : Reactor.Scheme Classes := {
   interface := fun
     | .inputs => { 
       vars := Input
@@ -115,7 +115,7 @@ inductive Sub.Action deriving DecidableEq
 inductive Sub.State  deriving DecidableEq
 inductive Sub.Nested | a | b deriving DecidableEq
 
-def Sub.scheme : Reactor.Scheme Classes := {
+abbrev Sub.scheme : Reactor.Scheme Classes := {
   interface := fun
     | .inputs => { 
       vars := Input
@@ -149,7 +149,7 @@ inductive Grand.Action deriving DecidableEq
 inductive Grand.State  deriving DecidableEq
 inductive Grand.Nested deriving DecidableEq
 
-def Grand.scheme : Reactor.Scheme Classes := {
+abbrev Grand.scheme : Reactor.Scheme Classes := {
   interface := fun
     | .inputs => { 
       vars := Input
@@ -171,7 +171,7 @@ def Grand.scheme : Reactor.Scheme Classes := {
   «class» := (·.rec)
 }
 
-def graph : Network.Graph := {
+abbrev graph : Network.Graph := {
   classes := Classes
   root := .Main
   schemes := fun
@@ -197,7 +197,9 @@ instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Ma
 
 @[reducible]
 instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .Main).vars := {
-  coe := sorry
+  coe := fun
+    | .o1   => .inl .o1
+    | .x.i2 => .inr ⟨.x, .i2⟩
   inv := sorry
   invInj := sorry
   coeInvId := sorry
@@ -264,8 +266,6 @@ def network : Network := {
         body := open ReactionM Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
           let i ← getInput i1
           let i' := (i.getD 0) + 1 
-          -- TODO: Create an isolated test case where you create a scheme, restrict it, etc. and then
-          --       try to use the veiled type.
           let b := if i' = 0 then true else false
           setOutput o1 b
           setOutput o1 true
@@ -282,7 +282,14 @@ def network : Network := {
         actionSources := Main.Reaction2.ActionSource
         actionEffects := Main.Reaction2.ActionEffect
         triggers      := #[.action .a1]
-        body          := sorry
+        body := open ReactionM Main Reaction2 PortSource PortEffect ActionSource ActionEffect State in do
+          let _ := (← getAction a1).map (· ++ "suffix") -- TODO: This is an error because of the unimplemented type class instances above.
+          let _ ← getInput i1
+          schedule a2 112 "First"
+          schedule a2 113 "Second"
+          IO.println "Hello"
+          let dir := IO.appDir
+          let dir' ← IO.appDir
       }
     ]
     | .Sub => #[]
@@ -292,11 +299,11 @@ def network : Network := {
       outForIn := fun input => -- TODO: Try to get pattern matching working for this.
         if input = ⟨.y, .i3⟩ then some ⟨.x, .o1⟩
         else none
-      eqType := by intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp; rfl
+      eqType := by intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp
     }
     | .Sub => .empty
     | .Grand => .empty
 }
 
 def main : IO Unit := do
-  sorry --exec.run #[] 0
+  sorry -- exec.run #[] 0

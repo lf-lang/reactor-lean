@@ -2,13 +2,11 @@ import Runtime.Time
 
 class InjectiveCoe (α β) extends Coe α β where
   inv      : β → Option α
-  invInj   : ∀ {b₁ b₂}, (inv b₁ = inv b₂) → (b₁ = b₂) 
+  invInj   : ∀ {b₁ b₂ a}, (inv b₁ = some a) → (inv b₂ = some a) → (b₁ = b₂) 
   coeInvId : ∀ a, inv (coe a) = a
   
-theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b = some a) → (inst.coe a = b) := by
-  intro b h
-  rw [←inst.coeInvId a] at h
-  exact (invInj h).symm  
+theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b = some a) → (inst.coe a = b) := 
+  fun _ h => (invInj h <| inst.coeInvId a).symm  
   
 instance [Ord α] : LE α := leOfOrd
 

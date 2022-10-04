@@ -191,7 +191,7 @@ instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Ma
     | .inl .i2       => some .i2  
     | .inr ⟨.x, .o1⟩ => some .x.o1
     | _              => none
-  invInj := by intro b₁ b₂; cases b₁ <;> cases b₂; repeat rename_i v₁ v₂; cases v₁ <;> cases v₂ <;> simp
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -203,8 +203,7 @@ instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .M
     | .inl .o1       => some .o1
     | .inr ⟨.x, .i2⟩ => some .x.i2
     | _              => none
-  invInj := by 
-    sorry
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -214,7 +213,7 @@ instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.inte
   inv
     | .a1 => some .a1
     | _   => none
-  invInj := sorry
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -222,7 +221,7 @@ instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.inte
   coe := (·.casesOn)
   inv 
     | _ => none
-  invInj := sorry
+  invInj := by simp
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -232,7 +231,7 @@ instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Ma
   inv
     | .inl .i1 => some .i1
     | _        => none
-  invInj := sorry
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -244,7 +243,7 @@ instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .M
     | .inl .o1 => some .o1
     | .inl .o2 => some .o2
     | _        => none
-  invInj := sorry
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -255,7 +254,7 @@ instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.inte
   inv
     | .a1 => some .a1
     | .a2 => some .a2
-  invInj := sorry
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 @[reducible]
@@ -265,7 +264,7 @@ instance : InjectiveCoe Main.Reaction2.ActionEffect (graph.schemes .Main |>.inte
   inv
     | .a2 => some .a2
     | _   => none
-  invInj := sorry
+  invInj := by intro b₁ b₂ a h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂
   coeInvId := (by cases · <;> rfl)
 
 abbrev network : Network := {

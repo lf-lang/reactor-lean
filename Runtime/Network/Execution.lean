@@ -14,6 +14,7 @@ structure Executable (net : Network) where
   tag : Tag
   queue : Array (Event net) 
   reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → Interface (net.scheme id |>.interface kind)
+  isShuttingDown : Bool := false
 
 namespace Executable
 
@@ -27,9 +28,10 @@ def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interfa
 def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net.reactionType' reactorID) : Bool :=
   reaction.triggers.any fun trigger =>
     match trigger with
-    | .startup       => exec.tag = { time := 0, microstep := 0 }
     | .port   port   => (exec.reactionInputs reactorID).isPresent port
     | .action action => (exec.reactors reactorID .actions).isPresent action
+    | .startup       => exec.tag = { time := 0, microstep := 0 }
+    | .shutdown      => exec.isShuttingDown
 
 def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
   queue := exec.queue.merge <| output.events.map fun event => {
@@ -158,18 +160,13 @@ structure DebugParameters (net : Network) where
   stepCount : Nat := 0
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
-partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) (debug : Option (DebugParameters net) := none) : IO Unit := do
+partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with 
   | none => 
-    match exec.next with
-    | some next => 
-      match debug with
-      | none => run (exec.advance next) topo 0
-      | some debug => 
-        debug.callback exec
-        unless debug.stepCount < debug.maxSteps do return
-        run (exec.advance next) topo 0 <| some { debug with stepCount := debug.stepCount + 1 }
-    | none => return
+    unless exec.isShuttingDown do
+      match exec.next with
+      | none => run { exec with isShuttingDown := true } topo 0
+      | some next => run (exec.advance next) topo 0
   | some reactionID =>
     IO.sleepUntil exec.tag.time
     let mut exec := exec
@@ -181,7 +178,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       let state     := exec.reactors reactorID .state
       let output ← reaction.run ports actions state exec.tag
       exec := exec.apply output |>.propagate reactorID
-    run exec topo (reactionIdx + 1) debug
+    run exec topo (reactionIdx + 1)
 
 end Executable
 

@@ -107,6 +107,7 @@ namespace Reaction
 
 inductive Trigger (Port Action : Type)
   | startup
+  | shutdown
   | port (p : Port)
   | action (a : Action)
 

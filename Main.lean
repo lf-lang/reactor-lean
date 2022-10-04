@@ -259,7 +259,7 @@ abbrev network : Network := {
         portEffects   := Main.Reaction1.PortEffect
         actionSources := Main.Reaction1.ActionSource
         actionEffects := Main.Reaction1.ActionEffect
-        triggers      := #[.startup, .port .i2, .action .a1]
+        triggers      := #[.startup, .shutdown, .port .i2, .action .a1]
         body := open ReactionM Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
           let i ← getInput i1
           let i' := (i.getD 0) + 1 

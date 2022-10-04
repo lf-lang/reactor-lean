@@ -1,9 +1,11 @@
 import Runtime.Time
 
+macro "invInjProof" : tactic => `(first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp)
+macro "coeInvIdProof" : tactic => `(intro a; cases a <;> rfl)
 class InjectiveCoe (α β) extends Coe α β where
   inv      : β → Option α
-  invInj   : ∀ {b₁ b₂ a}, (inv b₁ = some a) → (inv b₂ = some a) → (b₁ = b₂) 
-  coeInvId : ∀ a, inv (coe a) = a
+  invInj   : ∀ {b₁ b₂ a}, (inv b₁ = some a) → (inv b₂ = some a) → (b₁ = b₂) := by invInjProof
+  coeInvId : ∀ a, inv (coe a) = a := by coeInvIdProof
   
 theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b = some a) → (inst.coe a = b) := 
   fun _ h => (invInj h <| inst.coeInvId a).symm  

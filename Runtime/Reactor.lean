@@ -1,4 +1,4 @@
-import Runtime.Reaction
+import Runtime.Interface
 
 namespace Reactor
 
@@ -6,22 +6,26 @@ inductive PortKind
   | input
   | output
 
-abbrev PortKind.opposite : PortKind → PortKind 
-  | .input => .output
-  | .output => .input
-
 inductive InterfaceKind 
   | inputs 
   | outputs 
   | actions
   | state
 
+@[reducible]
 instance : Coe PortKind InterfaceKind where
   coe
     | .input => .inputs
     | .output => .outputs
 
-def Scheme := InterfaceKind → Interface.Scheme 
-def _root_.Reactor (σ : Reactor.Scheme) := (kind : InterfaceKind) → (Interface $ σ kind)
+structure Scheme (Classes : Type) where
+  interface : InterfaceKind → Interface.Scheme 
+  children : Type
+  «class» : children → Classes
+  [decEqChildren : DecidableEq children]
+  
+attribute [instance] Scheme.decEqChildren
+attribute [reducible] Scheme.interface
+attribute [reducible] Scheme.class
 
 end Reactor

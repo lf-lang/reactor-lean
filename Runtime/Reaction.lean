@@ -59,12 +59,11 @@ instance : Monad (ReactionM σPortSource σPortEffect σActionSource σActionEff
     let output := output₁.merge output₂
     return (output, b)
 
--- TODO:
--- instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
---   monadLift io input world := 
---     match io world with 
---     | .error e world' => .error e world'
---     | .ok    a world' => .ok (input.noop, a) world'
+instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
+  monadLift io input world := 
+    match io world with 
+    | .error e world' => .error e world'
+    | .ok    a world' => .ok (input.noop, a) world'
 
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)

@@ -11,7 +11,7 @@ network {
     nested := [x : Sub, y : Sub]
     connections := [x.o1 → y.i3]
 
-    reaction first (i1, !i2, @a1, x.o1) → (o1, x.i2) { 
+    reaction first (i1, !i2, !@a1, x.o1) → (o1, x.i2) { 
       let i ← getInput i1
       let i' := (i.getD 0) + 1
       let b := if i' = 0 then true else false
@@ -25,7 +25,7 @@ network {
         setState s2 false
     }
 
-    reaction second (i1, !@a1) → (o1, @a2) { 
+    reaction second (i1, !@a1, !@a2) → (o1, @a2) { 
       let _ := (← getAction a1).map (· ++ "suffix")
       let _ ← getInput i1
       schedule a2 112 "First"
@@ -74,7 +74,7 @@ inductive Main.Reaction1.ActionEffect deriving DecidableEq
 
 inductive Main.Reaction2.PortSource   | i1 deriving DecidableEq
 inductive Main.Reaction2.PortEffect   | o1 | o2 deriving DecidableEq
-inductive Main.Reaction2.ActionSource | a1 deriving DecidableEq
+inductive Main.Reaction2.ActionSource | a1 | a2 deriving DecidableEq
 inductive Main.Reaction2.ActionEffect | a2 deriving DecidableEq
 
 abbrev Main.scheme : Reactor.Scheme Classes := {
@@ -131,11 +131,11 @@ abbrev Sub.scheme : Reactor.Scheme Classes := {
     }
     | .actions => {
       vars := Action
-      type := (·.rec)
+      type := (·.casesOn)
     }
     | .state => {
       vars := State
-      type := (·.rec)
+      type := (·.casesOn)
     }
   children := Sub.Nested
   «class» := fun
@@ -153,22 +153,22 @@ abbrev Grand.scheme : Reactor.Scheme Classes := {
   interface := fun
     | .inputs => { 
       vars := Input
-      type := (·.rec)
+      type := (·.casesOn)
     }
     | .outputs => {
       vars := Output
-      type := (·.rec)
+      type := (·.casesOn)
     }
     | .actions => {
       vars := Action
-      type := (·.rec)
+      type := (·.casesOn)
     }
     | .state => {
       vars := State
-      type := (·.rec)
+      type := (·.casesOn)
     }
   children := Empty
-  «class» := (·.rec)
+  «class» := (·.casesOn)
 }
 
 abbrev graph : Network.Graph := {
@@ -181,79 +181,94 @@ abbrev graph : Network.Graph := {
 }
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Main).vars := {
-  coe := fun
+instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Main).vars where
+  coe
     | .i1   => .inl .i1
     | .i2   => .inl .i2
     | .x.o1 => .inr ⟨.x, .o1⟩
-  inv := fun
+  inv
     | .inl .i1       => some .i1  
     | .inl .i2       => some .i2  
     | .inr ⟨.x, .o1⟩ => some .x.o1
     | _              => none
   invInj := by intro b₁ b₂; cases b₁ <;> cases b₂; repeat rename_i v₁ v₂; cases v₁ <;> cases v₂ <;> simp
   coeInvId := (by cases · <;> rfl)
-}
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .Main).vars := {
-  coe := fun
+instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .Main).vars where
+  coe
     | .o1   => .inl .o1
     | .x.i2 => .inr ⟨.x, .i2⟩
-  inv := sorry
-  invInj := sorry
-  coeInvId := sorry
-}
+  inv 
+    | .inl .o1       => some .o1
+    | .inr ⟨.x, .i2⟩ => some .x.i2
+    | _              => none
+  invInj := by 
+    sorry
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) := {
-  coe := sorry
-  inv := sorry
+instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) where
+  coe
+    | .a1 => .a1
+  inv
+    | .a1 => some .a1
+    | _   => none
   invInj := sorry
-  coeInvId := sorry
-}
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) := {
-  coe := sorry
-  inv := sorry
+instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
+  coe := (·.casesOn)
+  inv 
+    | _ => none
   invInj := sorry
-  coeInvId := sorry
-}
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Main).vars := {
-  coe := sorry
-  inv := sorry
+instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Main).vars where
+  coe
+    | .i1 => .inl .i1
+  inv
+    | .inl .i1 => some .i1
+    | _        => none
   invInj := sorry
-  coeInvId := sorry
-}
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .Main).vars := {
-  coe := sorry
-  inv := sorry
+instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .Main).vars where
+  coe
+    | .o1 => .inl .o1
+    | .o2 => .inl .o2
+  inv
+    | .inl .o1 => some .o1
+    | .inl .o2 => some .o2
+    | _        => none
   invInj := sorry
-  coeInvId := sorry
-}
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) := {
-  coe := sorry
-  inv := sorry
+instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) where
+  coe
+    | .a1 => .a1
+    | .a2 => .a2
+  inv
+    | .a1 => some .a1
+    | .a2 => some .a2
   invInj := sorry
-  coeInvId := sorry
-}
+  coeInvId := (by cases · <;> rfl)
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) := {
-  coe := sorry
-  inv := sorry
+instance : InjectiveCoe Main.Reaction2.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
+  coe
+    | .a2 => .a2
+  inv
+    | .a2 => some .a2
+    | _   => none
   invInj := sorry
-  coeInvId := sorry
-}
+  coeInvId := (by cases · <;> rfl)
 
-def network : Network := {
+abbrev network : Network := {
   toGraph := graph
   reactions := fun
     | .Main => #[
@@ -262,7 +277,7 @@ def network : Network := {
         portEffects   := Main.Reaction1.PortEffect
         actionSources := Main.Reaction1.ActionSource
         actionEffects := Main.Reaction1.ActionEffect
-        triggers      := #[.port .i2]
+        triggers      := #[.port .i2, .action .a1]
         body := open ReactionM Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
           let i ← getInput i1
           let i' := (i.getD 0) + 1 
@@ -275,28 +290,41 @@ def network : Network := {
           | some v => 
             setState s1 (v * 12)
             setState s2 false
+          monadLift <| IO.println s!"{← getInput i1}"
+          monadLift <| IO.println s!"{← getInput i2}"
+          monadLift <| IO.println s!"{← getState s1}"
+          monadLift <| IO.println s!"{← getState s2}"
+          monadLift <| IO.println s!"{← getAction a1}"
       },
       {
         portSources   := Main.Reaction2.PortSource
         portEffects   := Main.Reaction2.PortEffect
         actionSources := Main.Reaction2.ActionSource
         actionEffects := Main.Reaction2.ActionEffect
-        triggers      := #[.action .a1]
+        triggers      := #[.action .a1, .action .a2]
         body := open ReactionM Main Reaction2 PortSource PortEffect ActionSource ActionEffect State in do
-          let _ := (← getAction a1).map (· ++ "suffix") -- TODO: This is an error because of the unimplemented type class instances above.
+          let a ← getAction a1
+          -- let _ := a.map (· ++ "suffix") -- TODO: Why doesn't this work?
           let _ ← getInput i1
-          schedule a2 112 "First"
-          schedule a2 113 "Second"
-          IO.println "Hello"
-          let dir := IO.appDir
-          let dir' ← IO.appDir
+          let s ← getState s2
+          if s.getD false
+          then 
+            schedule a2 0 (true, 1)
+            setState s2 false
+          else 
+            schedule a2 0 (false, 0)
+            setState s2 true
+          monadLift (IO.println "Hello")
+          monadLift (IO.println "World")
+          let dir ← monadLift IO.appDir
+          monadLift (IO.println dir)
       }
     ]
     | .Sub => #[]
     | .Grand => #[]
   connections := fun
     | .Main => {
-      outForIn := fun input => -- TODO: Try to get pattern matching working for this.
+      source := fun input => -- TODO: Try to get pattern matching working for this.
         if input = ⟨.y, .i3⟩ then some ⟨.x, .o1⟩
         else none
       eqType := by intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp
@@ -306,4 +334,40 @@ def network : Network := {
 }
 
 def main : IO Unit := do
-  sorry -- exec.run #[] 0
+  let exec : Network.Executable network := {
+    tag := ⟨0, 0⟩
+    queue := #[]
+    reactors := fun id interface =>
+      match id, interface with
+      | .nil, .inputs  => fun
+        | .i1 => some (1 : Nat)
+        | .i2 => some ""
+      | .nil, .state   => fun
+        | .s1 => some (-1 : Int)
+        | _ => none
+      | .nil, .actions => fun
+        | .a1 => some ""
+        | _ => none
+      | .nil, .outputs => Interface.empty
+      | _, _ => Interface.empty
+  }
+  let topo : Array (Network.ReactionID network) := #[
+    ⟨.nil, ⟨0, by simp⟩⟩,
+    ⟨.nil, ⟨1, by simp⟩⟩
+  ]
+  let debug : Network.Executable.DebugParameters network := {
+    callback := fun e => do
+      IO.println s!"time: {e.tag.time}\tmicro: {e.tag.microstep}"
+      IO.println s!"queue: {e.queue.map (·.time)}"
+      let x : Option Nat          := e.reactors .nil .inputs .i1; IO.println  s!"i1: {x}"
+      let x : Option String       := e.reactors .nil .inputs .i2; IO.println  s!"i2: {x}"
+      let x : Option Bool         := e.reactors .nil .outputs .o1; IO.println s!"o1: {x}"
+      let x : Option Unit         := e.reactors .nil .outputs .o2; IO.println s!"o2: {x}"
+      let x : Option String       := e.reactors .nil .actions .a1; IO.println s!"a1: {x}"
+      let x : Option (Bool × Nat) := e.reactors .nil .actions .a2; IO.println s!"a2: {x}"
+      let x : Option Int          := e.reactors .nil .state .s1; IO.println   s!"s1: {x}"
+      let x : Option Bool         := e.reactors .nil .state .s2; IO.println   s!"s2: {x}"
+      IO.println "---------------------------"
+    maxSteps := 10 
+  }
+  exec.run topo 0 debug

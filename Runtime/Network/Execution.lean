@@ -105,10 +105,14 @@ where
         | some source =>
           -- The reactor identified by `reactorID` is the only one that can have a changed output port, 
           -- so we only need to propagate a value if the source is part of that reactor.
+          -- TODO: We should only have to check if source.reactor = reactorID.last, because by hs we know that id.prefix = reactorID.prefix
           if he : id.prefix.extend source.reactor = reactorID then 
             let x := source.port
             let y := exec.reactors reactorID .outputs
-            have h : (net.subinterface (net.class id.prefix) source.reactor .outputs).vars = ((net.scheme reactorID).interface .outputs).vars := sorry
+            have h : net.subinterface (net.class id.prefix) source.reactor = (net.scheme reactorID).interface := by
+              have h1 : id.prefix = reactorID.prefix := sorry -- cf. TODO above.
+              have h2 : ∀ id h, net.subinterface (net.class id.prefix) (id.last h) = (net.scheme id).interface := sorry
+              sorry
             let val := y (h ▸ x)
             have HH : ((net.scheme reactorID).interface .outputs).type (h ▸ x) = ((net.scheme id).interface .inputs).type var := by
               have := connections.eqType hc
@@ -147,12 +151,23 @@ where actionForEvents (events : Array <| Event net) (id : ActionID net) : Option
   | none => none
   | some event => have h := Array.findP?_property h; (of_decide_eq_true h) ▸ event.value
 
+structure DebugParameters (net : Network) where
+  callback : (Executable net) → IO Unit
+  maxSteps : Nat
+  stepCount : Nat := 0
+
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
-partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do
+partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) (debug : Option (DebugParameters net) := none) : IO Unit := do
   match topo[reactionIdx]? with 
   | none => 
     match exec.next with
-    | some next => run (exec.advance next) topo 0
+    | some next => 
+      match debug with
+      | none => run (exec.advance next) topo 0
+      | some debug => 
+        debug.callback exec
+        unless debug.stepCount < debug.maxSteps do return
+        run (exec.advance next) topo 0 (some { debug with stepCount := debug.stepCount + 1 })
     | none => return
   | some reactionID =>
     IO.sleepUntil exec.tag.time
@@ -165,7 +180,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       let state     := exec.reactors reactorID .state
       let output ← reaction.run ports actions state exec.tag
       exec := exec.apply output |>.propagate reactorID
-    run exec topo (reactionIdx + 1)
+    run exec topo (reactionIdx + 1) debug
 
 end Executable
 

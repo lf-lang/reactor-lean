@@ -13,7 +13,7 @@ theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b =
 instance [Ord α] : LE α := leOfOrd
 
 instance : DecidableEq Empty :=
-  fun empty _ => empty.rec
+  fun empty _ => empty.casesOn
 
 @[reducible]
 instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
@@ -53,7 +53,7 @@ where
     if p a then a else loop (idx + 1) as p
   else 
     none
-  termination_by _ => as.size - idx
+termination_by _ => as.size - idx
 
 theorem Array.findP?_property {as : Array α} : (Array.findP? as p = some a) → (p a) :=
   let rec go {idx} : (Array.findP?.loop idx as p = some a) → (p a) := by

@@ -174,10 +174,9 @@ structure Connections (graph : Graph) («class» : graph.classes) where
   source : (Subport graph «class» .input) → Option (Subport graph «class» .output)
   eqType : (source input = some output) → (graph.subinterface «class» output.reactor .outputs).type output.port = (graph.subinterface «class» input.reactor .inputs).type input.port
 
-def Connections.empty {graph : Graph} {«class» : graph.classes} : Connections graph «class» := {
-  source := fun _ => none
+def Connections.empty {graph : Graph} {«class» : graph.classes} : Connections graph «class» where
+  source _ := none
   eqType := by simp [source]
-}
 
 structure _root_.Network extends Graph where
   reactions : («class» : toGraph.classes) → Array (toGraph.reactionType «class»)

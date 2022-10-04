@@ -31,14 +31,13 @@ abbrev _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect
 
 variable {σInput σOutput σAction σPortSource σPortEffect σActionSource σActionEffect σState : Interface.Scheme} 
 
-def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time := {
-  ports  := o₁.ports.merge o₂.ports,
-  state  := o₁.state.merge o₂.state,
+def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time where
+  ports  := o₁.ports.merge o₂.ports
+  state  := o₁.state.merge o₂.state
   events := o₁.events.merge o₂.events
-}
 
-def Input.noop (input : ReactionM.Input σPortSource σActionSource σState) : Output σPortEffect σActionEffect σState input.tag.time := 
-  { state := input.state }
+def Input.noop (input : ReactionM.Input σPortSource σActionSource σState) : Output σPortEffect σActionEffect σState input.tag.time where 
+  state := input.state 
 
 instance : Monad (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState) where
   pure a input := do
@@ -107,8 +106,8 @@ end ReactionM
 namespace Reaction
 
 inductive Trigger (Port Action : Type)
-  | port   (_ : Port)
-  | action (_ : Action)
+  | port   : Port → Trigger Port Action
+  | action : Action → Trigger Port Action
 
 open Reaction in
 structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme) where
@@ -133,8 +132,7 @@ attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq action
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
-def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) : 
-  IO (rcn.outputType tag.time) := do
+def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) : IO (rcn.outputType tag.time) := do
   let ⟨output, _⟩ ← rcn.body { ports := (inputs ·), actions := (actions ·), state := state, tag := tag }
   return output
 

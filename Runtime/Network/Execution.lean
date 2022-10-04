@@ -138,18 +138,18 @@ def next (exec : Executable net) : Option (Next net) := do
     queue := postponed ++ later
   }
 
-def advance (exec : Executable net) (next : Next net) : Executable net := {  
+def advance (exec : Executable net) (next : Next net) : Executable net where 
   tag := next.tag
   queue := next.queue
   reactors := fun id => fun
     | .inputs | .outputs => Interface.empty
     | .state             => exec.reactors id .state
     | .actions           => (actionForEvents next.events ⟨id, ·⟩)
-}
-where actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=
-  match h : events.findP? (·.id = id) with
-  | none => none
-  | some event => have h := Array.findP?_property h; (of_decide_eq_true h) ▸ event.value
+where 
+  actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=
+    match h : events.findP? (·.id = id) with
+    | none => none
+    | some event => have h := Array.findP?_property h; (of_decide_eq_true h) ▸ event.value
 
 structure DebugParameters (net : Network) where
   callback : (Executable net) → IO Unit
@@ -167,7 +167,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       | some debug => 
         debug.callback exec
         unless debug.stepCount < debug.maxSteps do return
-        run (exec.advance next) topo 0 (some { debug with stepCount := debug.stepCount + 1 })
+        run (exec.advance next) topo 0 <| some { debug with stepCount := debug.stepCount + 1 }
     | none => return
   | some reactionID =>
     IO.sleepUntil exec.tag.time

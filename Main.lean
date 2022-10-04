@@ -213,8 +213,7 @@ instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.inte
 @[reducible]
 instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
   coe := (·.casesOn)
-  inv 
-    | _ => none
+  inv _ := none
 
 @[reducible]
 instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Main).vars where

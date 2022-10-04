@@ -15,7 +15,7 @@ def Time.advance (time : Time) (d : Duration) : Time.From time := {
 }
 
 def Tag.advance (tag : Tag) (time : Time) : Tag := 
-  match Ord.compare tag.time time with
+  match compare tag.time time with
   | .lt => { time := time, microstep := 0 }
   | .eq => { tag with microstep := tag.microstep + 1 }
   | .gt => tag -- TODO: This can only happen if there is an error in the implementation of reactor execution.

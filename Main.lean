@@ -61,11 +61,31 @@ inductive Classes
   | Sub
   | Grand
 
-inductive Main.Input  | i1 | i2 deriving DecidableEq
-inductive Main.Output | o1 | o2 deriving DecidableEq
-inductive Main.Action | a1 | a2 deriving DecidableEq
-inductive Main.State  | s1 | s2 deriving DecidableEq
-inductive Main.Nested | x  | y  deriving DecidableEq
+gen_interface_scheme Main.Input  [i1 : Nat,    i2 : String]
+gen_interface_scheme Main.Output [o1 : Bool,   o2 : Unit]
+gen_interface_scheme Main.Action [a1 : String, a2 : Bool × Nat]
+gen_interface_scheme Main.State  [s1 : Int,    s2 : Bool]
+gen_reactor_scheme Main [x : Sub, y : Sub]
+
+gen_interface_scheme Sub.Input  [i1 : Nat, i2 : Bool, i3 : Unit]
+gen_interface_scheme Sub.Output [o1 : Unit]
+gen_interface_scheme Sub.Action []
+gen_interface_scheme Sub.State  []
+gen_reactor_scheme Sub [a : Grand, b : Grand]
+
+gen_interface_scheme Grand.Input  []
+gen_interface_scheme Grand.Output []
+gen_interface_scheme Grand.Action []
+gen_interface_scheme Grand.State  []
+gen_reactor_scheme Grand []
+
+abbrev graph : Network.Graph where
+  classes := Classes
+  root := .Main
+  schemes
+    | .Main => Main.scheme
+    | .Sub => Sub.scheme
+    | .Grand => Grand.scheme
 
 inductive Main.Reaction1.PortSource   | i1 | i2 | x.o1 deriving DecidableEq
 inductive Main.Reaction1.PortEffect   | o1 | x.i2 deriving DecidableEq
@@ -76,109 +96,6 @@ inductive Main.Reaction2.PortSource   | i1 deriving DecidableEq
 inductive Main.Reaction2.PortEffect   | o1 | o2 deriving DecidableEq
 inductive Main.Reaction2.ActionSource | a1 | a2 deriving DecidableEq
 inductive Main.Reaction2.ActionEffect | a2 deriving DecidableEq
-
-abbrev Main.scheme : Reactor.Scheme Classes := {
-  interface := fun
-    | .inputs => { 
-      vars := Input
-      type := fun
-        | .i1 => Nat
-        | .i2 => String
-    }
-    | .outputs => {
-      vars := Output
-      type := fun
-        | .o1 => Bool
-        | .o2 => Unit
-    }
-    | .actions => {
-      vars := Action
-      type := fun
-        | .a1 => String
-        | .a2 => Bool × Nat
-    }
-    | .state => {
-      vars := State
-      type := fun
-        | .s1 => Int
-        | .s2 => Bool
-    }
-  children := Main.Nested
-  «class» := fun 
-    | .x => .Sub
-    | .y => .Sub
-}
-
-inductive Sub.Input  | i1 | i2 | i3 deriving DecidableEq
-inductive Sub.Output | o1 deriving DecidableEq
-inductive Sub.Action deriving DecidableEq
-inductive Sub.State  deriving DecidableEq
-inductive Sub.Nested | a | b deriving DecidableEq
-
-abbrev Sub.scheme : Reactor.Scheme Classes := {
-  interface := fun
-    | .inputs => { 
-      vars := Input
-      type := fun
-        | .i1 => Nat
-        | .i2 => Bool
-        | .i3 => Unit
-    }
-    | .outputs => {
-      vars := Output
-      type := fun
-        | .o1 => Unit
-    }
-    | .actions => {
-      vars := Action
-      type := (·.casesOn)
-    }
-    | .state => {
-      vars := State
-      type := (·.casesOn)
-    }
-  children := Sub.Nested
-  «class» := fun
-    | .a => .Grand
-    | .b => .Grand
-}
-
-inductive Grand.Input  deriving DecidableEq
-inductive Grand.Output deriving DecidableEq
-inductive Grand.Action deriving DecidableEq
-inductive Grand.State  deriving DecidableEq
-inductive Grand.Nested deriving DecidableEq
-
-abbrev Grand.scheme : Reactor.Scheme Classes := {
-  interface := fun
-    | .inputs => { 
-      vars := Input
-      type := (·.casesOn)
-    }
-    | .outputs => {
-      vars := Output
-      type := (·.casesOn)
-    }
-    | .actions => {
-      vars := Action
-      type := (·.casesOn)
-    }
-    | .state => {
-      vars := State
-      type := (·.casesOn)
-    }
-  children := Empty
-  «class» := (·.casesOn)
-}
-
-abbrev graph : Network.Graph := {
-  classes := Classes
-  root := .Main
-  schemes := fun
-    | .Main => Main.scheme
-    | .Sub => Sub.scheme
-    | .Grand => Grand.scheme
-}
 
 @[reducible]
 instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Main).vars where
@@ -250,9 +167,9 @@ instance : InjectiveCoe Main.Reaction2.ActionEffect (graph.schemes .Main |>.inte
     | .a2 => some .a2
     | _   => none
 
-abbrev network : Network := {
+abbrev network : Network where
   toGraph := graph
-  reactions := fun
+  reactions 
     | .Main => #[
       {
         portSources   := Main.Reaction1.PortSource
@@ -304,7 +221,7 @@ abbrev network : Network := {
     ]
     | .Sub => #[]
     | .Grand => #[]
-  connections := fun
+  connections 
     | .Main => {
       source := fun input => -- TODO: Try to get pattern matching working for this.
         if input = ⟨.y, .i3⟩ then some ⟨.x, .o1⟩
@@ -313,7 +230,6 @@ abbrev network : Network := {
     }
     | .Sub => .empty
     | .Grand => .empty
-}
 
 def main : IO Unit := do
   let exec : Network.Executable network := {
@@ -337,19 +253,4 @@ def main : IO Unit := do
     ⟨.nil, ⟨0, by simp⟩⟩,
     ⟨.nil, ⟨1, by simp⟩⟩
   ]
-  let debug : Network.Executable.DebugParameters network := {
-    callback := fun e => do
-      IO.println s!"time: {e.tag.time}\tmicro: {e.tag.microstep}"
-      IO.println s!"queue: {e.queue.map (·.time)}"
-      let x : Option Nat          := e.reactors .nil .inputs .i1; IO.println  s!"i1: {x}"
-      let x : Option String       := e.reactors .nil .inputs .i2; IO.println  s!"i2: {x}"
-      let x : Option Bool         := e.reactors .nil .outputs .o1; IO.println s!"o1: {x}"
-      let x : Option Unit         := e.reactors .nil .outputs .o2; IO.println s!"o2: {x}"
-      let x : Option String       := e.reactors .nil .actions .a1; IO.println s!"a1: {x}"
-      let x : Option (Bool × Nat) := e.reactors .nil .actions .a2; IO.println s!"a2: {x}"
-      let x : Option Int          := e.reactors .nil .state .s1; IO.println   s!"s1: {x}"
-      let x : Option Bool         := e.reactors .nil .state .s2; IO.println   s!"s2: {x}"
-      IO.println "---------------------------"
-    maxSteps := 10 
-  }
-  exec.run topo 0 debug
+  exec.run topo 0

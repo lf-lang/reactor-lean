@@ -1,3 +1,3 @@
-import Runtime.DSL.Interface
-import Runtime.DSL.Reaction
-import Runtime.DSL.Reactor
+import Runtime.DSL.InjectiveCoe
+import Runtime.DSL.InterfaceScheme
+import Runtime.DSL.ReactorScheme

@@ -1,3 +1,4 @@
+import Runtime.Interface
 import Lean
 open Lean Macro
 
@@ -15,15 +16,14 @@ def getInterfaceSchemeVars : (TSyntax `interface_scheme) → MacroM (Array $ TSy
   | `(interface_scheme| [ $vars,* ]) => return vars
   | _ => throwUnsupported
 
-macro "interface" name:ident scheme:interface_scheme : command => do
+macro "gen_interface_scheme" name:ident scheme:interface_scheme : command => do
   let vars ← getInterfaceSchemeVars scheme
   let components ← vars.mapM getInterfaceVarComponents
   let ⟨ids, types⟩ := components.unzip
   let schemeName := mkIdentFrom name (name.getId ++ `scheme)
   `(
     inductive $name $[| $ids:ident]* deriving DecidableEq
-    abbrev $schemeName : $(mkIdent `Interface.Scheme) := {
+    abbrev $schemeName : Interface.Scheme where
       vars := $name
-      type := fun x => match x with $[| $ids => $types]*
-    }
+      type var := match var with $[| $ids => $types]*
   )

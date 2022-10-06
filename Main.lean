@@ -2,13 +2,7 @@ import Runtime
 
 /-
 network {
-
   main reactor Main {
-    input  := [i1 : Nat,    i2 : String]
-    output := [o1 : Bool,   o2 : Unit]
-    action := [a1 : String, a2 : Bool × Nat]
-    state  := [s1 : Int,    s2 : Bool]
-    nested := [x : Sub, y : Sub]
     connections := [x.o1 → y.i3]
 
     reaction first (startup, i1, !i2, !@a1, x.o1) → (o1, x.i2) { 
@@ -35,70 +29,41 @@ network {
       let dir' ← IO.appDir
     }
   }
-
-  reactor Sub {
-    input  := [i1 : Nat, i2 : Bool, i3 : Unit]
-    output := [o1 : Unit]
-    action := []
-    state  := []
-    nested := [a : Grand, b : Grand]
-    connections := []
-  }
-
-  reactor Grand {
-    input  := []
-    output := []
-    action := []
-    state  := []
-    nested := []
-    connections := []
-  }
 }
 -/
 
-inductive Classes 
-  | Main
-  | Sub
-  | Grand
+gen_graph graph where
+  Main where
+    inputs  := [i1 : Nat, i2 : String]
+    outputs := [o1 : Bool, o2 : Unit]
+    actions := [a1 : String, a2 : Bool × Nat]
+    state   := [s1 : Int, s2 : Bool]
+    nested  := [x : Sub, y : Sub]
+  Sub where
+    inputs  := [i1 : Nat, i2 : Bool, i3 : Unit]
+    outputs := [o1 : Unit]
+    actions := []
+    state   := []
+    nested  := [a : Grand, b : Grand]
+  Grand where
+    inputs  := []
+    outputs := []
+    actions := []
+    state   := []
+    nested  := []
 
-gen_interface_scheme Main.Input  [i1 : Nat,    i2 : String]
-gen_interface_scheme Main.Output [o1 : Bool,   o2 : Unit]
-gen_interface_scheme Main.Action [a1 : String, a2 : Bool × Nat]
-gen_interface_scheme Main.State  [s1 : Int,    s2 : Bool]
-gen_reactor_scheme Main [x : Sub, y : Sub]
+inductive graph.Main.Reaction1.PortSource   | i1 | i2 | x.o1 deriving DecidableEq
+inductive graph.Main.Reaction1.PortEffect   | o1 | x.i2 deriving DecidableEq
+inductive graph.Main.Reaction1.ActionSource | a1 deriving DecidableEq
+inductive graph.Main.Reaction1.ActionEffect deriving DecidableEq
 
-gen_interface_scheme Sub.Input  [i1 : Nat, i2 : Bool, i3 : Unit]
-gen_interface_scheme Sub.Output [o1 : Unit]
-gen_interface_scheme Sub.Action []
-gen_interface_scheme Sub.State  []
-gen_reactor_scheme Sub [a : Grand, b : Grand]
-
-gen_interface_scheme Grand.Input  []
-gen_interface_scheme Grand.Output []
-gen_interface_scheme Grand.Action []
-gen_interface_scheme Grand.State  []
-gen_reactor_scheme Grand []
-
-abbrev graph : Network.Graph where
-  classes := Classes
-  root := .Main
-  schemes
-    | .Main => Main.scheme
-    | .Sub => Sub.scheme
-    | .Grand => Grand.scheme
-
-inductive Main.Reaction1.PortSource   | i1 | i2 | x.o1 deriving DecidableEq
-inductive Main.Reaction1.PortEffect   | o1 | x.i2 deriving DecidableEq
-inductive Main.Reaction1.ActionSource | a1 deriving DecidableEq
-inductive Main.Reaction1.ActionEffect deriving DecidableEq
-
-inductive Main.Reaction2.PortSource   | i1 deriving DecidableEq
-inductive Main.Reaction2.PortEffect   | o1 | o2 deriving DecidableEq
-inductive Main.Reaction2.ActionSource | a1 | a2 deriving DecidableEq
-inductive Main.Reaction2.ActionEffect | a2 deriving DecidableEq
+inductive graph.Main.Reaction2.PortSource   | i1 deriving DecidableEq
+inductive graph.Main.Reaction2.PortEffect   | o1 | o2 deriving DecidableEq
+inductive graph.Main.Reaction2.ActionSource | a1 | a2 deriving DecidableEq
+inductive graph.Main.Reaction2.ActionEffect | a2 deriving DecidableEq
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Main).vars where
+instance : InjectiveCoe graph.Main.Reaction1.PortSource (graph.reactionInputScheme .Main).vars where
   coe
     | .i1   => .inl .i1
     | .i2   => .inl .i2
@@ -110,7 +75,7 @@ instance : InjectiveCoe Main.Reaction1.PortSource (graph.reactionInputScheme .Ma
     | _              => none
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .Main).vars where
+instance : InjectiveCoe graph.Main.Reaction1.PortEffect (graph.reactionOutputScheme .Main).vars where
   coe
     | .o1   => .inl .o1
     | .x.i2 => .inr ⟨.x, .i2⟩
@@ -120,7 +85,7 @@ instance : InjectiveCoe Main.Reaction1.PortEffect (graph.reactionOutputScheme .M
     | _              => none
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) where
+instance : InjectiveCoe graph.Main.Reaction1.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) where
   coe
     | .a1 => .a1
   inv
@@ -128,12 +93,12 @@ instance : InjectiveCoe Main.Reaction1.ActionSource (graph.schemes .Main |>.inte
     | _   => none
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction1.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
+instance : InjectiveCoe graph.Main.Reaction1.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
   coe := (·.casesOn)
   inv _ := none
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Main).vars where
+instance : InjectiveCoe graph.Main.Reaction2.PortSource (graph.reactionInputScheme .Main).vars where
   coe
     | .i1 => .inl .i1
   inv
@@ -141,7 +106,7 @@ instance : InjectiveCoe Main.Reaction2.PortSource (graph.reactionInputScheme .Ma
     | _        => none
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .Main).vars where
+instance : InjectiveCoe graph.Main.Reaction2.PortEffect (graph.reactionOutputScheme .Main).vars where
   coe
     | .o1 => .inl .o1
     | .o2 => .inl .o2
@@ -151,7 +116,7 @@ instance : InjectiveCoe Main.Reaction2.PortEffect (graph.reactionOutputScheme .M
     | _        => none
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) where
+instance : InjectiveCoe graph.Main.Reaction2.ActionSource (graph.schemes .Main |>.interface .actions |>.vars) where
   coe
     | .a1 => .a1
     | .a2 => .a2
@@ -160,7 +125,7 @@ instance : InjectiveCoe Main.Reaction2.ActionSource (graph.schemes .Main |>.inte
     | .a2 => some .a2
 
 @[reducible]
-instance : InjectiveCoe Main.Reaction2.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
+instance : InjectiveCoe graph.Main.Reaction2.ActionEffect (graph.schemes .Main |>.interface .actions |>.vars) where
   coe
     | .a2 => .a2
   inv
@@ -172,12 +137,12 @@ abbrev network : Network where
   reactions 
     | .Main => #[
       {
-        portSources   := Main.Reaction1.PortSource
-        portEffects   := Main.Reaction1.PortEffect
-        actionSources := Main.Reaction1.ActionSource
-        actionEffects := Main.Reaction1.ActionEffect
+        portSources   := graph.Main.Reaction1.PortSource
+        portEffects   := graph.Main.Reaction1.PortEffect
+        actionSources := graph.Main.Reaction1.ActionSource
+        actionEffects := graph.Main.Reaction1.ActionEffect
         triggers      := #[.startup, .shutdown, .port .i2, .action .a1]
-        body := open ReactionM Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
+        body := open ReactionM graph Main Reaction1 PortSource PortEffect ActionSource ActionEffect State in do
           let i ← getInput i1
           let i' := (i.getD 0) + 1 
           let b := if i' = 0 then true else false
@@ -196,12 +161,12 @@ abbrev network : Network where
           monadLift <| IO.println s!"{← getAction a1}"
       },
       {
-        portSources   := Main.Reaction2.PortSource
-        portEffects   := Main.Reaction2.PortEffect
-        actionSources := Main.Reaction2.ActionSource
-        actionEffects := Main.Reaction2.ActionEffect
+        portSources   := graph.Main.Reaction2.PortSource
+        portEffects   := graph.Main.Reaction2.PortEffect
+        actionSources := graph.Main.Reaction2.ActionSource
+        actionEffects := graph.Main.Reaction2.ActionEffect
         triggers      := #[.action .a1, .action .a2]
-        body := open ReactionM Main Reaction2 PortSource PortEffect ActionSource ActionEffect State in do
+        body := open ReactionM graph Main Reaction2 PortSource PortEffect ActionSource ActionEffect State in do
           let a ← getAction a1
           -- let _ := a.map (· ++ "suffix") -- TODO: Why doesn't this work?
           let _ ← getInput i1

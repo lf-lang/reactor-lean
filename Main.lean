@@ -1,13 +1,14 @@
 import Runtime
 
-gen_graph graph where
+lf {
   reactor Main
-    inputs    [i1 : Nat, i2 : String]
-    outputs   [o1 : Bool, o2 : Unit]
-    actions   [a1 : String, a2 : Bool × Nat]
-    state     [s1 : Int, s2 : Bool]
-    nested    [x : Sub, y : Sub]
-    reactions [
+    inputs      [i1 : Nat, i2 : String]
+    outputs     [o1 : Bool, o2 : Unit]
+    actions     [a1 : String, a2 : Bool × Nat]
+    state       [s1 : Int, s2 : Bool]
+    nested      [x : Sub, y : Sub]
+    connections []
+    reactions   [
       {
         portSources   [i1, i2, x.o1]
         portEffects   [o1, x.i2]
@@ -18,8 +19,10 @@ gen_graph graph where
           actions [a2]
           meta    [startup, shutdown]
         }
-        body := sorry
-      }
+        body {
+          sorry
+        }
+      },
       {
         portSources   [i1]
         portEffects   [o1, o2]
@@ -30,25 +33,32 @@ gen_graph graph where
           actions [a2]
           meta    []
         }
-        body := sorry
+        body {
+          sorry
+        }
       }
     ]
+
   reactor Sub
-    inputs    [i1 : Nat, i2 : Bool, i3 : Unit]
-    outputs   [o1 : Unit]
-    actions   []
-    state     []
-    nested    [a : Grand, b : Grand]
-    reactions []
+    inputs      [i1 : Nat, i2 : Bool, i3 : Unit]
+    outputs     [o1 : Unit]
+    actions     []
+    state       []
+    nested      [a : Grand, b : Grand]
+    connections []
+    reactions   []
+
   reactor Grand
-    inputs    []
-    outputs   []
-    actions   []
-    state     []
-    nested    []
-    reactions []
-    
-abbrev network : Network where
+    inputs      []
+    outputs     []
+    actions     []
+    state       []
+    nested      []
+    connections []
+    reactions   []
+}
+
+/-abbrev network : Network where
   toGraph := graph
   «reactions» 
     | .Main => #[
@@ -58,7 +68,7 @@ abbrev network : Network where
         «actionSources» := graph.Main.Reaction0.ActionSource
         «actionEffects» := graph.Main.Reaction0.ActionEffect
         «triggers»      := #[.startup, .shutdown, .port .i2, .action .a1]
-        «body» := open ReactionM graph Main Reaction0 PortSource PortEffect ActionSource ActionEffect State in do
+        «body» := open graph Main Reaction0 PortSource PortEffect ActionSource ActionEffect State ReactionM in do
           let i ← getInput i1
           let i' := (i.getD 0) + 1 
           let b := if i' = 0 then true else false
@@ -104,13 +114,14 @@ abbrev network : Network where
     | .Grand => #[]
   connections 
     | .Main => {
-      source := fun input => -- TODO: Try to get pattern matching working for this.
-        if input = ⟨.y, .i3⟩ then some ⟨.x, .o1⟩
-        else none
-      eqType := by intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp
+      source := fun 
+        | ⟨.y, .i3⟩ => some ⟨.x, .o1⟩
+        | _ => none
+      eqType := sorry -- TODO: This should be a default parameter.
     }
     | .Sub => .empty
     | .Grand => .empty
+-/
 
 def main : IO Unit := do
   let exec : Network.Executable network := {

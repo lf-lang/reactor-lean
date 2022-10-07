@@ -170,9 +170,10 @@ structure Subport (graph : Graph) («class» : graph.classes) (kind : Reactor.Po
   port : graph.subinterface «class» reactor kind |>.vars
   deriving DecidableEq -- TODO: Remove this if pattern matching works for connections in Main.lean.
 
+macro "eqTypeProof" : tactic => `(intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp)
 structure Connections (graph : Graph) («class» : graph.classes) where
   source : (Subport graph «class» .input) → Option (Subport graph «class» .output)
-  eqType : (source input = some output) → (graph.subinterface «class» output.reactor .outputs).type output.port = (graph.subinterface «class» input.reactor .inputs).type input.port
+  eqType : (source input = some output) → (graph.subinterface «class» output.reactor .outputs).type output.port = (graph.subinterface «class» input.reactor .inputs).type input.port := by eqTypeProof
 
 def Connections.empty {graph : Graph} {«class» : graph.classes} : Connections graph «class» where
   source _ := none

@@ -25,21 +25,22 @@ syntax "{"
   "actionSources" ident_list
   "actionEffects" ident_list
   trigger_decl
-  "body" ":=" doSeq
+  "body" "{" doSeq "}"
   "}" : reaction_decl
 
 declare_syntax_cat reactor_decl
 syntax "reactor" ident 
-  "inputs"  interface_decl 
-  "outputs" interface_decl 
-  "actions" interface_decl 
-  "state"   interface_decl 
-  "nested"  interface_decl
-  "reactions" "[" reaction_decl* "]"
+  "inputs"      interface_decl 
+  "outputs"     interface_decl 
+  "actions"     interface_decl 
+  "state"       interface_decl 
+  "nested"      interface_decl
+  "connections" interface_decl
+  "reactions" "[" reaction_decl,* "]"
   : reactor_decl
 
-declare_syntax_cat graph_decl
-syntax ident "where" reactor_decl+ : graph_decl
+declare_syntax_cat network_decl
+syntax "lf" "{" reactor_decl+ "}" : network_decl
 
 def InterfaceVar.fromSyntax : TSyntax `interface_var → MacroM InterfaceVar
   | `(interface_var| $id:ident : $value) => return { id := id, value := value }
@@ -57,7 +58,7 @@ def TriggerDecl.fromSyntax : TSyntax `trigger_decl → MacroM TriggerDecl
 def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl 
   | `(reaction_decl| { 
       portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*] 
-      actionEffects [$ae:ident,*] $ts:trigger_decl body := $b:doSeq
+      actionEffects [$ae:ident,*] $ts:trigger_decl body { $b:doSeq }
     }) => return { 
       dependencies := fun | .portSource => ps | .portEffect => pe | .actionSource => as | .actionEffect => ae
       «triggers» := ← TriggerDecl.fromSyntax ts
@@ -66,24 +67,25 @@ def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl
   | _ => throwUnsupported
 
 def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
-  | `(reactor_decl| reactor $name:ident inputs $i outputs $o actions $a state $s nested $n reactions [$r:reaction_decl*]) => do
+  | `(reactor_decl| reactor $name:ident inputs $i outputs $o actions $a state $s nested $n connections $c reactions [$r:reaction_decl,*]) => do
     let i ← InterfaceDecl.fromSyntax i
     let o ← InterfaceDecl.fromSyntax o
     let a ← InterfaceDecl.fromSyntax a
     let s ← InterfaceDecl.fromSyntax s
     let n ← InterfaceDecl.fromSyntax n
-    let r ← r.mapM ReactionDecl.fromSyntax
+    let c ← InterfaceDecl.fromSyntax c
+    let r ← r.getElems.mapM ReactionDecl.fromSyntax
     return {
       name := name
       interfaces := fun | .inputs => i | .outputs => o | .actions => a | .state => s
       «nested» := n
+      «connections» := c
       «reactions» := r  
     }
   | _ => throwUnsupported
 
-def GraphDecl.fromSyntax : TSyntax `graph_decl → MacroM GraphDecl
-  | `(graph_decl| $name:ident where $reactors:reactor_decl*) => return {
-      name := name
+def NetworkDecl.fromSyntax : TSyntax `network_decl → MacroM NetworkDecl
+  | `(network_decl| lf { $reactors:reactor_decl* }) => return {
       reactors := (← reactors.mapM ReactorDecl.fromSyntax)
     }
   | _ => throwUnsupported

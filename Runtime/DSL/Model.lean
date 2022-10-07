@@ -44,47 +44,59 @@ structure ReactorDecl where
   name : Ident
   interfaces : Reactor.InterfaceKind → InterfaceDecl
   nested : InterfaceDecl
+  connections : InterfaceDecl
   reactions : Array ReactionDecl
   deriving Inhabited
 
 def ReactorDecl.num (decl : ReactorDecl) (kind : Reactor.InterfaceKind) :=
   decl.interfaces kind |>.size
 
-structure GraphDecl where
-  name : Ident 
+structure NetworkDecl where
   reactors : Array ReactorDecl
 
-def GraphDecl.reactorNames (decl : GraphDecl) :=
+def NetworkDecl.namespaceIdent (_ : NetworkDecl) :=
+  mkIdent `LF
+
+def NetworkDecl.networkIdent (network : NetworkDecl) :=
+  mkIdentFrom network.namespaceIdent <| network.namespaceIdent.getId ++ `network
+
+def NetworkDecl.graphName (_ : NetworkDecl) : Ident :=
+  mkIdent `graph
+
+def NetworkDecl.graphIdent (network : NetworkDecl) :=
+  mkIdentFrom network.namespaceIdent <| network.namespaceIdent.getId ++ network.graphName.getId
+
+def NetworkDecl.reactorNames (decl : NetworkDecl) :=
   decl.reactors.map (·.name)
 
-def GraphDecl.mainReactorIdent! (decl : GraphDecl) : MacroM Term := do
+def NetworkDecl.mainReactorIdent! (decl : NetworkDecl) : MacroM Term := do
   `(.$(decl.reactors[0]!.name))
 
-def GraphDecl.reactorWithName (decl : GraphDecl) (className : Name) : MacroM ReactorDecl :=
+def NetworkDecl.reactorWithName (decl : NetworkDecl) (className : Name) : MacroM ReactorDecl :=
   match decl.reactors.find? (·.name.getId = className) with
   | some rtr => return rtr
-  | none => Macro.throwError s!"GraphDecl.reactorWithName: Unknown reactor '{className}'"
+  | none => Macro.throwError s!"NetworkDecl.reactorWithName: Unknown reactor '{className}'"
 
-def GraphDecl.numNested (decl : GraphDecl) (rtr : Name) (kind : Reactor.InterfaceKind) : MacroM Nat := do
+def NetworkDecl.numNested (decl : NetworkDecl) (rtr : Name) (kind : Reactor.InterfaceKind) : MacroM Nat := do
   let rtr ← decl.reactorWithName rtr
   rtr.nested.values.foldlM (init := 0) fun acc «class» => do
     match «class» with 
     | `($c:ident) => 
       let nestedReactor ← decl.reactorWithName c.getId
       return acc + nestedReactor.num kind
-    | _ => Macro.throwError s!"GraphDecl.numNested: Illformed reactor class '{«class»}'"
+    | _ => Macro.throwError s!"NetworkDecl.numNested: Illformed reactor class '{«class»}'"
 
-def GraphDecl.numSources (decl : GraphDecl) (rtr : Name) : MacroM Nat := do
+def NetworkDecl.numSources (decl : NetworkDecl) (rtr : Name) : MacroM Nat := do
   let numLocalInputs := (← decl.reactorWithName rtr).num .inputs
   let numNestedOutputs ← decl.numNested rtr .outputs
   return numLocalInputs + numNestedOutputs
 
-def GraphDecl.numEffects (decl : GraphDecl) (rtr : Name) : MacroM Nat := do
+def NetworkDecl.numEffects (decl : NetworkDecl) (rtr : Name) : MacroM Nat := do
   let numLocalOutputs := (← decl.reactorWithName rtr).num .outputs
   let numNestedInputs ← decl.numNested rtr .inputs
   return numLocalOutputs + numNestedInputs
 
-def GraphDecl.numDependencies (decl : GraphDecl) (rtr : Name) : ReactionDecl.DependencyKind → MacroM Nat
+def NetworkDecl.numDependencies (decl : NetworkDecl) (rtr : Name) : ReactionDecl.DependencyKind → MacroM Nat
   | .portSource => decl.numSources rtr
   | .portEffect => decl.numEffects rtr
   | .actionSource | .actionEffect => return (← decl.reactorWithName rtr).num .actions

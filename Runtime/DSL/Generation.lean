@@ -30,20 +30,35 @@ def ReactionDecl.genDependencyEnums (decl : ReactionDecl) (ns : Ident) : MacroM 
     let ids := decl.dependencies kind
     `(inductive $enumIdent $[| $ids:ident]* deriving DecidableEq)
 
+def ReactionDecl.genTriggers (decl : ReactionDecl) : MacroM Term := 
+  sorry
+
+def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ident) (reactionName : Name) : MacroM Term := do
+  let reactionIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId ++ reactionName) 
+  `({
+      «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource))
+      «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect))
+      «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource))
+      «actionEffects» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionEffect))
+      «triggers»      := $(← decl.genTriggers)
+      «body» := open $ns $reactorName $(mkIdent reactionName) PortSource PortEffect ActionSource ActionEffect State ReactionM in do $(decl.body)
+  })
+
 structure InjCoeGenDescription where
   dependencyKind : ReactionDecl.DependencyKind
   ids : Array Ident
-  graphIdent : Ident
+  ns : Ident
+  graphName : Ident
   reactorName : Ident
   reactionIdx : Nat
   isComplete : Bool
 
 def InjCoeGenDescription.sourceTypeIdent (descr : InjCoeGenDescription) :=
-  let reactorIdent := mkIdentFrom descr.reactorName <| descr.graphIdent.getId ++ descr.reactorName.getId
+  let reactorIdent := mkIdentFrom descr.reactorName <| descr.ns.getId ++ descr.reactorName.getId
   mkIdentFrom reactorIdent (reactorIdent.getId ++ s!"Reaction{descr.reactionIdx}" ++ descr.dependencyKind.name)
 
 def InjCoeGenDescription.targetTypeTerm (descr : InjCoeGenDescription) :=
-  descr.dependencyKind.injCoeTarget descr.graphIdent descr.reactorName
+  descr.dependencyKind.injCoeTarget (mkIdentFrom descr.graphName <| descr.ns.getId ++ descr.graphName.getId) descr.reactorName
 
 def InjCoeGenDescription.injCoeType (descr : InjCoeGenDescription) := do
   `(InjectiveCoe $(descr.sourceTypeIdent) $(← descr.targetTypeTerm))
@@ -127,21 +142,25 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
       «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
   )  
 
-def GraphDecl.genClassesEnum (decl : GraphDecl) : MacroM Command := do
-  let enumIdent := mkIdentFrom decl.name (decl.name.getId ++ `Class)
+def ReactionDecl.genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
+  let instances ← decl.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => rcn.genReactionInstance ns decl.name s!"Reaction{idx}"
+  `(#[ $[$instances],* ])
+
+def NetworkDecl.genClassesEnum (decl : NetworkDecl) : MacroM Command := do
+  let enumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
   `(inductive $enumIdent $[| $(decl.reactorNames):ident]*)
 
-def GraphDecl.genGraphInstance (decl : GraphDecl) : MacroM Command := do
-  let classEnumIdent := mkIdentFrom decl.name (decl.name.getId ++ `Class)
-  let classSchemes := decl.reactorNames.map fun reactorName => mkIdentFrom reactorName (decl.name.getId ++ reactorName.getId ++ `scheme)
+def NetworkDecl.genGraphInstance (decl : NetworkDecl) : MacroM Command := do
+  let classEnumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
+  let classSchemes := decl.reactorNames.map fun reactorName => mkIdentFrom reactorName (decl.namespaceIdent.getId ++ reactorName.getId ++ `scheme)
   `(
-    abbrev $decl.name : Network.Graph where
+    abbrev $decl.graphIdent : Network.Graph where
     classes := $classEnumIdent
     root := $(← decl.mainReactorIdent!)
     schemes $[| $(← decl.reactorNames.dotted) => $classSchemes]*
   )
 
-def GraphDecl.genInjectiveCoes (decl : GraphDecl) : MacroM (Array Command) :=
+def NetworkDecl.genInjectiveCoes (decl : NetworkDecl) : MacroM (Array Command) :=
   decl.reactors.concatMapM fun rtr =>
     rtr.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ =>
       ReactionDecl.DependencyKind.allCases.mapM fun kind => do
@@ -149,27 +168,44 @@ def GraphDecl.genInjectiveCoes (decl : GraphDecl) : MacroM (Array Command) :=
         InjCoeGenDescription.genInjectiveCoe {
           dependencyKind := kind
           ids := ids
-          graphIdent := decl.name
+          ns := decl.namespaceIdent
+          graphName := decl.graphName
           reactorName := rtr.name
           reactionIdx := idx
           isComplete := ids.size = (← decl.numDependencies rtr.name.getId kind)
         }
 
-def GraphDecl.genInterfaceSchemes (decl : GraphDecl) : MacroM (Array Command) :=
-  decl.reactors.concatMapM (·.genInterfaceSchemes decl.name)
+def NetworkDecl.genInterfaceSchemes (decl : NetworkDecl) : MacroM (Array Command) :=
+  decl.reactors.concatMapM (·.genInterfaceSchemes decl.namespaceIdent)
 
-def GraphDecl.genReactorSchemes (decl : GraphDecl) : MacroM (Array Command) :=
-  decl.reactors.mapM (·.genReactorScheme decl.name)
+def NetworkDecl.genReactorSchemes (decl : NetworkDecl) : MacroM (Array Command) :=
+  decl.reactors.mapM (·.genReactorScheme decl.namespaceIdent)
 
-def GraphDecl.genReactionDependencyEnums (decl : GraphDecl) : MacroM (Array Command) := do
-  decl.reactors.concatMapM (·.genReactionDependencyEnums decl.name)
+def NetworkDecl.genReactionDependencyEnums (decl : NetworkDecl) : MacroM (Array Command) := do
+  decl.reactors.concatMapM (·.genReactionDependencyEnums decl.namespaceIdent)
 
-macro "gen_graph" graph:graph_decl : command => do
-  let graph ← GraphDecl.fromSyntax graph
+def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
+  `(fun _ => sorry
+  )
+
+def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
+  `(fun _ => sorry
+  )
+
+def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `(
+  def $(decl.networkIdent) : Network where
+    toGraph := $(decl.graphIdent)
+    «reactions» := $(← decl.genReactionInstanceMap)
+    «connections» := $(← decl.genConnectionsMap)
+)
+
+macro network:network_decl : command => do
+  let network ← NetworkDecl.fromSyntax network
   return mkNullNode <|
-    (← graph.genInterfaceSchemes) ++ 
-    [← graph.genClassesEnum] ++
-    (← graph.genReactorSchemes) ++
-    [← graph.genGraphInstance] ++
-    (← graph.genReactionDependencyEnums) ++
-    (← graph.genInjectiveCoes)
+    (← network.genInterfaceSchemes) ++ 
+    [← network.genClassesEnum] ++
+    (← network.genReactorSchemes) ++
+    [← network.genGraphInstance] ++
+    (← network.genReactionDependencyEnums) ++
+    (← network.genInjectiveCoes) ++
+    [← network.genNetworkInstance]

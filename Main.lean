@@ -58,6 +58,8 @@ lf {
     reactions   []
 }
 
+#print LF.network
+
 /-abbrev network : Network where
   toGraph := graph
   «reactions» 
@@ -124,7 +126,7 @@ lf {
 -/
 
 def main : IO Unit := do
-  let exec : Network.Executable network := {
+  let exec : Network.Executable LF.network := {
     tag := ⟨0, 0⟩
     queue := #[]
     reactors := fun id interface =>
@@ -141,7 +143,7 @@ def main : IO Unit := do
       | .nil, .outputs => Interface.empty
       | _, _ => Interface.empty
   }
-  let topo : Array (Network.ReactionID network) := #[
+  let topo : Array (Network.ReactionID LF.network) := #[
     ⟨.nil, ⟨0, by simp⟩⟩,
     ⟨.nil, ⟨1, by simp⟩⟩
   ]

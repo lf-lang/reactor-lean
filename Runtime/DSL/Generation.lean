@@ -13,6 +13,16 @@ def InterfaceDecl.genInterfaceScheme (decl : InterfaceDecl) (name : Ident) : Mac
       type var := match var with $[| $(decl.ids) => $types]*
   )
 
+def TriggerDecl.genTriggers (decl : TriggerDecl) : MacroM (Array Term) := do
+  let «ports» ← decl.ports.mapM fun port => `(.port $port)
+  let «actions» ← decl.actions.mapM fun action => `(.action $action)
+  let «metas» ← decl.meta.mapM fun m => do
+    match m.getId with
+    | `startup => `(.startup)
+    | `shutdown => `(.shutdown)
+    | invalid => Macro.throwError s!"TriggerDecl.genTriggers: Invalid meta trigger '{invalid}'"
+  return «ports» ++ «actions» ++ «metas»
+
 def ReactionDecl.DependencyKind.name : ReactionDecl.DependencyKind → Name
   | .portSource   => `PortSource
   | .portEffect   => `PortEffect
@@ -30,8 +40,8 @@ def ReactionDecl.genDependencyEnums (decl : ReactionDecl) (ns : Ident) : MacroM 
     let ids := decl.dependencies kind
     `(inductive $enumIdent $[| $ids:ident]* deriving DecidableEq)
 
-def ReactionDecl.genTriggers (decl : ReactionDecl) : MacroM Term := 
-  sorry
+def ReactionDecl.genTriggers (decl : ReactionDecl) : MacroM Term := do
+  `(#[ $[$(← decl.triggers.genTriggers)],* ])
 
 def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ident) (reactionName : Name) : MacroM Term := do
   let reactionIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId ++ reactionName) 

@@ -35,12 +35,6 @@ instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : Dec
         contradiction
       )
 
-def Array.enumerate (as : Array α) : Array (Nat × α) := Id.run do
-  let mut result := #[]
-  for idx in [:as.size], a in as do
-    result := result.push (idx, a)
-  return result
-
 def Array.unique (as : Array α) (f : α → β) [DecidableEq β] : (Array α) × (Array α) := Id.run do
   let mut included : Array α := #[] 
   let mut excluded : Array α := #[]

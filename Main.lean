@@ -47,6 +47,7 @@ gen_graph graph where
     state     []
     nested    []
     reactions []
+    
 abbrev network : Network where
   toGraph := graph
   «reactions» 

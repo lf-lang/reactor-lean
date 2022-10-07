@@ -1,4 +1,5 @@
 import Runtime.DSL.Syntax
+import Runtime.DSL.Extensions
 import Lean
 open Lean Macro
 
@@ -18,10 +19,10 @@ def ReactionDecl.DependencyKind.name : ReactionDecl.DependencyKind → Name
   | .actionSource => `ActionSource
   | .actionEffect => `ActionEffect
 
-def ReactionDecl.DependencyKind.injCoeTarget (graphIdent classIdent : Ident) : ReactionDecl.DependencyKind → MacroM Term 
-  | .portSource                  => `((Network.Graph.reactionInputScheme $graphIdent $classIdent |>.vars))
-  | .portEffect                  => `((Network.Graph.reactionOutputScheme $graphIdent $classIdent |>.vars))
-  | .actionSource |.actionEffect => `((Network.Graph.schemes $graphIdent $classIdent |>.interface .actions |>.vars))
+def ReactionDecl.DependencyKind.injCoeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term 
+  | .portSource                  => `((Network.Graph.reactionInputScheme $graphIdent .$className |>.vars))
+  | .portEffect                  => `((Network.Graph.reactionOutputScheme $graphIdent .$className |>.vars))
+  | .actionSource |.actionEffect => `((Network.Graph.schemes $graphIdent .$className |>.interface .actions |>.vars))
 
 def ReactionDecl.genDependencyEnums (decl : ReactionDecl) (ns : Ident) : MacroM (Array Command) := do
   ReactionDecl.DependencyKind.allCases.mapM fun kind =>
@@ -33,33 +34,25 @@ structure InjCoeGenDescription where
   dependencyKind : ReactionDecl.DependencyKind
   ids : Array Ident
   graphIdent : Ident
-  noNsReactorIdent : Ident
+  reactorName : Ident
   reactionIdx : Nat
   isComplete : Bool
 
-def InjCoeGenDescription.reactorIdent (descr : InjCoeGenDescription) :=
-  mkIdentFrom descr.noNsReactorIdent <| descr.graphIdent.getId ++ descr.noNsReactorIdent.getId
-
-def InjCoeGenDescription.classIdent (descr : InjCoeGenDescription) :=
-  mkIdentFrom descr.noNsReactorIdent <| descr.graphIdent.getId ++ `Class ++ descr.noNsReactorIdent.getId
-
 def InjCoeGenDescription.sourceTypeIdent (descr : InjCoeGenDescription) :=
-  mkIdentFrom descr.reactorIdent (descr.reactorIdent.getId ++ s!"Reaction{descr.reactionIdx}" ++ descr.dependencyKind.name)
+  let reactorIdent := mkIdentFrom descr.reactorName <| descr.graphIdent.getId ++ descr.reactorName.getId
+  mkIdentFrom reactorIdent (reactorIdent.getId ++ s!"Reaction{descr.reactionIdx}" ++ descr.dependencyKind.name)
 
 def InjCoeGenDescription.targetTypeTerm (descr : InjCoeGenDescription) :=
-  descr.dependencyKind.injCoeTarget descr.graphIdent descr.classIdent
+  descr.dependencyKind.injCoeTarget descr.graphIdent descr.reactorName
 
 def InjCoeGenDescription.injCoeType (descr : InjCoeGenDescription) := do
   `(InjectiveCoe $(descr.sourceTypeIdent) $(← descr.targetTypeTerm))
 
-def InjCoeGenDescription.sourceTerms (descr : InjCoeGenDescription) : MacroM (Array Term) := do
-  descr.ids.mapM fun id => `(.$id)
-
 def InjCoeGenDescription.sumTerms (descr : InjCoeGenDescription) : MacroM (Array Term) := 
   descr.ids.mapM fun id => do
     match id.getId with
-    | .str .anonymous l            => `(.inl .$(mkIdent <| .mkSimple l))
-    | .str (.str .anonymous rtr) l => `(.inr ⟨.$(mkIdent <| .mkSimple rtr), .$(mkIdent <| .mkSimple l)⟩)
+    | .str .anonymous l            => `(.inl .$(mkIdent l))
+    | .str (.str .anonymous rtr) l => `(.inr ⟨.$(mkIdent rtr), .$(mkIdent l)⟩)
     | _                            => throwUnsupported 
 
 def InjCoeGenDescription.genInjectiveCoe (descr : InjCoeGenDescription) : MacroM Command := do
@@ -79,25 +72,25 @@ where
   forPorts (descr : InjCoeGenDescription) : MacroM Command := do
     let sumTerms ← descr.sumTerms
     let mut invSrcTerms := sumTerms
-    let mut invDstTerms ← (← descr.sourceTerms).mapM fun term => `(some $term)
+    let mut invDstTerms ← (← descr.ids.dotted).mapM fun term => `(some $term)
     unless descr.isComplete do
       invSrcTerms := invSrcTerms.push (← `(_))
       invDstTerms := invDstTerms.push (← `(Option.none))
     `(
       @[reducible] instance : $(← descr.injCoeType) where
-        coe $[| $(← descr.sourceTerms) => $sumTerms]*
+        coe $[| $(← descr.ids.dotted) => $sumTerms]*
         inv $[| $invSrcTerms => $invDstTerms]*
     )
   forActions (descr : InjCoeGenDescription) : MacroM Command := do
-    let coeDstIdents ← descr.sourceTerms
-    let mut invSrcTerms : Array Term ← descr.sourceTerms
-    let mut invDstTerms : Array Term ← (← descr.sourceTerms).mapM fun ident => `(some $ident)
+    let coeDstIdents ← descr.ids.dotted
+    let mut invSrcTerms : Array Term ← descr.ids.dotted
+    let mut invDstTerms : Array Term ← (← descr.ids.dotted).mapM fun ident => `(some $ident)
     unless descr.isComplete do 
       invSrcTerms := invSrcTerms.push (← `(_))
       invDstTerms := invDstTerms.push (← `(Option.none))
     `(
       @[reducible] instance : $(← descr.injCoeType) where
-        coe $[| $(← descr.sourceTerms) => $coeDstIdents]*
+        coe $[| $(← descr.ids.dotted) => $coeDstIdents]*
         inv $[| $invSrcTerms => $invDstTerms]*
     )
 
@@ -121,8 +114,7 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
   let mkNamespacedIdent name := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ name)
   let classesEnumIdent := mkIdentFrom ns (ns.getId ++ `Class)
   let nestedEnumIdent := mkNamespacedIdent `Nested
-  let namespacedNestedIds := decl.nested.ids.map fun id => mkIdentFrom id (nestedEnumIdent.getId ++ id.getId)
-  let classes := decl.nested.values.map fun «class» => mkIdentFrom «class» (classesEnumIdent.getId ++ «class».getId)
+  let dottedClasses ← (← decl.nested.valueIdents).dotted
   `(
     inductive $nestedEnumIdent $[| $(decl.nested.ids):ident]* deriving DecidableEq
     abbrev $(mkNamespacedIdent `scheme) : Reactor.Scheme $classesEnumIdent where
@@ -132,7 +124,7 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
         | .actions => $(mkIdent `Action.scheme)
         | .state   => $(mkIdent `State.scheme)
       children := $nestedEnumIdent
-      «class» child := match child with $[| $namespacedNestedIds => $classes]*
+      «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
   )  
 
 def GraphDecl.genClassesEnum (decl : GraphDecl) : MacroM Command := do
@@ -141,13 +133,12 @@ def GraphDecl.genClassesEnum (decl : GraphDecl) : MacroM Command := do
 
 def GraphDecl.genGraphInstance (decl : GraphDecl) : MacroM Command := do
   let classEnumIdent := mkIdentFrom decl.name (decl.name.getId ++ `Class)
-  let classes := decl.reactorNames.map fun reactorName => mkIdentFrom reactorName (decl.name.getId ++ `Class ++ reactorName.getId)
   let classSchemes := decl.reactorNames.map fun reactorName => mkIdentFrom reactorName (decl.name.getId ++ reactorName.getId ++ `scheme)
   `(
     abbrev $decl.name : Network.Graph where
     classes := $classEnumIdent
-    root := $(decl.mainReactorIdent!)
-    schemes $[| $classes => $classSchemes]*
+    root := $(← decl.mainReactorIdent!)
+    schemes $[| $(← decl.reactorNames.dotted) => $classSchemes]*
   )
 
 def GraphDecl.genInjectiveCoes (decl : GraphDecl) : MacroM (Array Command) :=
@@ -159,7 +150,7 @@ def GraphDecl.genInjectiveCoes (decl : GraphDecl) : MacroM (Array Command) :=
           dependencyKind := kind
           ids := ids
           graphIdent := decl.name
-          noNsReactorIdent := rtr.name
+          reactorName := rtr.name
           reactionIdx := idx
           isComplete := ids.size = (← decl.numDependencies rtr.name.getId kind)
         }

@@ -15,6 +15,12 @@ def InterfaceDecl.ids (decl : InterfaceDecl) :=
 def InterfaceDecl.values (decl : InterfaceDecl) := 
   decl.map (·.value)
 
+def InterfaceDecl.valueIdents (decl : InterfaceDecl) : MacroM (Array Ident) :=
+  decl.mapM fun ⟨_, value⟩ => 
+    match value with
+    | `($value:ident) => return value
+    | _ => Macro.throwError s!"InterfaceDecl.valueIdents: Illformed identifier '{value}'"
+    
 structure TriggerDecl where
   ports : Array Ident
   actions : Array Ident
@@ -51,9 +57,8 @@ structure GraphDecl where
 def GraphDecl.reactorNames (decl : GraphDecl) :=
   decl.reactors.map (·.name)
 
-def GraphDecl.mainReactorIdent! (decl : GraphDecl) :=
-  let reactorIdent := decl.reactors[0]!.name
-  mkIdentFrom reactorIdent (decl.name.getId ++ `Class ++ reactorIdent.getId)
+def GraphDecl.mainReactorIdent! (decl : GraphDecl) : MacroM Term := do
+  `(.$(decl.reactors[0]!.name))
 
 def GraphDecl.reactorWithName (decl : GraphDecl) (className : Name) : MacroM ReactorDecl :=
   match decl.reactors.find? (·.name.getId = className) with

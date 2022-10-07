@@ -12,7 +12,7 @@ lf {
       {
         portSources   [i1, i2, x.o1]
         portEffects   [o1, x.i2]
-        actionSources [a1]
+        actionSources [a1, a2]
         actionEffects []
         triggers {
           ports   [i1]

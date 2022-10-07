@@ -14,8 +14,8 @@ def InterfaceDecl.genInterfaceScheme (decl : InterfaceDecl) (name : Ident) : Mac
   )
 
 def TriggerDecl.genTriggers (decl : TriggerDecl) : MacroM (Array Term) := do
-  let «ports» ← decl.ports.mapM fun port => `(.port $port)
-  let «actions» ← decl.actions.mapM fun action => `(.action $action)
+  let «ports» ← decl.ports.mapM fun port => `(.port .$port)
+  let «actions» ← decl.actions.mapM fun action => `(.action .$action)
   let «metas» ← decl.meta.mapM fun m => do
     match m.getId with
     | `startup => `(.startup)
@@ -51,7 +51,11 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
       «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource))
       «actionEffects» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionEffect))
       «triggers»      := $(← decl.genTriggers)
-      «body» := open $ns $reactorName $(mkIdent reactionName) PortSource PortEffect ActionSource ActionEffect State ReactionM in do $(decl.body)
+      «body» := open $ns $reactorName $(mkIdent reactionName) 
+                     $(mkIdent `PortSource) $(mkIdent `PortEffect) 
+                     $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
+                     $(mkIdent `State) $(mkIdent `ReactionM) 
+                     in do $(decl.body)
   })
 
 structure InjCoeGenDescription where
@@ -152,7 +156,7 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
       «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
   )  
 
-def ReactionDecl.genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
+def ReactorDecl.genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
   let instances ← decl.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => rcn.genReactionInstance ns decl.name s!"Reaction{idx}"
   `(#[ $[$instances],* ])
 
@@ -195,8 +199,9 @@ def NetworkDecl.genReactionDependencyEnums (decl : NetworkDecl) : MacroM (Array 
   decl.reactors.concatMapM (·.genReactionDependencyEnums decl.namespaceIdent)
 
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
-  `(fun _ => sorry
-  )
+  let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
+  let instanceArrays ← decl.reactors.mapM (·.genReactionInstances decl.namespaceIdent)
+  `(fun $[| $dottedClasses => $instanceArrays]*)
 
 def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
   `(fun _ => sorry

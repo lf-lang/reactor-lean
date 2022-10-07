@@ -12,6 +12,9 @@ inductive InterfaceKind
   | actions
   | state
 
+def InterfaceKind.allCases : Array Reactor.InterfaceKind :=
+  #[.inputs, .outputs, .actions, .state]
+
 @[reducible]
 instance : Coe PortKind InterfaceKind where
   coe

@@ -81,6 +81,5 @@ def UInt32.clipping (n : Nat) : UInt32 :=
 
 def IO.sleepUntil (time : Time) : IO Unit := do
   -- Note: this value clips at 0.
-  let offsetNanos : Duration := time - (← IO.monoNanosNow) 
-  let offsetMicros : UInt32 := .clipping (offsetNanos / 1000)
-  sleep offsetMicros
+  let offset : Duration := .ns <| time - (← IO.monoNanosNow) 
+  sleep (UInt32.clipping offset.asMicros)

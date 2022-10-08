@@ -11,9 +11,9 @@ instance {graph} : Ord (Event graph) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
 structure Executable (net : Network) where
-  tag : Tag
-  queue : Array (Event net) 
-  reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → Interface (net.scheme id |>.interface kind)
+  tag : Tag := ⟨0, 0⟩
+  queue : Array (Event net) := #[]
+  reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → Interface (net.scheme id |>.interface kind) := fun _ _ => Interface.empty
   isShuttingDown : Bool := false
 
 namespace Executable

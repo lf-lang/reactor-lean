@@ -11,9 +11,10 @@ instance {graph} : Ord (Event graph) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
 structure Executable (net : Network) where
-  tag : Tag := ⟨0, 0⟩
+  tag : Tag
   queue : Array (Event net) := #[]
   reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → Interface (net.scheme id |>.interface kind) := fun _ _ => Interface.empty
+  isStartingUp : Bool := true
   isShuttingDown : Bool := false
 
 namespace Executable
@@ -30,7 +31,7 @@ def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net
     match trigger with
     | .port   port   => (exec.reactionInputs reactorID).isPresent port
     | .action action => (exec.reactors reactorID .actions).isPresent action
-    | .startup       => exec.tag = { time := 0, microstep := 0 }
+    | .startup       => exec.isStartingUp
     | .shutdown      => exec.isShuttingDown
 
 def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
@@ -141,23 +142,19 @@ def next (exec : Executable net) : Option (Next net) := do
     queue := postponed ++ later
   }
 
-def advance (exec : Executable net) (next : Next net) : Executable net where 
+def advance (exec : Executable net) (next : Next net) : Executable net := { exec with
   tag := next.tag
   queue := next.queue
   reactors := fun id => fun
     | .inputs | .outputs => Interface.empty
     | .state             => exec.reactors id .state
     | .actions           => (actionForEvents next.events ⟨id, ·⟩)
+}
 where 
   actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=
     match h : events.findP? (·.id = id) with
     | none => none
     | some event => have h := Array.findP?_property h; (of_decide_eq_true h) ▸ event.value
-
-structure DebugParameters (net : Network) where
-  callback : (Executable net) → IO Unit
-  maxSteps : Nat
-  stepCount : Nat := 0
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do
@@ -165,8 +162,8 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
   | none => 
     unless exec.isShuttingDown do
       match exec.next with
-      | none => run { exec with isShuttingDown := true } topo 0
-      | some next => run (exec.advance next) topo 0
+      | none => run { exec with isStartingUp := false, isShuttingDown := true } topo 0
+      | some next => run { exec.advance next with isStartingUp := false } topo 0
   | some reactionID =>
     IO.sleepUntil exec.tag.time
     let mut exec := exec

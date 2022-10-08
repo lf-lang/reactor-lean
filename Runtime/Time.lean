@@ -3,21 +3,21 @@ abbrev Time.From (time : Time) := { t : Time // t ≥ time }
 
 inductive Duration
   | ns : Nat → Duration
-  | micros : Nat → Duration -- TODO: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Mu.20symbol
+  | μs : Nat → Duration 
   | ms : Nat → Duration
-  | s : Nat → Duration
+  | s  : Nat → Duration
 
 def Duration.asNs : Duration → Nat
-  | ns d     => d
-  | micros d => 1000 * d 
-  | ms d     => 1000000 * d 
-  | s d      => 1000000000 * d 
+  | ns d => d
+  | μs d => 1000 * d 
+  | ms d => 1000000 * d 
+  | s d  => 1000000000 * d 
 
-def Duration.asMicros : Duration → Nat
-  | ns d     => d / 1000
-  | micros d => d 
-  | ms d     => 1000 * d 
-  | s d      => 1000000 * d 
+def Duration.asMs : Duration → Nat
+  | ns d => d / 1000000
+  | μs d => d / 1000
+  | ms d => d 
+  | s d  => 1000 * d 
 
 instance : Ord (Time.From time) where
   compare t₁ t₂ := compare t₁.val t₂.val

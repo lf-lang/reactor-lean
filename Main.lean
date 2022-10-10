@@ -32,6 +32,6 @@ lf {
 }
 
 def main : IO Unit := do
-  let exec : Network.Executable LF.network := { tag := ⟨← IO.monoNanosNow, 0⟩ }
+  let exec : Network.Executable LF.network := { physicalOffset := .ns (← IO.monoNanosNow) }
   let topo : Array (Network.ReactionID LF.network) := #[⟨.nil, ⟨0, by simp⟩⟩]
   exec.run topo 0

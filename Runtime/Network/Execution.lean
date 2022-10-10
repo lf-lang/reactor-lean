@@ -11,13 +11,19 @@ instance {graph} : Ord (Event graph) where
   compare e₁ e₂ := compare e₁.time e₂.time
 
 structure Executable (net : Network) where
-  tag : Tag
+  tag : Tag := ⟨0, 0⟩
+  physicalOffset : Duration
   queue : Array (Event net) := #[]
   reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → Interface (net.scheme id |>.interface kind) := fun _ _ => Interface.empty
-  isStartingUp : Bool := true
   isShuttingDown : Bool := false
 
 namespace Executable
+
+def isStartingUp (exec : Executable net) : Bool :=
+  exec.tag = ⟨0, 0⟩
+
+def absoluteTime (exec : Executable net) : Time :=
+  exec.tag.time + exec.physicalOffset.asNs
 
 -- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
 def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interface (net.reactionInputScheme' reactorID) 
@@ -162,10 +168,10 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
   | none => 
     unless exec.isShuttingDown do
       match exec.next with
-      | none => run { exec with isStartingUp := false, isShuttingDown := true } topo 0
-      | some next => run { exec.advance next with isStartingUp := false } topo 0
+      | none => run { exec with isShuttingDown := true } topo 0
+      | some next => run (exec.advance next) topo 0
   | some reactionID =>
-    IO.sleepUntil exec.tag.time
+    IO.sleepUntil exec.absoluteTime
     let mut exec := exec
     let reaction := net.reaction reactionID
     if exec.triggers reaction then
@@ -173,7 +179,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactio
       let ports     := exec.reactionInputs reactorID
       let actions   := exec.reactors reactorID .actions
       let state     := exec.reactors reactorID .state
-      let output ← reaction.run ports actions state exec.tag
+      let output ← reaction.run ports actions state exec.tag exec.physicalOffset
       exec := exec.apply output |>.propagate reactorID
     run exec topo (reactionIdx + 1)
 

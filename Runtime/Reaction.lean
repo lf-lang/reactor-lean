@@ -14,10 +14,11 @@ namespace ReactionM
 open Reaction
 
 structure Input (σPortSource σActionSource σState : Interface.Scheme) where
-  ports   : Interface σPortSource
-  actions : Interface σActionSource
-  state   : Interface σState
-  tag     : Tag
+  ports          : Interface σPortSource
+  actions        : Interface σActionSource
+  state          : Interface σState
+  tag            : Tag
+  physicalOffset : Duration
 
 structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min : Time) where
   ports  : Interface σPortEffect := fun _ => none
@@ -80,7 +81,7 @@ def getLogicalTime : ReactionM σPortSource σPortEffect σActionSource σAction
   return (← getTag).time
 
 def getPhysicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Time :=
-  fun input => return (input.noop, ← IO.monoNanosNow)
+  fun input => return (input.noop, (← IO.monoNanosNow) - input.physicalOffset.asNs)
 
 def setOutput (port : σPortEffect.vars) (v : σPortEffect.type port) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit :=
   fun input => 
@@ -134,8 +135,8 @@ attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq action
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
-def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) : IO (rcn.outputType tag.time) := do
-  let ⟨output, _⟩ ← rcn.body { ports := (inputs ·), actions := (actions ·), state := state, tag := tag }
+def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) (physicalOffset : Duration) : IO (rcn.outputType tag.time) := do
+  let ⟨output, _⟩ ← rcn.body { ports := (inputs ·), actions := (actions ·), state := state, tag := tag, physicalOffset := physicalOffset }
   return output
 
 end Reaction

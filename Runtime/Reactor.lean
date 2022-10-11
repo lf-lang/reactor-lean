@@ -1,4 +1,5 @@
 import Runtime.Interface
+import Runtime.Timer
 
 namespace Reactor
 
@@ -12,6 +13,10 @@ inductive InterfaceKind
   | actions
   | state
 
+abbrev InterfaceKind.interfaceType : InterfaceKind → (Interface.Scheme → Type)
+  | inputs | outputs | actions => Interface?
+  | state  => Interface
+
 def InterfaceKind.allCases : Array Reactor.InterfaceKind :=
   #[.inputs, .outputs, .actions, .state]
 
@@ -22,9 +27,11 @@ instance : Coe PortKind InterfaceKind where
     | .output => .outputs
 
 structure Scheme (Classes : Type) where
-  interface : InterfaceKind → Interface.Scheme 
-  children : Type
-  «class» : children → Classes
+  interface : InterfaceKind → Interface.Scheme
+  timers    : Type
+  timer     : timers → Timer
+  children  : Type
+  «class»   : children → Classes
   [decEqChildren : DecidableEq children]
   
 attribute [instance] Scheme.decEqChildren

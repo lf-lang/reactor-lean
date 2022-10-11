@@ -41,6 +41,12 @@ instance : HAdd Time Duration Time where
 instance : HSub Time Duration Time where
   hSub t d := { ns := t.ns - d.ns }
 
+instance : HSub Time Time Duration where
+   hSub t₁ t₂ := { ns := t₁.ns - t₂.ns }
+
+instance : HMod Duration Duration Duration where
+   hMod d₁ d₂ := { ns := d₁.ns % d₂.ns }
+
 abbrev Time.From (time : Time) := { t : Time // t ≥ time }
 
 instance : Ord (Time.From time) where

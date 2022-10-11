@@ -13,9 +13,10 @@ syntax "[" ident,* "]" : ident_list
 
 declare_syntax_cat trigger_decl
 syntax "triggers" "{"
-  "ports" ident_list
+  "ports"   ident_list
   "actions" ident_list
-  "meta" ident_list
+  "timers"  ident_list
+  "meta"    ident_list
   "}" : trigger_decl
 
 declare_syntax_cat reaction_decl
@@ -28,12 +29,20 @@ syntax "{"
   "body" "{" doSeq "}"
   "}" : reaction_decl
 
+declare_syntax_cat timer_decl
+syntax "{" 
+  &"name"   ident
+  "offset" term
+  "period" term
+  "}" : timer_decl
+
 declare_syntax_cat reactor_decl
 syntax "reactor" ident 
   "inputs"      interface_decl 
   "outputs"     interface_decl 
   "actions"     interface_decl 
   "state"       interface_decl 
+  "timers"      "[" timer_decl,* "]"
   "nested"      interface_decl
   "connections" interface_decl
   "reactions" "[" reaction_decl,* "]"
@@ -52,8 +61,8 @@ def InterfaceDecl.fromSyntax : TSyntax `interface_decl → MacroM InterfaceDecl
   | _ => throwUnsupported
 
 def TriggerDecl.fromSyntax : TSyntax `trigger_decl → MacroM TriggerDecl
-  | `(trigger_decl| triggers { ports [$p:ident,*] actions [$a:ident,*] meta [$m:ident,*] }) =>
-    return { «ports» := p, «actions» := a, «meta» := m }
+  | `(trigger_decl| triggers { ports [$p:ident,*] actions [$a:ident,*] timers [$t:ident,*] meta [$m:ident,*] }) =>
+    return { «ports» := p, «actions» := a, «timers» := t, «meta» := m }
   | _ => throwUnsupported
 
 def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl 
@@ -67,8 +76,13 @@ def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl
     }
   | _ => throwUnsupported
 
+def TimerDecl.fromSyntax : TSyntax `timer_decl → MacroM TimerDecl 
+  | `(timer_decl| { name $n:ident offset $o period $p }) => 
+    return { «name» := n, «offset» := o, «period» := p }
+  | _ => throwUnsupported
+
 def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
-  | `(reactor_decl| reactor $name:ident inputs $i outputs $o actions $a state $s nested $n connections $c reactions [$r:reaction_decl,*]) => do
+  | `(reactor_decl| reactor $name:ident inputs $i outputs $o actions $a state $s timers [ $t,* ] nested $n connections $c reactions [$r:reaction_decl,*]) => do
     let i ← InterfaceDecl.fromSyntax i
     let o ← InterfaceDecl.fromSyntax o
     let a ← InterfaceDecl.fromSyntax a
@@ -79,6 +93,7 @@ def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
     return {
       name := name
       interfaces := fun | .inputs => i | .outputs => o | .actions => a | .state => s
+      «timers» := ← t.getElems.mapM TimerDecl.fromSyntax
       «nested» := n
       «connections» := c
       «reactions» := r  

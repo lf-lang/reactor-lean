@@ -21,11 +21,12 @@ def InterfaceDecl.valueIdents (decl : InterfaceDecl) : MacroM (Array Ident) :=
     match value with
     | `($value:ident) => return value
     | _ => Macro.throwError s!"InterfaceDecl.valueIdents: Illformed identifier '{value}'"
-    
+
 structure TriggerDecl where
-  ports : Array Ident
+  ports :   Array Ident
   actions : Array Ident
-  meta : Array Ident
+  timers :  Array Ident
+  meta :    Array Ident
 
 inductive ReactionDecl.DependencyKind
   | portSource
@@ -41,12 +42,18 @@ structure ReactionDecl where
   triggers : TriggerDecl
   body : TSyntax `Lean.Parser.Term.doSeq
   
-structure ReactorDecl where
+structure TimerDecl where
   name : Ident
-  interfaces : Reactor.InterfaceKind → InterfaceDecl
-  nested : InterfaceDecl
+  offset : Term
+  period : Option Term
+
+structure ReactorDecl where
+  name        : Ident
+  interfaces  : Reactor.InterfaceKind → InterfaceDecl
+  timers      : Array TimerDecl
+  nested      : InterfaceDecl
   connections : InterfaceDecl
-  reactions : Array ReactionDecl
+  reactions   : Array ReactionDecl
   deriving Inhabited
 
 def ReactorDecl.num (decl : ReactorDecl) (kind : Reactor.InterfaceKind) :=

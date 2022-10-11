@@ -128,7 +128,12 @@ abbrev Graph.reactionOutputScheme (graph : Graph) («class» : graph.classes) :=
 
 abbrev Graph.reactionType (graph : Graph) («class» : graph.classes) :=
   let localScheme := graph.interface «class»
-  Reaction (graph.reactionInputScheme «class») (graph.reactionOutputScheme «class») (localScheme .actions) (localScheme .state)
+  Reaction 
+    (graph.reactionInputScheme «class») 
+    (graph.reactionOutputScheme «class») 
+    (localScheme .actions) 
+    (localScheme .state) 
+    (graph.schemes «class»).timers
 
 abbrev Graph.reactionInputScheme' (graph : Graph) (reactorID : ReactorID graph) :=
   graph.reactionInputScheme <| graph.class reactorID

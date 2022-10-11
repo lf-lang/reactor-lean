@@ -14,14 +14,14 @@ namespace ReactionM
 open Reaction
 
 structure Input (σPortSource σActionSource σState : Interface.Scheme) where
-  ports          : Interface σPortSource
-  actions        : Interface σActionSource
+  ports          : Interface? σPortSource
+  actions        : Interface? σActionSource
   state          : Interface σState
   tag            : Tag
   physicalOffset : Duration
 
 structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min : Time) where
-  ports  : Interface σPortEffect := fun _ => none
+  ports  : Interface? σPortEffect := Interface?.empty
   state  : Interface σState
   events : SortedArray (Event σActionEffect min) := #[]#
 
@@ -34,7 +34,7 @@ variable {σInput σOutput σAction σPortSource σPortEffect σActionSource σA
 
 def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time where
   ports  := o₁.ports.merge o₂.ports
-  state  := o₁.state.merge o₂.state
+  state  := o₂.state
   events := o₁.events.merge o₂.events
 
 def Input.noop (input : ReactionM.Input σPortSource σActionSource σState) : Output σPortEffect σActionEffect σState input.tag.time where 
@@ -68,7 +68,7 @@ instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σAc
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)
 
-def getState (stv : σState.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σState.type stv) :=
+def getState (stv : σState.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (σState.type stv) :=
   fun input => return (input.noop, input.state stv)
 
 def getAction (action : σActionSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState (Option $ σActionSource.type action) :=
@@ -91,7 +91,7 @@ def setOutput (port : σPortEffect.vars) (v : σPortEffect.type port) : Reaction
 
 def setState (stv : σState.vars) (v : σState.type stv) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit :=
   fun input =>
-    let state := fun s => if h : s = stv then some (h ▸ v) else input.state s
+    let state := fun s => if h : s = stv then h ▸ v else input.state s
     let output := { state := state }
     return (output, ())
 
@@ -106,19 +106,20 @@ end ReactionM
 
 namespace Reaction
 
-inductive Trigger (Port Action : Type)
+inductive Trigger (Port Action Timer : Type)
   | startup
   | shutdown
   | port (p : Port)
   | action (a : Action)
+  | timer (t : Timer)
 
 open Reaction in
-structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme) where
+structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme) (TimerNames : Type) where
   portSources : Type
   portEffects : Type 
   actionSources : Type
   actionEffects : Type
-  triggers : Array (Trigger portSources actionSources)
+  triggers : Array (Trigger portSources actionSources TimerNames)
   [portSourcesDecEq : DecidableEq portSources]
   [portEffectsDecEq : DecidableEq portEffects]
   [actionSourcesDecEq : DecidableEq actionSources]
@@ -132,10 +133,10 @@ structure _root_.Reaction (σInput σOutput σAction σState : Interface.Scheme)
 open Reaction in
 attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq actionEffectsDecEq portSourcesInjCoe portEffectsInjCoe actionSourcesInjCoe actionEffectsInjCoe
 
-abbrev outputType (rcn : Reaction σInput σOutput σAction σState) :=
+abbrev outputType (rcn : Reaction σInput σOutput σAction σState TimerNames) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
-def run (rcn : Reaction σInput σOutput σAction σState) (inputs : Interface σInput) (actions : Interface σAction) (state : Interface σState) (tag : Tag) (physicalOffset : Duration) : IO (rcn.outputType tag.time) := do
+def run (rcn : Reaction σInput σOutput σAction σState TimerNames) (inputs : Interface? σInput) (actions : Interface? σAction) (state : Interface σState) (tag : Tag) (physicalOffset : Duration) : IO (rcn.outputType tag.time) := do
   let ⟨output, _⟩ ← rcn.body { ports := (inputs ·), actions := (actions ·), state := state, tag := tag, physicalOffset := physicalOffset }
   return output
 

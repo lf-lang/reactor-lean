@@ -5,12 +5,15 @@ open Lean Macro
 
 def InterfaceVar.genDefaultValue (var : InterfaceVar) : MacroM Term := do
   match var.default with
-  | some default => `(some ($default : $(var.value)))
+  | some default => `(($default : $(var.value)))
   | none => `(none)
 
-def InterfaceDecl.genInterfaceScheme (decl : InterfaceDecl) (name : Ident) : MacroM Command := 
+def InterfaceDecl.genInterfaceScheme (decl : InterfaceDecl) (name : Ident) (optionalTypeWhenNoDefault : Bool := false) : MacroM Command := do
   let schemeIdent := mkIdentFrom name (name.getId ++ `scheme)
-  let types := decl.values
+  let types ← decl.mapM fun ⟨_, type, default⟩ => do
+    match optionalTypeWhenNoDefault, default with
+    | true, none => `(Option ($type))
+    | _,    _    => return type
   `(
     inductive $name $[| $(decl.ids):ident]* deriving DecidableEq
     abbrev $schemeIdent : Interface.Scheme where
@@ -21,12 +24,13 @@ def InterfaceDecl.genInterfaceScheme (decl : InterfaceDecl) (name : Ident) : Mac
 def TriggerDecl.genTriggers (decl : TriggerDecl) : MacroM (Array Term) := do
   let «ports» ← decl.ports.mapM fun port => `(.port .$port)
   let «actions» ← decl.actions.mapM fun action => `(.action .$action)
+  let «timers» ← decl.timers.mapM fun timer => `(.timer .$timer)
   let «metas» ← decl.meta.mapM fun m => do
     match m.getId with
     | `startup => `(.startup)
     | `shutdown => `(.shutdown)
     | invalid => Macro.throwError s!"TriggerDecl.genTriggers: Invalid meta trigger '{invalid}'"
-  return «ports» ++ «actions» ++ «metas»
+  return «ports» ++ «actions» ++ «timers» ++ «metas»
 
 def ReactionDecl.DependencyKind.name : ReactionDecl.DependencyKind → Name
   | .portSource   => `PortSource
@@ -35,9 +39,9 @@ def ReactionDecl.DependencyKind.name : ReactionDecl.DependencyKind → Name
   | .actionEffect => `ActionEffect
 
 def ReactionDecl.DependencyKind.injCoeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term 
-  | .portSource                  => `((Network.Graph.reactionInputScheme $graphIdent .$className |>.vars))
-  | .portEffect                  => `((Network.Graph.reactionOutputScheme $graphIdent .$className |>.vars))
-  | .actionSource |.actionEffect => `((Network.Graph.schemes $graphIdent .$className |>.interface .actions |>.vars))
+  | .portSource                   => `((Network.Graph.reactionInputScheme $graphIdent .$className |>.vars))
+  | .portEffect                   => `((Network.Graph.reactionOutputScheme $graphIdent .$className |>.vars))
+  | .actionSource | .actionEffect => `((Network.Graph.schemes $graphIdent .$className |>.interface .actions |>.vars))
 
 def ReactionDecl.genDependencyEnums (decl : ReactionDecl) (ns : Ident) : MacroM (Array Command) := do
   ReactionDecl.DependencyKind.allCases.mapM fun kind =>
@@ -137,7 +141,10 @@ def Reactor.InterfaceKind.name : Reactor.InterfaceKind → Name
 def ReactorDecl.genInterfaceSchemes (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) :=
   Reactor.InterfaceKind.allCases.mapM fun kind =>
     let interface := decl.interfaces kind
-    interface.genInterfaceScheme <| mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ kind.name)
+    let ident := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ kind.name)
+    match kind with
+    | .state => interface.genInterfaceScheme ident (optionalTypeWhenNoDefault := true)
+    | _ => interface.genInterfaceScheme ident
 
 def ReactorDecl.genReactionDependencyEnums (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) := do
   decl.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ => do
@@ -148,15 +155,20 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
   let mkNamespacedIdent name := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ name)
   let classesEnumIdent := mkIdentFrom ns (ns.getId ++ `Class)
   let nestedEnumIdent := mkNamespacedIdent `Nested
+  let timerEnumIdent := mkNamespacedIdent `Timer
+  let timerIdents := decl.timers.map (·.name)
   let dottedClasses ← (← decl.nested.valueIdents).dotted
   `(
     inductive $nestedEnumIdent $[| $(decl.nested.ids):ident]* deriving DecidableEq
+    inductive $timerEnumIdent $[| $timerIdents:ident]* deriving DecidableEq
     abbrev $(mkNamespacedIdent `scheme) : Reactor.Scheme $classesEnumIdent where
       interface -- TODO: Use `Reactor.InterfaceKind.name` for this.
         | .inputs  => $(mkIdent `Input.scheme)
         | .outputs => $(mkIdent `Output.scheme)
         | .actions => $(mkIdent `Action.scheme)
         | .state   => $(mkIdent `State.scheme)
+      «timers» := $(mkIdent `Timer)
+      timer := sorry
       children := $nestedEnumIdent
       «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
   )  
@@ -264,7 +276,7 @@ def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := d
         | .state => 
           match Network.Graph.class $(decl.networkIdent) id with 
           $[| $dottedClasses => $defaultStateInterfaces]*
-        | _ => Interface.empty
+        | .inputs | .outputs | .actions => Interface?.empty 
   )
 
 macro network:network_decl : command => do

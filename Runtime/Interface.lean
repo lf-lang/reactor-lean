@@ -35,15 +35,17 @@ instance {σ : Scheme} {Sub : Type} [DecidableEq Sub] [InjectiveCoe Sub σ.vars]
 theorem Scheme.restrict_preserves_type (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCoe Sub σ.vars] (var : Sub) : 
   (σ.restrict Sub).type var = σ.type var := rfl
 
-abbrev _root_.Interface (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
+abbrev _root_.Interface (σ : Interface.Scheme) := (var : σ.vars) → (σ.type var)
 
-def empty : Interface σ := fun _ => none
+end Interface
 
-def isPresent (i : Interface σ) (var : σ.vars) : Bool :=
+abbrev Interface? (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
+
+def Interface?.empty : Interface? σ := fun _ => none
+
+def Interface?.isPresent (i : Interface? σ) (var : σ.vars) : Bool :=
   i var |>.isSome
 
 -- Merge i₂ into i₁.
-def merge (i₁ i₂ : Interface σ) : Interface σ :=
+def Interface?.merge (i₁ i₂ : Interface? σ) : Interface? σ :=
   fun var => i₂ var |>.orElse fun _ => i₁ var
-
-end Interface

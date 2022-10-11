@@ -6,6 +6,13 @@ lf {
     outputs     []
     actions     [next : Unit]
     state       [count : Nat := 0]
+    timers      [
+      {
+        name   t1
+        offset (.of 0 .ns)
+        period none
+      }
+    ]
     nested      []
     connections []
     reactions   [
@@ -17,6 +24,7 @@ lf {
         triggers {
           ports   []
           actions [next]
+          timers  []
           meta    [startup]
         }
         body {
@@ -24,7 +32,7 @@ lf {
           monadLift <| IO.println s!"count: {c}"
           monadLift <| IO.println s!"logical time: {← getLogicalTime}"
           monadLift <| IO.println s!"physical time: {← getPhysicalTime}"
-          setState count <| (c.getD 0) + 1
+          setState count (c + 1)
           schedule next (.of 1 .s) ()
         }
       }

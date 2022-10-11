@@ -3,6 +3,11 @@ import Runtime.DSL.Extensions
 import Lean
 open Lean Macro
 
+def InterfaceVar.genDefaultValue (var : InterfaceVar) : MacroM Term := do
+  match var.default with
+  | some default => `(some ($default : $(var.value)))
+  | none => `(none)
+
 def InterfaceDecl.genInterfaceScheme (decl : InterfaceDecl) (name : Ident) : MacroM Command := 
   let schemeIdent := mkIdentFrom name (name.getId ++ `scheme)
   let types := decl.values
@@ -185,6 +190,11 @@ where
       | .str (.str .anonymous rtr) p => `(some ⟨.$(mkIdent rtr), .$(mkIdent p)⟩)
       | _                            => throwUnsupported 
 
+def ReactorDecl.genDefaultStateInterface (decl : ReactorDecl) : MacroM Term := do 
+  let dottedIds ← decl.interfaces .state |>.map (·.id) |>.dotted
+  let defaults ← decl.interfaces .state |>.mapM (·.genDefaultValue)
+  `(fun $[| $dottedIds => $defaults]* )
+
 def NetworkDecl.genClassesEnum (decl : NetworkDecl) : MacroM Command := do
   let enumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
   `(inductive $enumIdent $[| $(decl.reactorNames):ident]*)
@@ -242,6 +252,21 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
     «connections» := $(← decl.genConnectionsMap)
 )
 
+def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
+  let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
+  let dottedClasses ← decl.reactorNames.dotted
+  let defaultStateInterfaces ← decl.reactors.mapM fun rtr => rtr.genDefaultStateInterface
+  `(
+    def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
+      physicalOffset := physicalOffset
+      reactors id kind :=
+        match kind with
+        | .state => 
+          match Network.Graph.class $(decl.networkIdent) id with 
+          $[| $dottedClasses => $defaultStateInterfaces]*
+        | _ => Interface.empty
+  )
+
 macro network:network_decl : command => do
   let network ← NetworkDecl.fromSyntax network
   return mkNullNode <|
@@ -251,4 +276,5 @@ macro network:network_decl : command => do
     [← network.genGraphInstance] ++
     (← network.genReactionDependencyEnums) ++
     (← network.genInjectiveCoes) ++
-    [← network.genNetworkInstance]
+    [← network.genNetworkInstance] ++
+    [← network.genExecutableInstance]

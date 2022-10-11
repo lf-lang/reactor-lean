@@ -5,6 +5,7 @@ open Lean Macro
 structure InterfaceVar where
   id : Ident
   value : Term
+  default : Option Term
 
 def InterfaceDecl := Array InterfaceVar
   deriving Inhabited
@@ -16,7 +17,7 @@ def InterfaceDecl.values (decl : InterfaceDecl) :=
   decl.map (·.value)
 
 def InterfaceDecl.valueIdents (decl : InterfaceDecl) : MacroM (Array Ident) :=
-  decl.mapM fun ⟨_, value⟩ => 
+  decl.mapM fun { value := value, .. } => 
     match value with
     | `($value:ident) => return value
     | _ => Macro.throwError s!"InterfaceDecl.valueIdents: Illformed identifier '{value}'"

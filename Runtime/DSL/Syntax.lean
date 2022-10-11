@@ -3,7 +3,7 @@ import Lean
 open Lean Macro
 
 declare_syntax_cat interface_var
-syntax ident " : " term : interface_var
+syntax ident " : " term (":=" term)? : interface_var
 
 declare_syntax_cat interface_decl
 syntax "[" interface_var,* "]" : interface_decl
@@ -43,8 +43,9 @@ declare_syntax_cat network_decl
 syntax "lf" "{" reactor_decl+ "}" : network_decl
 
 def InterfaceVar.fromSyntax : TSyntax `interface_var → MacroM InterfaceVar
-  | `(interface_var| $id:ident : $value) => return { id := id, value := value }
-  | _ => throwUnsupported
+  | `(interface_var| $id:ident : $value)             => return { id := id, value := value, default := none }
+  | `(interface_var| $id:ident : $value := $default) => return { id := id, value := value, default := default }
+  | _                                                => throwUnsupported
 
 def InterfaceDecl.fromSyntax : TSyntax `interface_decl → MacroM InterfaceDecl
   | `(interface_decl| [$vars:interface_var,*]) => vars.getElems.mapM InterfaceVar.fromSyntax

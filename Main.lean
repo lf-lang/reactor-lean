@@ -5,7 +5,7 @@ lf {
     inputs      []
     outputs     []
     actions     [next : Unit]
-    state       [count : Nat]
+    state       [count : Nat := 0]
     nested      []
     connections []
     reactions   [
@@ -32,6 +32,6 @@ lf {
 }
 
 def main : IO Unit := do
-  let exec : Network.Executable LF.network := { physicalOffset := .ns (← IO.monoNanosNow) }
+  let exec := LF.executable <| .ns (← IO.monoNanosNow)
   let topo : Array (Network.ReactionID LF.network) := #[⟨.nil, ⟨0, by simp⟩⟩]
   exec.run topo 0

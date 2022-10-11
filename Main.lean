@@ -25,13 +25,13 @@ lf {
           monadLift <| IO.println s!"logical time: {← getLogicalTime}"
           monadLift <| IO.println s!"physical time: {← getPhysicalTime}"
           setState count <| (c.getD 0) + 1
-          schedule next (.s 1) ()
+          schedule next (.of 1 .s) ()
         }
       }
     ]
 }
 
 def main : IO Unit := do
-  let exec := LF.executable <| .ns (← IO.monoNanosNow)
+  let exec := LF.executable (← Time.now)
   let topo : Array (Network.ReactionID LF.network) := #[⟨.nil, ⟨0, by simp⟩⟩]
   exec.run topo 0

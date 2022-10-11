@@ -23,7 +23,7 @@ def isStartingUp (exec : Executable net) : Bool :=
   exec.tag = ⟨0, 0⟩
 
 def absoluteTime (exec : Executable net) : Time :=
-  exec.tag.time + exec.physicalOffset.asNs
+  exec.tag.time + exec.physicalOffset
 
 -- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
 def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interface (net.reactionInputScheme' reactorID) 

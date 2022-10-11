@@ -1,30 +1,58 @@
-abbrev Time := Nat -- Time is measured in nanoseconds.
+inductive Time.Scale
+  | ns | μs | ms | s | min | hour | day | week
+
+def Time.Scale.nsRatio : Scale → Nat
+  | .ns   => 1
+  | .μs   => 1000
+  | .ms   => 1000 * 1000
+  | .s    => 1000 * 1000 * 1000
+  | .min  => 1000 * 1000 * 1000 * 60
+  | .hour => 1000 * 1000 * 1000 * 60 * 60
+  | .day  => 1000 * 1000 * 1000 * 60 * 60 * 24
+  | .week => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
+
+structure Time where
+  private mk :: 
+  private ns : Nat
+  deriving Ord, DecidableEq
+
+instance : ToString Time where
+  toString t := s!"{t.ns} ns"
+
+instance : LE Time := leOfOrd
+
+abbrev Duration := Time
+
+def Time.of (value : Nat) (scale : Scale) : Time :=
+  { ns := value / scale.nsRatio }
+
+def Time.to (time : Time) (scale : Scale) : Nat :=
+  time.ns * scale.nsRatio
+
+def Time.now : IO Time := 
+  return { ns := ← IO.monoNanosNow }
+
+instance : OfNat Time 0 where
+  ofNat := { ns := 0 }
+
+instance : HAdd Time Duration Time where
+  hAdd t d := { ns := t.ns + d.ns }
+
+instance : HSub Time Duration Time where
+  hSub t d := { ns := t.ns - d.ns }
+
 abbrev Time.From (time : Time) := { t : Time // t ≥ time }
-
-inductive Duration
-  | ns : Nat → Duration
-  | μs : Nat → Duration 
-  | ms : Nat → Duration
-  | s  : Nat → Duration
-
-def Duration.asNs : Duration → Nat
-  | ns d => d
-  | μs d => 1000 * d 
-  | ms d => 1000000 * d 
-  | s d  => 1000000000 * d 
-
-def Duration.asMs : Duration → Nat
-  | ns d => d / 1000000
-  | μs d => d / 1000
-  | ms d => d 
-  | s d  => 1000 * d 
 
 instance : Ord (Time.From time) where
   compare t₁ t₂ := compare t₁.val t₂.val
 
 def Time.advance (time : Time) (d : Duration) : Time.From time := {
-  val := time + d.asNs
-  property := by simp_arith
+  val := time + d
+  property := by 
+    simp [HAdd.hAdd, Add.add]
+    -- TODO: Unfold ≥
+    simp_arith
+    sorry
 }
 
 structure Tag where

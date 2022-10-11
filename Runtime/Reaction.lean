@@ -81,7 +81,7 @@ def getLogicalTime : ReactionM σPortSource σPortEffect σActionSource σAction
   return (← getTag).time
 
 def getPhysicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Time :=
-  fun input => return (input.noop, (← IO.monoNanosNow) - input.physicalOffset.asNs)
+  fun input => return (input.noop, (← Time.now) - input.physicalOffset)
 
 def setOutput (port : σPortEffect.vars) (v : σPortEffect.type port) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState Unit :=
   fun input => 

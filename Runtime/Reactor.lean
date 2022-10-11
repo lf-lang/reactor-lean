@@ -32,8 +32,10 @@ structure Scheme (Classes : Type) where
   timer     : timers → Timer
   children  : Type
   «class»   : children → Classes
+  [decEqTimers : DecidableEq timers]
   [decEqChildren : DecidableEq children]
   
+attribute [instance] Scheme.decEqTimers
 attribute [instance] Scheme.decEqChildren
 attribute [reducible] Scheme.interface
 attribute [reducible] Scheme.class

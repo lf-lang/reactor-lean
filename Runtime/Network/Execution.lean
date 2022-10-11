@@ -2,10 +2,39 @@ import Runtime.Network.Basic
 
 namespace Network
 
-structure Event (net : Network) where
+namespace Event
+
+structure ActionEvent (net : Network) where
   time  : Time
   id    : ActionID net
   value : (net.scheme id.reactor).interface .actions |>.type id.action
+  
+structure TimerEvent (net : Network) where
+  time : Time
+  id   : TimerID net
+
+inductive _root_.Network.Event (net : Network)
+  | action : ActionEvent net → Event net
+  | timer  : TimerEvent net  → Event net
+
+def time : Event net → Time
+  | .action { time := time, .. } => time
+  | .timer  { time := time, .. } => time
+
+inductive ID (net : Network)
+  | action : ActionID net → ID net
+  | timer  : TimerID net → ID net
+  deriving DecidableEq
+
+def id : Event net → Event.ID net
+  | .action { id := id, .. } => .action id
+  | .timer  { id := id, .. } => .timer id
+
+def action' {id} : (event : Event net) → (h : event.id = .action id) → ActionEvent net
+  | .action ae, _ => ae
+  | .timer _,   h => by simp [Event.id] at h
+
+end Event
 
 instance {graph} : Ord (Event graph) where
   compare e₁ e₂ := compare e₁.time e₂.time
@@ -42,7 +71,7 @@ def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net
     | .shutdown      => exec.isShuttingDown
 
 def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
-  queue := exec.queue.merge <| output.events.map fun event => {
+  queue := exec.queue.merge <| output.events.map fun event => .action {
     time := event.time
     id := ⟨reactorID, event.action⟩
     value := event.value
@@ -133,6 +162,8 @@ where
             currentReactor .inputs var
     | interface => currentReactor interface 
 
+def generateTimerEvents (exec : Executable net) : Executable net := sorry
+
 structure Next (net : Network) where
   tag    : Tag
   events : Array (Event net)
@@ -159,11 +190,13 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
 }
 where 
   actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=
-    match h : events.findP? (·.id = id) with
+    match h : events.findP? (·.id = .action id) with
     | none => none
-    | some event => have h := Array.findP?_property h; (of_decide_eq_true h) ▸ event.value
-
--- TODO: Insert timer events into the event queue.
+    | some event => 
+      have h := Array.findP?_property h
+      have h := of_decide_eq_true h
+      have H : (event.action' h).id = id := sorry
+      H ▸ (event.action' h |>.value)
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do

@@ -201,4 +201,9 @@ abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType' id.rea
 abbrev connections' (net : Network) (reactorID : ReactorID net) : (Connections net <| net.class reactorID) :=
   net.class reactorID |> net.connections
 
+structure TimerID (net : Network) where
+  reactor : ReactorID net
+  timer : net.scheme reactor |>.timers
+  deriving DecidableEq
+
 end Network

@@ -183,18 +183,18 @@ def next (exec : Executable net) : Option (Next net) := do
   return {
     tag := nextTag
     events := next
-    queue := (postponed ++ later).merge (newTimerEvents exec next)
+    queue := (postponed ++ later).merge (newTimerEvents net nextTag.time next)
   }
 where 
   -- This function assumes that each timer event in `next` fires at `exec.tag.time`.
-  newTimerEvents (exec : Executable net) (next : Array (Event net)) : Array (Event net) := 
+  newTimerEvents (net : Network) (nextTime : Time) (next : Array (Event net)) : Array (Event net) := 
     next.filterMap fun event =>
       match event.timer? with 
       | none => none
       | some timerEvent =>
         match net.timer timerEvent.id |>.period with
         | none => none
-        | some p => return .timer { id := timerEvent.id, time := exec.tag.time + p }
+        | some p => return .timer { id := timerEvent.id, time := nextTime + p }
 
 def advance (exec : Executable net) (next : Next net) : Executable net := { exec with
   tag := next.tag

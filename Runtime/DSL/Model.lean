@@ -47,12 +47,6 @@ structure TimerDecl where
   offset : Term
   period : Term
 
--- TODO: Make this more rigorous by turning `offset` into a `Time` and checking its value.
-def TimerDecl.firesOnStartup (decl : TimerDecl) : Bool :=
-  match decl.offset with 
-  | `(0) => true
-  | _ => false
-
 structure ReactorDecl where
   name        : Ident
   interfaces  : Reactor.InterfaceKind → InterfaceDecl

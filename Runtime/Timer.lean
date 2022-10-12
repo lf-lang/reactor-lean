@@ -1,7 +1,7 @@
 import Runtime.Time
 
 structure Timer where
-  offset : Time := 0
+  offset : Time
   period : Option Duration
 
 def Timer.firesAtTag (timer : Timer) (tag : Tag) : Bool :=

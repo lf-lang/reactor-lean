@@ -135,22 +135,23 @@ where
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
   `({ «offset» := $(decl.offset), «period» := $(decl.period) })
 
+-- TODO: Make this more rigorous by turning `offset` into a `Time` and checking its value.
 def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do 
-  if decl.firesOnStartup then 
-    return none 
-  else
-    let mut time : Term ← `(_)
-    match decl.period with
-    | `(none) => time ← `($decl.offset)
-    | `(some $p) => time ← `($p)
-    | _ => throwUnsupported
-    `(.timer {
-      id := {
-        «class» := .$reactorName
-        timer := .$decl.name
-      }
-      time := $(decl.offset)
-    })
+  let mut time : Term ← `(_)
+  match decl.period with
+  | `(none) => 
+    match decl.offset with
+    | `(0) => return none
+    | _ => time ← `($decl.offset)
+  | `(some $p) => time ← `($p)
+  | _ => throwUnsupported
+  `(.timer {
+    id := {
+      «class» := .$reactorName
+      timer := .$decl.name
+    }
+    time := $time
+  })
 
 def Reactor.InterfaceKind.name : Reactor.InterfaceKind → Name
   | .inputs  => `Input

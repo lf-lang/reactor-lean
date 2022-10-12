@@ -28,10 +28,10 @@ lf {
           meta    []
         }
         body {
-          monadLift <| IO.println s!"{← getTag}"
-          let count ← getState count
-          setOutput out (count + 1)
-          monadLift <| IO.println s!"{count}"
+          let c ← getState count
+          setOutput out c
+          setState count (c + 1)
+          monadLift <| IO.println s!"{c}"
         }
       }
     ]

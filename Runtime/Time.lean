@@ -25,10 +25,10 @@ instance : LT Time := ltOfOrd
 abbrev Duration := Time
 
 def Time.of (value : Nat) (scale : Scale) : Time :=
-  { ns := value / scale.nsRatio }
+  { ns := value * scale.nsRatio }
 
 def Time.to (time : Time) (scale : Scale) : Nat :=
-  time.ns * scale.nsRatio
+  time.ns / scale.nsRatio
 
 def Time.now : IO Time := 
   return { ns := ← IO.monoNanosNow }

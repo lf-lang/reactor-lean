@@ -135,10 +135,15 @@ where
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
   `({ «offset» := $(decl.offset), «period» := $(decl.period) })
 
-def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do
+def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do 
   if decl.firesOnStartup then 
     return none 
   else
+    let mut time : Term ← `(_)
+    match decl.period with
+    | `(none) => time ← `($decl.offset)
+    | `(some $p) => time ← `($p)
+    | _ => throwUnsupported
     `(.timer {
       id := {
         «class» := .$reactorName

@@ -214,13 +214,18 @@ where
       have H : (event.action' h).id = id := sorry
       H ▸ (event.action' h |>.value)
 
+def prepareForShutdown (exec : Executable net) : Executable net := { exec with
+  tag := { exec.tag with microstep := exec.tag.microstep + 1 }
+  isShuttingDown := true
+}
+
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with 
   | none => 
     unless exec.isShuttingDown do
       match exec.next with
-      | none => run { exec with isShuttingDown := true } topo 0
+      | none => run exec.prepareForShutdown topo 0
       | some next => run (exec.advance next) topo 0
   | some reactionID =>
     IO.sleepUntil exec.absoluteTime

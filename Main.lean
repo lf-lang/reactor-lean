@@ -9,7 +9,7 @@ lf {
     timers      [
       {
         name   t1
-        offset (.of 0 .ns)
+        offset 0
         period none
       }
     ]

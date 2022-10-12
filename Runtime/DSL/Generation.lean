@@ -132,6 +132,18 @@ where
         inv $[| $invSrcTerms => $invDstTerms]*
     )
 
+def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do
+  if decl.firesOnStartup then 
+    return none 
+  else
+    `(.timer {
+      id := {
+        «class» := .$reactorName
+        timer := .$decl.name
+      }
+      time := $(decl.offset)
+    })
+
 def Reactor.InterfaceKind.name : Reactor.InterfaceKind → Name
   | .inputs  => `Input
   | .outputs => `Output
@@ -207,9 +219,12 @@ def ReactorDecl.genDefaultStateInterface (decl : ReactorDecl) : MacroM Term := d
   let defaults ← decl.interfaces .state |>.mapM (·.genDefaultValue)
   `(fun $[| $dottedIds => $defaults]* )
 
+def ReactorDecl.genInitialTimerEvents (decl : ReactorDecl) : MacroM (Array Term) := do
+  decl.timers.filterMapM (·.genInitialEvent decl.name)
+
 def NetworkDecl.genClassesEnum (decl : NetworkDecl) : MacroM Command := do
   let enumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
-  `(inductive $enumIdent $[| $(decl.reactorNames):ident]*)
+  `(inductive $enumIdent $[| $(decl.reactorNames):ident]* deriving DecidableEq)
 
 def NetworkDecl.genGraphInstance (decl : NetworkDecl) : MacroM Command := do
   let classEnumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
@@ -264,6 +279,10 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
     «connections» := $(← decl.genConnectionsMap)
 )
 
+def NetworkDecl.genInitialTimerEvents (decl : NetworkDecl) : MacroM Term := do
+  let events ← decl.reactors.concatMapM (·.genInitialTimerEvents)
+  `(#[ $[$events],* ])
+
 def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
   let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
   let dottedClasses ← decl.reactorNames.dotted
@@ -277,6 +296,7 @@ def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := d
           match Network.Graph.class $(decl.networkIdent) id with 
           $[| $dottedClasses => $defaultStateInterfaces]*
         | .inputs | .outputs | .actions => Interface?.empty 
+      queue := $(← decl.genInitialTimerEvents)
   )
 
 macro network:network_decl : command => do

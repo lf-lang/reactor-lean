@@ -21,6 +21,9 @@ def time : Event net → Time
   | .action { time := time, .. } => time
   | .timer  { time := time, .. } => time
 
+instance {graph} : Ord (Event graph) where
+  compare e₁ e₂ := compare e₁.time e₂.time
+
 inductive ID (net : Network)
   | action : ActionID net → ID net
   | timer  : TimerID net → ID net
@@ -30,19 +33,24 @@ def id : Event net → Event.ID net
   | .action { id := id, .. } => .action id
   | .timer  { id := id, .. } => .timer id
 
+def action? : Event net → Option (ActionEvent net)
+  | .action event => event
+  | .timer  _     => none
+
+def timer? : Event net → Option (TimerEvent net)
+  | .timer  event => event
+  | .action _     => none
+
 def action' {id} : (event : Event net) → (h : event.id = .action id) → ActionEvent net
   | .action ae, _ => ae
   | .timer _,   h => by simp [Event.id] at h
 
 end Event
 
-instance {graph} : Ord (Event graph) where
-  compare e₁ e₂ := compare e₁.time e₂.time
-
 structure Executable (net : Network) where
   tag : Tag := ⟨0, 0⟩
   physicalOffset : Duration
-  queue : Array (Event net) := #[]
+  queue : Array (Event net)
   reactors : (id : ReactorID net) → (kind : Reactor.InterfaceKind) → kind.interfaceType (net.scheme id |>.interface kind)
   isShuttingDown : Bool := false
 
@@ -162,8 +170,6 @@ where
             currentReactor .inputs var
     | interface => currentReactor interface 
 
-def generateTimerEvents (exec : Executable net) : Executable net := sorry
-
 structure Next (net : Network) where
   tag    : Tag
   events : Array (Event net)
@@ -173,12 +179,22 @@ def next (exec : Executable net) : Option (Next net) := do
   let nextEvent ← exec.queue[0]?
   let nextTag := exec.tag.advance nextEvent.time
   let ⟨candidates, later⟩ := exec.queue.split (·.time = nextTag.time)  
-  let ⟨current, postponed⟩ := candidates.unique (·.id)
+  let ⟨next, postponed⟩ := candidates.unique (·.id)
   return {
     tag := nextTag
-    events := current
-    queue := postponed ++ later
+    events := next
+    queue := (postponed ++ later).merge (newTimerEvents exec next)
   }
+where 
+  -- This function assumes that each timer event in `next` fires at `exec.tag.time`.
+  newTimerEvents (exec : Executable net) (next : Array (Event net)) : Array (Event net) := 
+    next.filterMap fun event =>
+      match event.timer? with 
+      | none => none
+      | some timerEvent =>
+        match net.timer timerEvent.id |>.period with
+        | none => none
+        | some p => return .timer { id := timerEvent.id, time := exec.tag.time + p }
 
 def advance (exec : Executable net) (next : Next net) : Executable net := { exec with
   tag := next.tag

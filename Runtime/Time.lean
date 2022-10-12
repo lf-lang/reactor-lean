@@ -20,6 +20,7 @@ instance : ToString Time where
   toString t := s!"{t.ns} ns"
 
 instance : LE Time := leOfOrd
+instance : LT Time := ltOfOrd
 
 abbrev Duration := Time
 

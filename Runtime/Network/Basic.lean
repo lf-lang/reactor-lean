@@ -5,9 +5,11 @@ namespace Network
 
 structure Graph where
   classes : Type
-  root : classes
   schemes : classes → (Reactor.Scheme classes)
+  root : classes
+  [decEqClasses : DecidableEq classes]
 
+attribute [instance] Graph.decEqClasses
 attribute [reducible] Graph.schemes
 
 abbrev Graph.rootScheme (graph : Graph) := graph.schemes graph.root
@@ -202,8 +204,11 @@ abbrev connections' (net : Network) (reactorID : ReactorID net) : (Connections n
   net.class reactorID |> net.connections
 
 structure TimerID (net : Network) where
-  reactor : ReactorID net
-  timer : net.scheme reactor |>.timers
+  «class» : net.classes
+  timer : net.schemes «class» |>.timers
   deriving DecidableEq
+
+def timer (net : Network) (id : TimerID net) : Timer :=
+  net.schemes id.«class» |>.timer id.timer
 
 end Network

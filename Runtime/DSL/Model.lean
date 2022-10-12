@@ -51,6 +51,7 @@ structure ReactorDecl where
   name        : Ident
   interfaces  : Reactor.InterfaceKind → InterfaceDecl
   timers      : Array TimerDecl
+  parameters  : InterfaceDecl
   nested      : InterfaceDecl
   connections : InterfaceDecl
   reactions   : Array ReactionDecl

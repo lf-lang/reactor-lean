@@ -2,6 +2,7 @@ import Runtime
 
 lf {
   reactor Main
+    parameters  []
     inputs      []
     outputs     [out : Nat]
     actions     []

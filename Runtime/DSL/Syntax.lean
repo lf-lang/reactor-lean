@@ -38,6 +38,7 @@ syntax "{"
 
 declare_syntax_cat reactor_decl
 syntax "reactor" ident 
+  "parameters"  interface_decl
   "inputs"      interface_decl 
   "outputs"     interface_decl 
   "actions"     interface_decl 
@@ -82,18 +83,20 @@ def TimerDecl.fromSyntax : TSyntax `timer_decl → MacroM TimerDecl
   | _ => throwUnsupported
 
 def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
-  | `(reactor_decl| reactor $name:ident inputs $i outputs $o actions $a state $s timers [ $t,* ] nested $n connections $c reactions [$r:reaction_decl,*]) => do
+  | `(reactor_decl| reactor $name:ident parameters $p inputs $i outputs $o actions $a state $s timers [ $t,* ] nested $n connections $c reactions [$r:reaction_decl,*]) => do
     let i ← InterfaceDecl.fromSyntax i
     let o ← InterfaceDecl.fromSyntax o
     let a ← InterfaceDecl.fromSyntax a
     let s ← InterfaceDecl.fromSyntax s
     let n ← InterfaceDecl.fromSyntax n
     let c ← InterfaceDecl.fromSyntax c
+    let p ← InterfaceDecl.fromSyntax p
     let r ← r.getElems.mapM ReactionDecl.fromSyntax
     return {
       name := name
       interfaces := fun | .inputs => i | .outputs => o | .actions => a | .state => s
       «timers» := ← t.getElems.mapM TimerDecl.fromSyntax
+      «parameters» := p
       «nested» := n
       «connections» := c
       «reactions» := r  

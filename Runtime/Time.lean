@@ -67,6 +67,9 @@ structure Tag where
   microstep : Nat
   deriving DecidableEq
 
+instance : ToString Tag where
+  toString tag := s!"⟨{tag.time}, {tag.microstep}⟩"
+
 def Tag.advance (tag : Tag) (time : Time) : Tag := 
   match compare tag.time time with
   | .lt => { time := time, microstep := 0 }

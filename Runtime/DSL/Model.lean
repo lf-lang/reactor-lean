@@ -45,7 +45,7 @@ structure ReactionDecl where
 structure TimerDecl where
   name : Ident
   offset : Term
-  period : Option Term
+  period : Term
 
 -- TODO: Make this more rigorous by turning `offset` into a `Time` and checking its value.
 def TimerDecl.firesOnStartup (decl : TimerDecl) : Bool :=

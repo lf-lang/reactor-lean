@@ -3,14 +3,14 @@ import Runtime
 lf {
   reactor Main
     inputs      []
-    outputs     []
-    actions     [next : Unit]
-    state       [count : Nat := 0]
+    outputs     [out : Nat]
+    actions     []
+    state       [count : Nat := 1]
     timers      [
       {
-        name   t1
+        name   t
         offset 0
-        period none
+        period some (.of 1 .s)
       }
     ]
     nested      []
@@ -18,22 +18,20 @@ lf {
     reactions   [
       {
         portSources   []
-        portEffects   []
-        actionSources [next]
-        actionEffects [next]
+        portEffects   [out]
+        actionSources []
+        actionEffects []
         triggers {
           ports   []
-          actions [next]
-          timers  []
-          meta    [startup]
+          actions []
+          timers  [t]
+          meta    []
         }
         body {
-          let c ← getState count
-          monadLift <| IO.println s!"count: {c}"
-          monadLift <| IO.println s!"logical time: {← getLogicalTime}"
-          monadLift <| IO.println s!"physical time: {← getPhysicalTime}"
-          setState count (c + 1)
-          schedule next (.of 1 .s) ()
+          monadLift <| IO.println s!"{← getTag}"
+          let count ← getState count
+          setOutput out (count + 1)
+          monadLift <| IO.println s!"{count}"
         }
       }
     ]

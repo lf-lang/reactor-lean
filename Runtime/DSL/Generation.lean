@@ -132,6 +132,9 @@ where
         inv $[| $invSrcTerms => $invDstTerms]*
     )
 
+def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
+  `({ «offset» := $(decl.offset), «period» := $(decl.period) })
+
 def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do
   if decl.firesOnStartup then 
     return none 
@@ -169,6 +172,7 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
   let nestedEnumIdent := mkNamespacedIdent `Nested
   let timerEnumIdent := mkNamespacedIdent `Timer
   let timerIdents := decl.timers.map (·.name)
+  let «timers» ← decl.timers.mapM (·.genTimer)
   let dottedClasses ← (← decl.nested.valueIdents).dotted
   `(
     inductive $nestedEnumIdent $[| $(decl.nested.ids):ident]* deriving DecidableEq
@@ -180,7 +184,7 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
         | .actions => $(mkIdent `Action.scheme)
         | .state   => $(mkIdent `State.scheme)
       «timers» := $(mkIdent `Timer)
-      timer := sorry
+      timer := fun t => match t with $[| $(← timerIdents.dotted) => $«timers» ]*
       children := $nestedEnumIdent
       «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
   )  

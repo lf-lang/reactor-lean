@@ -26,7 +26,18 @@ instance : Coe PortKind InterfaceKind where
     | .input => .inputs
     | .output => .outputs
 
-structure Scheme (Classes : Type) where
+-- A reactor's parameters have no influence on the *structure* of the reactor.
+-- That is, the scheme is unaffected.
+--
+-- ! This is not true: the type of reactions changes!
+
+-- WIP
+
+structure Parameters where
+  scheme : Interface.Scheme
+  values : Interface scheme
+
+structure Scheme (Classes : Type) (params : Interface.Scheme) where
   interface : InterfaceKind → Interface.Scheme
   timers    : Type
   timer     : timers → Timer

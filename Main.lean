@@ -77,18 +77,10 @@ lf {
 
 def LF.Parameters.a₁.p := 0 -- <expr>
 def LF.Parameters.a₂.p := 0 -- <expr>
-
-open LF.Parameters.a₁ in
-def LF.Parameters.a₁.c.c₁ := 0 -- <expr>
-
-open LF.Parameters.a₂ in
-def LF.Parameters.a₂.c.c₁ := 0 -- <expr>
-
-open LF.Parameters.a₁.c in
-def LF.Parameters.a₁.c.d.d₁ := 0 -- <expr>
-
-open LF.Parameters.a₂.c in
-def LF.Parameters.a₂.c.d.d₁ := 0 -- <expr>
+def LF.Parameters.a₁.c.c₁ := open LF.Parameters.a₁ in 0 -- <expr>
+def LF.Parameters.a₂.c.c₁ := open LF.Parameters.a₂ in 0 -- <expr>
+def LF.Parameters.a₁.c.d.d₁ := open LF.Parameters.a₁.c in 0 -- <expr>
+def LF.Parameters.a₂.c.d.d₁ := open LF.Parameters.a₂.c in 0 -- <expr>
 
 def exe : Network.Executable LF.network where
   physicalOffset := sorry

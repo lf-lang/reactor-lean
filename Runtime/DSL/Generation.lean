@@ -284,6 +284,39 @@ def NetworkDecl.genInitialTimerEvents (decl : NetworkDecl) : MacroM Term := do
   let events : Array Term := #[] -- ← decl.reactors.concatMapM (·.genInitialTimerEvents)
   `(#[ $[$events],* ])
 
+partial def NetworkDecl.genReactorIDs (decl : NetworkDecl) : MacroM (Array Term) := do
+  (← decl.instancePaths).mapM fun ⟨path, _⟩ => gen path
+where
+  gen (path : Array Name) : MacroM Term := do
+    if path.isEmpty 
+    then `(.nil)
+    else `(.cons .$(mkIdent path[0]!) <| $(← gen path[1:]))
+
+partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do 
+  let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
+  (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
+    let pathName := nameForInstancePath path
+    let parentName := pathName |>.getPrefix
+    let parentIdent := mkIdent (decl.namespaceIdent.getId ++ `Parameters ++ parentName)
+    let rtrDecl ← decl.reactorWithName «class»
+    (rtrDecl.interfaces .params).mapM fun param => do
+      -- TODO: the value of the defintion actually depends on whether the parent instance specified 
+      -- a value for the given parameter at instantiation. right now we don't have the syntax
+      -- for that, so here we're just using the default value defined by the child reactor
+      --
+      -- NOTE: If the parent does not specify a value for the given parameter at instantiation
+      -- we need to remove the `open ... in`. Otherwise we would leak the parameters of the
+      -- parent reactor into the default-value declaration of the child reactor.
+      `(
+        def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) := 
+          open $(.mk parentIdent) in $(param.default.get!)
+      ) 
+where 
+  nameForInstancePath (path : Array Name) : Name :=
+    if path.isEmpty 
+    then .anonymous
+    else path[0]! ++ nameForInstancePath path[1:]
+
 def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
   let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
   let dottedClasses ← decl.reactorNames.dotted
@@ -316,4 +349,5 @@ macro network:network_decl : command => do
     (← network.genReactionDependencyEnums) ++
     (← network.genInjectiveCoes) ++
     [← network.genNetworkInstance] ++
+    (← network.genParameterDefs) ++
     [← network.genExecutableInstance]

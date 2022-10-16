@@ -127,11 +127,4 @@ where
       let path := pre.push var.id.getId
       let name := (← var.valueIdent).getId
       return #[(path, name)] ++ (← go network name path)
-
-partial def NetworkDecl.reactorIDs (decl : NetworkDecl) : MacroM (Array Term) := do
-  (← decl.instancePaths).mapM fun ⟨path, _⟩ => gen path
-where
-  gen (path : Array Name) : MacroM Term := do
-    if path.isEmpty 
-    then `(.nil)
-    else `(.cons .$(mkIdent path[0]!) <| $(← gen path[1:]))
+      

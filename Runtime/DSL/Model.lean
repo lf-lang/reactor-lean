@@ -7,6 +7,11 @@ structure InterfaceVar where
   value : Term
   default : Option Term
 
+def InterfaceVar.valueIdent (var : InterfaceVar) : MacroM Ident :=
+  match var.value with
+  | `($value:ident) => return value
+  | _ => Macro.throwError s!"InterfaceVar.valueIdent: Illformed identifier '{var.value}'"
+
 def InterfaceDecl := Array InterfaceVar
   deriving Inhabited
 
@@ -17,10 +22,7 @@ def InterfaceDecl.values (decl : InterfaceDecl) :=
   decl.map (·.value)
 
 def InterfaceDecl.valueIdents (decl : InterfaceDecl) : MacroM (Array Ident) :=
-  decl.mapM fun { value := value, .. } => 
-    match value with
-    | `($value:ident) => return value
-    | _ => Macro.throwError s!"InterfaceDecl.valueIdents: Illformed identifier '{value}'"
+  decl.mapM (·.valueIdent)
 
 structure TriggerDecl where
   ports :   Array Ident
@@ -77,8 +79,13 @@ def NetworkDecl.graphIdent (network : NetworkDecl) :=
 def NetworkDecl.reactorNames (decl : NetworkDecl) :=
   decl.reactors.map (·.name)
 
-def NetworkDecl.mainReactorIdent! (decl : NetworkDecl) : MacroM Term := do
-  `(.$(decl.reactors[0]!.name))
+def NetworkDecl.mainReactor (decl : NetworkDecl) : MacroM ReactorDecl := do
+  match decl.reactors[0]? with
+  | some rtr => return rtr
+  | none => Macro.throwError "NetworkDecl.mainReactor!: No reactor declaration found"
+
+def NetworkDecl.mainReactorIdent (decl : NetworkDecl) : MacroM Term := do
+  `(.$((← decl.mainReactor).name))
 
 def NetworkDecl.reactorWithName (decl : NetworkDecl) (className : Name) : MacroM ReactorDecl :=
   match decl.reactors.find? (·.name.getId = className) with
@@ -108,3 +115,15 @@ def NetworkDecl.numDependencies (decl : NetworkDecl) (rtr : Name) : ReactionDecl
   | .portSource => decl.numSources rtr
   | .portEffect => decl.numEffects rtr
   | .actionSource | .actionEffect => return (← decl.reactorWithName rtr).num .actions
+
+-- This only terminates if the network (class) graph is acyclic.
+partial def NetworkDecl.reactorIDs (decl : NetworkDecl) : MacroM <| Array (Array Name) := do
+  let mainReactorName := (← decl.mainReactor).name.getId
+  return #[#[]] ++ (← go decl mainReactorName #[])
+where 
+  go (network : NetworkDecl) (rtrName : Name) (pre : Array Name) : MacroM <| Array (Array Name) := do
+    let rtr ← network.reactorWithName rtrName
+    rtr.nested.concatMapM fun var => do
+      let self := pre.push var.id.getId
+      let nestedName := (← var.valueIdent).getId
+      return #[self] ++ (← go network nestedName self)

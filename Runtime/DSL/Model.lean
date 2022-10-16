@@ -84,7 +84,7 @@ def NetworkDecl.mainReactor (decl : NetworkDecl) : MacroM ReactorDecl := do
   | some rtr => return rtr
   | none => Macro.throwError "NetworkDecl.mainReactor!: No reactor declaration found"
 
-def NetworkDecl.mainReactorIdent (decl : NetworkDecl) : MacroM Term := do
+def NetworkDecl.mainReactorClass (decl : NetworkDecl) : MacroM Term := do
   `(.$((← decl.mainReactor).name))
 
 def NetworkDecl.reactorWithName (decl : NetworkDecl) (className : Name) : MacroM ReactorDecl :=
@@ -117,13 +117,13 @@ def NetworkDecl.numDependencies (decl : NetworkDecl) (rtr : Name) : ReactionDecl
   | .actionSource | .actionEffect => return (← decl.reactorWithName rtr).num .actions
 
 -- This only terminates if the network (class) graph is acyclic.
-partial def NetworkDecl.reactorIDs (decl : NetworkDecl) : MacroM <| Array (Array Name) := do
+partial def NetworkDecl.reactorIDs (decl : NetworkDecl) : MacroM <| Array ((Array Name) × Name) := do
   let mainReactorName := (← decl.mainReactor).name.getId
-  return #[#[]] ++ (← go decl mainReactorName #[])
+  return #[(#[], mainReactorName)] ++ (← go decl mainReactorName #[])
 where 
-  go (network : NetworkDecl) (rtrName : Name) (pre : Array Name) : MacroM <| Array (Array Name) := do
+  go (network : NetworkDecl) (rtrName : Name) (pre : Array Name) : MacroM <| Array ((Array Name) × Name) := do
     let rtr ← network.reactorWithName rtrName
     rtr.nested.concatMapM fun var => do
-      let self := pre.push var.id.getId
-      let nestedName := (← var.valueIdent).getId
-      return #[self] ++ (← go network nestedName self)
+      let id := pre.push var.id.getId
+      let name := (← var.valueIdent).getId
+      return #[(id, name)] ++ (← go network name id)

@@ -123,10 +123,10 @@ where
         inv $[| $invSrcTerms => $invDstTerms]*
     )
 
+/-
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
   `({ «offset» := $(decl.offset), «period» := $(decl.period) })
 
-/-
 def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do 
   let mut time : Term ← `(_)
   match decl.period with
@@ -233,7 +233,7 @@ def NetworkDecl.genGraphInstance (decl : NetworkDecl) : MacroM Command := do
   `(
     abbrev $decl.graphIdent : Network.Graph where
     classes := $classEnumIdent
-    root := $(← decl.mainReactorIdent!)
+    root := $(← decl.mainReactorClass)
     schemes $[| $(← decl.reactorNames.dotted) => $classSchemes]*
   )
 

@@ -32,7 +32,7 @@ lf {
           let c ← getState count
           setOutput out c
           setState count (c + 1)
-          IO.println s!"{c}"
+          monadLift <| IO.println s!"{c}"
         }
       }
     ]

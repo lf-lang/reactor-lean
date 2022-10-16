@@ -135,7 +135,7 @@ where
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
   `({ «offset» := $(decl.offset), «period» := $(decl.period) })
 
--- TODO: Make this more rigorous by turning `offset` into a `Time` and checking its value.
+/-
 def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do 
   let mut time : Term ← `(_)
   match decl.period with
@@ -152,20 +152,21 @@ def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM 
     }
     time := $time
   })
+-/
 
 def Reactor.InterfaceKind.name : Reactor.InterfaceKind → Name
   | .inputs  => `Input
   | .outputs => `Output
   | .actions => `Action
   | .state   => `State
+  | .params  => `Parameter
 
 def ReactorDecl.genInterfaceSchemes (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) :=
   Reactor.InterfaceKind.allCases.mapM fun kind =>
     let interface := decl.interfaces kind
     let ident := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ kind.name)
-    match kind with
-    | .state => interface.genInterfaceScheme ident (optionalTypeWhenNoDefault := true)
-    | _ => interface.genInterfaceScheme ident
+    let optionalTypeWhenNoDefault := match kind with | .state | .params => true | _ => false
+    interface.genInterfaceScheme ident optionalTypeWhenNoDefault
 
 def ReactorDecl.genReactionDependencyEnums (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) := do
   decl.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ => do
@@ -178,7 +179,6 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
   let nestedEnumIdent := mkNamespacedIdent `Nested
   let timerEnumIdent := mkNamespacedIdent `Timer
   let timerIdents := decl.timers.map (·.name)
-  let «timers» ← decl.timers.mapM (·.genTimer)
   let dottedClasses ← (← decl.nested.valueIdents).dotted
   `(
     inductive $nestedEnumIdent $[| $(decl.nested.ids):ident]* deriving DecidableEq
@@ -189,8 +189,8 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
         | .outputs => $(mkIdent `Output.scheme)
         | .actions => $(mkIdent `Action.scheme)
         | .state   => $(mkIdent `State.scheme)
+        | .params  => $(mkIdent `Parameter.scheme)
       «timers» := $(mkIdent `Timer)
-      timer := fun t => match t with $[| $(← timerIdents.dotted) => $«timers» ]*
       children := $nestedEnumIdent
       «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
   )  
@@ -229,8 +229,8 @@ def ReactorDecl.genDefaultStateInterface (decl : ReactorDecl) : MacroM Term := d
   let defaults ← decl.interfaces .state |>.mapM (·.genDefaultValue)
   `(fun $[| $dottedIds => $defaults]* )
 
-def ReactorDecl.genInitialTimerEvents (decl : ReactorDecl) : MacroM (Array Term) := do
-  decl.timers.filterMapM (·.genInitialEvent decl.name)
+-- def ReactorDecl.genInitialTimerEvents (decl : ReactorDecl) : MacroM (Array Term) := do
+--  decl.timers.filterMapM (·.genInitialEvent decl.name)
 
 def NetworkDecl.genClassesEnum (decl : NetworkDecl) : MacroM Command := do
   let enumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
@@ -290,7 +290,7 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
 )
 
 def NetworkDecl.genInitialTimerEvents (decl : NetworkDecl) : MacroM Term := do
-  let events ← decl.reactors.concatMapM (·.genInitialTimerEvents)
+  let events : Array Term := #[] -- ← decl.reactors.concatMapM (·.genInitialTimerEvents)
   `(#[ $[$events],* ])
 
 def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
@@ -300,12 +300,18 @@ def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := d
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
-      reactors id kind :=
-        match kind with
-        | .state => 
-          match Network.Graph.class $(decl.networkIdent) id with 
-          $[| $dottedClasses => $defaultStateInterfaces]*
-        | .inputs | .outputs | .actions => Interface?.empty 
+      reactors id := {
+        interface := fun kind =>
+          match kind with
+          | .state => 
+            match Network.Graph.class $(decl.networkIdent) id with 
+            $[| $dottedClasses => $defaultStateInterfaces]*
+          | .params => 
+            sorry
+          | .inputs | .outputs | .actions => Interface?.empty 
+        timer := fun id =>
+          sorry
+      }
       queue := $(← decl.genInitialTimerEvents)
   )
 

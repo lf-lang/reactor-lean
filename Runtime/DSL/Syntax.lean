@@ -94,9 +94,8 @@ def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
     let r ← r.getElems.mapM ReactionDecl.fromSyntax
     return {
       name := name
-      interfaces := fun | .inputs => i | .outputs => o | .actions => a | .state => s
+      interfaces := fun | .inputs => i | .outputs => o | .actions => a | .state => s | .params => p
       «timers» := ← t.getElems.mapM TimerDecl.fromSyntax
-      «parameters» := p
       «nested» := n
       «connections» := c
       «reactions» := r  

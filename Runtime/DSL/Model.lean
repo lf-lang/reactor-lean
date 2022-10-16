@@ -117,13 +117,21 @@ def NetworkDecl.numDependencies (decl : NetworkDecl) (rtr : Name) : ReactionDecl
   | .actionSource | .actionEffect => return (← decl.reactorWithName rtr).num .actions
 
 -- This only terminates if the network (class) graph is acyclic.
-partial def NetworkDecl.reactorIDs (decl : NetworkDecl) : MacroM <| Array ((Array Name) × Name) := do
+partial def NetworkDecl.instancePaths (decl : NetworkDecl) : MacroM <| Array ((Array Name) × Name) := do
   let mainReactorName := (← decl.mainReactor).name.getId
   return #[(#[], mainReactorName)] ++ (← go decl mainReactorName #[])
 where 
   go (network : NetworkDecl) (rtrName : Name) (pre : Array Name) : MacroM <| Array ((Array Name) × Name) := do
     let rtr ← network.reactorWithName rtrName
     rtr.nested.concatMapM fun var => do
-      let id := pre.push var.id.getId
+      let path := pre.push var.id.getId
       let name := (← var.valueIdent).getId
-      return #[(id, name)] ++ (← go network name id)
+      return #[(path, name)] ++ (← go network name path)
+
+partial def NetworkDecl.reactorIDs (decl : NetworkDecl) : MacroM (Array Term) := do
+  (← decl.instancePaths).mapM fun ⟨path, _⟩ => gen path
+where
+  gen (path : Array Name) : MacroM Term := do
+    if path.isEmpty 
+    then `(.nil)
+    else `(.cons .$(mkIdent path[0]!) <| $(← gen path[1:]))

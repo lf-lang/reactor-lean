@@ -274,7 +274,7 @@ def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
   `(fun $[| $dottedClasses => $connectionsMaps]*)
 
 def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `(
-  def $(decl.networkIdent) : Network where
+  abbrev $(decl.networkIdent) : Network where
     toGraph := $(decl.graphIdent)
     «reactions» := $(← decl.genReactionInstanceMap)
     «connections» := $(← decl.genConnectionsMap)
@@ -300,7 +300,7 @@ def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := d
           | .params => 
             sorry
           | .inputs | .outputs | .actions => Interface?.empty 
-        timer := fun id =>
+        timer := fun timerId =>
           sorry
       }
       queue := $(← decl.genInitialTimerEvents)

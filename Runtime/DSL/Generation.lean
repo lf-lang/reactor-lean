@@ -94,19 +94,10 @@ def InjCoeGenDescription.sumTerms (descr : InjCoeGenDescription) : MacroM (Array
     | _                            => throwUnsupported 
 
 def InjCoeGenDescription.genInjectiveCoe (descr : InjCoeGenDescription) : MacroM Command := do
-  if descr.ids.isEmpty then 
-    forEmpty descr
-  else 
-    match descr.dependencyKind with 
+  match descr.dependencyKind with 
     | .portSource   | .portEffect => forPorts descr
     | .actionSource | .actionEffect => forActions descr
 where
-  forEmpty (descr : InjCoeGenDescription) : MacroM Command := do 
-    `(
-      @[reducible] instance : $(← descr.injCoeType) where
-        coe := (·.casesOn)
-        inv _ := none
-    )
   forPorts (descr : InjCoeGenDescription) : MacroM Command := do
     let sumTerms ← descr.sumTerms
     let mut invSrcTerms := sumTerms
@@ -116,7 +107,7 @@ where
       invDstTerms := invDstTerms.push (← `(Option.none))
     `(
       @[reducible] instance : $(← descr.injCoeType) where
-        coe $[| $(← descr.ids.dotted) => $sumTerms]*
+        coe i := match i with $[| $(← descr.ids.dotted) => $sumTerms]*
         inv $[| $invSrcTerms => $invDstTerms]*
     )
   forActions (descr : InjCoeGenDescription) : MacroM Command := do
@@ -128,7 +119,7 @@ where
       invDstTerms := invDstTerms.push (← `(Option.none))
     `(
       @[reducible] instance : $(← descr.injCoeType) where
-        coe $[| $(← descr.ids.dotted) => $coeDstIdents]*
+        coe i := match i with $[| $(← descr.ids.dotted) => $coeDstIdents]*
         inv $[| $invSrcTerms => $invDstTerms]*
     )
 

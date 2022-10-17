@@ -123,10 +123,10 @@ where
         inv $[| $invSrcTerms => $invDstTerms]*
     )
 
-/-
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
   `({ «offset» := $(decl.offset), «period» := $(decl.period) })
 
+/-
 def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do 
   let mut time : Term ← `(_)
   match decl.period with
@@ -215,10 +215,28 @@ where
       | .str (.str .anonymous rtr) p => `(some ⟨.$(mkIdent rtr), .$(mkIdent p)⟩)
       | _                            => throwUnsupported 
 
-def ReactorDecl.genDefaultStateInterface (decl : ReactorDecl) : MacroM Term := do 
+def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do 
   let dottedIds ← decl.interfaces .state |>.map (·.id) |>.dotted
-  let defaults ← decl.interfaces .state |>.mapM (·.genDefaultValue)
-  `(fun $[| $dottedIds => $defaults]* )
+  let values ← decl.interfaces .state |>.mapM (·.genDefaultValue)
+  `(fun $[| $dottedIds => $values]* )
+
+def ReactorDecl.genParamInterface (decl : ReactorDecl) : MacroM Term := do 
+  let paramIdents := decl.interfaces .params |>.map (·.id)
+  `(fun var => match var with $[| $(← paramIdents.dotted) => $paramIdents]*)
+
+def ReactorDecl.genTimers (decl : ReactorDecl) : MacroM Term := do 
+  let timerIdents ← decl.timers.map (·.name) |>.dotted
+  let «timers» ← decl.timers.mapM (·.genTimer)
+  `(fun var => match var with $[| $timerIdents => $«timers»]*)
+
+def ReactorDecl.genReactorInstance (decl : ReactorDecl) : MacroM Term := do 
+  `({
+      interface := fun
+        | .state => $(← decl.genStateInterface)
+        | .params => $(← decl.genParamInterface)
+        | .inputs | .outputs | .actions => Interface?.empty 
+      timer := $(← decl.genTimers)
+  })
 
 -- def ReactorDecl.genInitialTimerEvents (decl : ReactorDecl) : MacroM (Array Term) := do
 --  decl.timers.filterMapM (·.genInitialEvent decl.name)

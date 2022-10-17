@@ -164,6 +164,14 @@ def ReactorDecl.genReactionDependencyEnums (decl : ReactorDecl) (ns : Ident) : M
     let rcnNs := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
     rcn.genDependencyEnums rcnNs
 
+instance : Quote Reactor.InterfaceKind where
+  quote
+    | .inputs  => mkIdent `Reactor.InterfaceKind.inputs
+    | .outputs => mkIdent `Reactor.InterfaceKind.outputs
+    | .actions => mkIdent `Reactor.InterfaceKind.actions
+    | .state   => mkIdent `Reactor.InterfaceKind.state
+    | .params  => mkIdent `Reactor.InterfaceKind.params
+
 def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Command := do
   let mkNamespacedIdent name := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ name)
   let classesEnumIdent := mkIdentFrom ns (ns.getId ++ `Class)
@@ -171,16 +179,13 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
   let timerEnumIdent := mkNamespacedIdent `Timer
   let timerIdents := decl.timers.map (·.name)
   let dottedClasses ← (← decl.nested.valueIdents).dotted
+  let interfaces := Reactor.InterfaceKind.allCases.map (quote ·)
+  let interfaceSchemeIdents := Reactor.InterfaceKind.allCases.map fun i => mkIdent <| i.name ++ `scheme
   `(
     inductive $nestedEnumIdent $[| $(decl.nested.ids):ident]* deriving DecidableEq
     inductive $timerEnumIdent $[| $timerIdents:ident]* deriving DecidableEq
     abbrev $(mkNamespacedIdent `scheme) : Reactor.Scheme $classesEnumIdent where
-      interface -- TODO: Use `Reactor.InterfaceKind.name` for this.
-        | .inputs  => $(mkIdent `Input.scheme)
-        | .outputs => $(mkIdent `Output.scheme)
-        | .actions => $(mkIdent `Action.scheme)
-        | .state   => $(mkIdent `State.scheme)
-        | .params  => $(mkIdent `Parameter.scheme)
+      interface $[| $interfaces => $interfaceSchemeIdents]*
       «timers» := $(mkIdent `Timer)
       children := $nestedEnumIdent
       «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*

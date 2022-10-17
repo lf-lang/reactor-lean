@@ -108,7 +108,7 @@ where
     `(
       @[reducible] instance : $(← descr.injCoeType) where
         coe i := match i with $[| $(← descr.ids.dotted) => $sumTerms]*
-        inv $[| $invSrcTerms => $invDstTerms]*
+        inv i := match i with $[| $invSrcTerms => $invDstTerms]*
     )
   forActions (descr : InjCoeGenDescription) : MacroM Command := do
     let coeDstIdents ← descr.ids.dotted
@@ -120,7 +120,7 @@ where
     `(
       @[reducible] instance : $(← descr.injCoeType) where
         coe i := match i with $[| $(← descr.ids.dotted) => $coeDstIdents]*
-        inv $[| $invSrcTerms => $invDstTerms]*
+        inv i := match i with $[| $invSrcTerms => $invDstTerms]*
     )
 
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
@@ -218,7 +218,7 @@ where
 def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do 
   let dottedIds ← decl.interfaces .state |>.map (·.id) |>.dotted
   let values ← decl.interfaces .state |>.mapM (·.genDefaultValue)
-  `(fun $[| $dottedIds => $values]* )
+  `(fun var => match var with $[| $dottedIds => $values]* )
 
 def ReactorDecl.genParamInterface (decl : ReactorDecl) : MacroM Term := do 
   let paramIdents := decl.interfaces .params |>.map (·.id)

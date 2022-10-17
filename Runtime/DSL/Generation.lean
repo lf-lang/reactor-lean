@@ -126,25 +126,6 @@ where
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
   `({ «offset» := $(decl.offset), «period» := $(decl.period) })
 
-/-
-def TimerDecl.genInitialEvent (decl : TimerDecl) (reactorName : Ident) : MacroM (Option Term) := do 
-  let mut time : Term ← `(_)
-  match decl.period with
-  | `(none) => 
-    match decl.offset with
-    | `(0) => return none
-    | _ => time ← `($decl.offset)
-  | `(some $p) => time ← `($p)
-  | _ => throwUnsupported
-  `(.timer {
-    id := {
-      «class» := .$reactorName
-      timer := .$decl.name
-    }
-    time := $time
-  })
--/
-
 def Reactor.InterfaceKind.name : Reactor.InterfaceKind → Name
   | .inputs  => `Input
   | .outputs => `Output
@@ -243,9 +224,6 @@ def ReactorDecl.genReactorInstance (decl : ReactorDecl) : MacroM Term := do
       timer := $(← decl.genTimers)
   })
 
--- def ReactorDecl.genInitialTimerEvents (decl : ReactorDecl) : MacroM (Array Term) := do
---  decl.timers.filterMapM (·.genInitialEvent decl.name)
-
 def NetworkDecl.genClassesEnum (decl : NetworkDecl) : MacroM Command := do
   let enumIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `Class)
   `(inductive $enumIdent $[| $(decl.reactorNames):ident]* deriving DecidableEq)
@@ -303,10 +281,6 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
     «connections» := $(← decl.genConnectionsMap)
 )
 
-def NetworkDecl.genInitialTimerEvents (decl : NetworkDecl) : MacroM Term := do
-  let events : Array Term := #[] -- ← decl.reactors.concatMapM (·.genInitialTimerEvents)
-  `(#[ $[$events],* ])
-
 partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do 
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
   (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
@@ -334,16 +308,30 @@ where
 
 partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
   let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
-  let ⟨instanceIDs, instanceValues⟩ := Array.unzip <| ← (← decl.instancePaths).mapM fun ⟨path, «class»⟩ => do
+  let ⟨instanceIDs, rhs⟩ := Array.unzip <| ← (← decl.instancePaths).mapM fun ⟨path, «class»⟩ => do
     let id ← pathToID path
     let ns := decl.namespaceIdent.getId ++ `Parameters ++ path.foldl Name.append .anonymous
-    let value ← `(open $(mkIdent ns):ident in $(← (← decl.reactorWithName «class»).genReactorInstance))
-    return (id, value)      
+    let rtrDecl ← decl.reactorWithName «class»
+    let value ← `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
+    let timerNames ← rtrDecl.timers.map (·.name) |>.dotted
+    let initialTimerEvents ← timerNames.mapM fun timerName => `( 
+        match (instances $id).timer $timerName |>.initalFiring with
+        | none => none
+        | some t => some <| .timer { 
+            id := { «reactor» := $id, timer := $timerName }
+            time := t
+          }
+      )
+    return (id, value, initialTimerEvents) 
+  let ⟨instanceValues, initalTimerEvents⟩ := rhs.unzip
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
-      reactors $[| $instanceIDs => $instanceValues]*
-      queue := $(← decl.genInitialTimerEvents)
+      reactors := instances
+      queue := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
+    where 
+      instances : (id : $(mkIdent `Network.ReactorID) $(decl.networkIdent)) → $(mkIdent `Network.Reactor) ($(decl.networkIdent).scheme id) 
+        $[| $instanceIDs => $instanceValues]*
   )
 where
   pathToID (path : Array Name) : MacroM Term := do

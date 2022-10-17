@@ -15,7 +15,7 @@ structure TimerEvent (net : Network) where
 
 inductive _root_.Network.Event (net : Network)
   | action : ActionEvent net → Event net
-  | timer  : TimerEvent net  → Event net
+  | timer  : TimerEvent  net → Event net
 
 def time : Event net → Time
   | .action { time := time, .. } => time

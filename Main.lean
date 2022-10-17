@@ -1,12 +1,14 @@
 import Runtime
 
+-- set_option trace.Elab.command true
+
 lf {
   reactor Main
-    parameters  []
+    parameters  [one_p : Nat := 1152921504606846976, two_p : Nat := 1152921504606846976]
     inputs      []
-    outputs     [out : Nat]
+    outputs     []
     actions     []
-    state       [count : Nat := 1]
+    state       [one : Nat := one_p + 2, two : Nat := two_p / 2]
     timers      [
       {
         name   t
@@ -14,61 +16,50 @@ lf {
         period some (.of 1 .s)
       }
     ]
-    nested      [a₁ : A, a₂ : A]
+    nested      [c : Child]
     connections []
     reactions   [
       {
         portSources   []
-        portEffects   [out]
+        portEffects   []
         actionSources []
         actionEffects []
         triggers {
           ports   []
           actions []
           timers  [t]
-          meta    []
+          meta    [startup]
         }
         body {
-          let c ← getState count
-          setOutput out c
-          setState count (c + 1)
-          monadLift <| IO.println s!"{c}"
+          let o ← getState one
+          let t ← getState two
+          monadLift <| IO.println s!"{o}"
+          monadLift <| IO.println s!"{t}"
         }
       }
     ]
 
-  reactor A 
-    parameters  [p : Nat := 10]
+  reactor Child
+    parameters  [p : Nat := 1]
     inputs      []
     outputs     []
     actions     []
     state       []
     timers      []
-    nested      [c : C]
+    nested      [g : Grandchild]
     connections []
     reactions   []
 
-  reactor C 
-    parameters  [c₁ : Bool := true, c₂ : Nat := 10]
+  reactor Grandchild
+    parameters  [a : Nat := 2]
     inputs      []
     outputs     []
     actions     []
     state       []
     timers      []
-    nested      [d : D]
+    nested      []
     connections []
     reactions   []
-  
-  reactor D
-  parameters  [d₁ : String := ""]
-  inputs      []
-  outputs     []
-  actions     []
-  state       []
-  timers      []
-  nested      []
-  connections []
-  reactions   []
 }
 
 def main : IO Unit := do

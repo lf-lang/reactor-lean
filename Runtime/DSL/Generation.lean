@@ -63,7 +63,7 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
       «body» := open $ns $reactorName $(mkIdent reactionName) 
                      $(mkIdent `PortSource) $(mkIdent `PortEffect) 
                      $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
-                     $(mkIdent `State) $(mkIdent `ReactionM) 
+                     $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
                      in do $(decl.body)
   })
 
@@ -293,24 +293,22 @@ partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Co
       -- a value for the given parameter at instantiation. right now we don't have the syntax
       -- for that, so here we're just using the default value defined by the child reactor
       --
-      -- NOTE: If the parent does not specify a value for the given parameter at instantiation
+      -- IMPORTANT: If the parent does not specify a value for the given parameter at instantiation
       -- we need to remove the `open ... in`. Otherwise we would leak the parameters of the
       -- parent reactor into the default-value declaration of the child reactor.
       `(
         def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) := 
-          open $parentIdent:ident in $(param.default.get!)
+          /-open $parentIdent:ident in-/ $(param.default.get!)
       ) 
 where 
   nameForInstancePath (path : Array Name) : Name :=
-    if path.isEmpty 
-    then .anonymous
-    else path[0]! ++ nameForInstancePath path[1:]
+    .mkSimple <| path.foldl (s!"{·}_{·}") ""
 
 partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
   let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
   let ⟨instanceIDs, rhs⟩ := Array.unzip <| ← (← decl.instancePaths).mapM fun ⟨path, «class»⟩ => do
     let id ← pathToID path
-    let ns := decl.namespaceIdent.getId ++ `Parameters ++ path.foldl Name.append .anonymous
+    let ns := decl.namespaceIdent.getId ++ `Parameters ++ (nameForInstancePath path)
     let rtrDecl ← decl.reactorWithName «class»
     let value ← `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
     let timerNames ← rtrDecl.timers.map (·.name) |>.dotted
@@ -325,6 +323,10 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
     return (id, value, initialTimerEvents) 
   let ⟨instanceValues, initalTimerEvents⟩ := rhs.unzip
   `(
+    -- HACK: When there are no parameters used in the network, 
+    --  the namespace `LF.Parameters` doesn't exist, but we still open it below.
+    inductive $(mkIdent <| decl.namespaceIdent.getId ++ `Parameters) 
+
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
       reactors := instances
@@ -334,6 +336,8 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
         $[| $instanceIDs => $instanceValues]*
   )
 where
+  nameForInstancePath (path : Array Name) : Name :=
+    .mkSimple <| path.foldl (s!"{·}_{·}") ""
   pathToID (path : Array Name) : MacroM Term := do
     if path.isEmpty 
     then `(.nil)

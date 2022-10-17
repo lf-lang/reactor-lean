@@ -302,14 +302,6 @@ def NetworkDecl.genInitialTimerEvents (decl : NetworkDecl) : MacroM Term := do
   let events : Array Term := #[] -- ← decl.reactors.concatMapM (·.genInitialTimerEvents)
   `(#[ $[$events],* ])
 
-partial def NetworkDecl.genReactorIDs (decl : NetworkDecl) : MacroM (Array Term) := do
-  (← decl.instancePaths).mapM fun ⟨path, _⟩ => gen path
-where
-  gen (path : Array Name) : MacroM Term := do
-    if path.isEmpty 
-    then `(.nil)
-    else `(.cons .$(mkIdent path[0]!) <| $(← gen path[1:]))
-
 partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do 
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
   (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
@@ -327,7 +319,7 @@ partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Co
       -- parent reactor into the default-value declaration of the child reactor.
       `(
         def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) := 
-          open $(.mk parentIdent) in $(param.default.get!)
+          open $parentIdent:ident in $(param.default.get!)
       ) 
 where 
   nameForInstancePath (path : Array Name) : Name :=
@@ -335,27 +327,24 @@ where
     then .anonymous
     else path[0]! ++ nameForInstancePath path[1:]
 
-def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
+partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
   let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
-  let dottedClasses ← decl.reactorNames.dotted
-  let defaultStateInterfaces ← decl.reactors.mapM fun rtr => rtr.genDefaultStateInterface
+  let ⟨instanceIDs, instanceValues⟩ := Array.unzip <| ← (← decl.instancePaths).mapM fun ⟨path, «class»⟩ => do
+    let id ← pathToID path
+    let ns := decl.namespaceIdent.getId ++ `Parameters ++ path.foldl Name.append .anonymous
+    let value ← `(open $(mkIdent ns):ident in $(← (← decl.reactorWithName «class»).genReactorInstance))
+    return (id, value)      
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
-      reactors id := {
-        interface := fun kind =>
-          match kind with
-          | .state => 
-            match Network.Graph.class $(decl.networkIdent) id with 
-            $[| $dottedClasses => $defaultStateInterfaces]*
-          | .params => 
-            sorry
-          | .inputs | .outputs | .actions => Interface?.empty 
-        timer := fun timerId =>
-          sorry
-      }
+      reactors $[| $instanceIDs => $instanceValues]*
       queue := $(← decl.genInitialTimerEvents)
   )
+where
+  pathToID (path : Array Name) : MacroM Term := do
+    if path.isEmpty 
+    then `(.nil)
+    else `(.cons .$(mkIdent path[0]!) <| $(← pathToID path[1:]))
 
 macro network:network_decl : command => do
   let network ← NetworkDecl.fromSyntax network

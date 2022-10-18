@@ -159,17 +159,17 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
   let nestedEnumIdent := mkNamespacedIdent `Nested
   let timerEnumIdent := mkNamespacedIdent `Timer
   let timerIdents := decl.timers.map (·.name)
-  let dottedClasses ← (← decl.nested.valueIdents).dotted
+  let dottedClasses ← decl.nested.map (·.class) |>.dotted
   let interfaces := Reactor.InterfaceKind.allCases.map (quote ·)
   let interfaceSchemeIdents := Reactor.InterfaceKind.allCases.map fun i => mkIdent <| i.name ++ `scheme
   `(
-    inductive $nestedEnumIdent $[| $(decl.nested.ids):ident]* deriving DecidableEq
+    inductive $nestedEnumIdent $[| $(decl.nested.map (·.id)):ident]* deriving DecidableEq
     inductive $timerEnumIdent $[| $timerIdents:ident]* deriving DecidableEq
     abbrev $(mkNamespacedIdent `scheme) : Reactor.Scheme $classesEnumIdent where
       interface $[| $interfaces => $interfaceSchemeIdents]*
       «timers» := $(mkIdent `Timer)
       children := $nestedEnumIdent
-      «class» child := match child with $[| $(← decl.nested.ids.dotted) => $dottedClasses]*
+      «class» child := match child with $[| $(← decl.nested.map (·.id) |>.dotted) => $dottedClasses]*
   )  
 
 def ReactorDecl.genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
@@ -281,25 +281,40 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
     «connections» := $(← decl.genConnectionsMap)
 )
 
+-- Each instance generates its own default parameter defs as well as the the parameter defs for its children.
+
+partial def NetworkDecl.genDefaultParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do 
+  let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters.Default)
+  (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
+    let pathName := nameForInstancePath path
+    let rtrDecl ← decl.reactorWithName «class»
+    (rtrDecl.interfaces .params).mapM fun param => do
+      `(def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) := $(param.default.get!)) 
+where 
+  nameForInstancePath (path : Array Name) : Name :=
+    .mkSimple <| path.foldl (s!"{·}_{·}") ""
+
+partial def NetworkDecl.genRootParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do 
+  let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
+  (← decl.mainReactor).interfaces .params |>.mapM fun param => 
+    `(def $(mkIdent <| ns.getId ++ "" ++ param.id.getId) := $(param.default.get!))
+
 partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do 
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
   (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
-    let pathName := nameForInstancePath path
-    let parentName := pathName |>.getPrefix
-    let parentIdent := mkIdent (decl.namespaceIdent.getId ++ `Parameters ++ parentName)
     let rtrDecl ← decl.reactorWithName «class»
-    (rtrDecl.interfaces .params).mapM fun param => do
-      -- TODO: the value of the defintion actually depends on whether the parent instance specified 
-      -- a value for the given parameter at instantiation. right now we don't have the syntax
-      -- for that, so here we're just using the default value defined by the child reactor
-      --
-      -- IMPORTANT: If the parent does not specify a value for the given parameter at instantiation
-      -- we need to remove the `open ... in`. Otherwise we would leak the parameters of the
-      -- parent reactor into the default-value declaration of the child reactor.
-      `(
-        def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) := 
-          /-open $parentIdent:ident in-/ $(param.default.get!)
-      ) 
+    rtrDecl.nested.concatMapM fun «nested» => do
+      let nestedPath := path.push «nested».id.getId
+      let nestedDecl ← decl.reactorWithName «nested».class.getId
+      nestedDecl.interfaces .params |>.mapM fun param => do
+        let properDef := mkIdent <| ns.getId ++ (nameForInstancePath nestedPath) ++ param.id.getId
+        match ← «nested».parameterValue? param.id.getId with
+        | none => 
+          let defaultDef := mkIdent <| ns.getId ++ `Default ++ (nameForInstancePath nestedPath) ++ param.id.getId
+          return ← `(def $properDef := $defaultDef)
+        | some paramExpr =>
+          let parentParamNs := mkIdent <| ns.getId ++ (nameForInstancePath path)
+          return ← `(def $properDef := open $parentParamNs:ident in $paramExpr)
 where 
   nameForInstancePath (path : Array Name) : Name :=
     .mkSimple <| path.foldl (s!"{·}_{·}") ""
@@ -323,10 +338,6 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
     return (id, value, initialTimerEvents) 
   let ⟨instanceValues, initalTimerEvents⟩ := rhs.unzip
   `(
-    -- HACK: When there are no parameters used in the network, 
-    --  the namespace `LF.Parameters` doesn't exist, but we still open it below.
-    inductive $(mkIdent <| decl.namespaceIdent.getId ++ `Parameters) 
-
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
       reactors := instances
@@ -353,5 +364,7 @@ macro network:network_decl : command => do
     (← network.genReactionDependencyEnums) ++
     (← network.genInjectiveCoes) ++
     [← network.genNetworkInstance] ++
+    (← network.genDefaultParameterDefs) ++
+    (← network.genRootParameterDefs) ++
     (← network.genParameterDefs) ++
     [← network.genExecutableInstance]

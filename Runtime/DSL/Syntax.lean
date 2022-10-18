@@ -36,6 +36,12 @@ syntax "{"
   "period" term
   "}" : timer_decl
 
+declare_syntax_cat instance_decl
+syntax ident " : " ident " := " interface_decl : instance_decl
+
+declare_syntax_cat nested_decl
+syntax "[" instance_decl,* "]" : nested_decl
+
 declare_syntax_cat reactor_decl
 syntax "reactor" ident 
   "parameters"  interface_decl
@@ -44,7 +50,7 @@ syntax "reactor" ident
   "actions"     interface_decl 
   "state"       interface_decl 
   "timers"      "[" timer_decl,* "]"
-  "nested"      interface_decl
+  "nested"      nested_decl
   "connections" interface_decl
   "reactions" "[" reaction_decl,* "]"
   : reactor_decl
@@ -59,6 +65,18 @@ def InterfaceVar.fromSyntax : TSyntax `interface_var → MacroM InterfaceVar
 
 def InterfaceDecl.fromSyntax : TSyntax `interface_decl → MacroM InterfaceDecl
   | `(interface_decl| [$vars:interface_var,*]) => vars.getElems.mapM InterfaceVar.fromSyntax
+  | _ => throwUnsupported
+
+def InstanceDecl.fromSyntax : TSyntax `instance_decl → MacroM InstanceDecl
+  | `(instance_decl| $name:ident : $«class»:ident := $params:interface_decl) => return { 
+      id := name
+      «class» := «class»
+      params := ← InterfaceDecl.fromSyntax params
+    }
+  | _ => throwUnsupported
+
+def NestedDecl.fromSyntax : TSyntax `nested_decl → MacroM NestedDecl
+  | `(nested_decl| [$children:instance_decl,*]) => children.getElems.mapM InstanceDecl.fromSyntax
   | _ => throwUnsupported
 
 def TriggerDecl.fromSyntax : TSyntax `trigger_decl → MacroM TriggerDecl
@@ -88,7 +106,7 @@ def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
     let o ← InterfaceDecl.fromSyntax o
     let a ← InterfaceDecl.fromSyntax a
     let s ← InterfaceDecl.fromSyntax s
-    let n ← InterfaceDecl.fromSyntax n
+    let n ← NestedDecl.fromSyntax n
     let c ← InterfaceDecl.fromSyntax c
     let p ← InterfaceDecl.fromSyntax p
     let r ← r.getElems.mapM ReactionDecl.fromSyntax

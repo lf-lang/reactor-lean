@@ -1,10 +1,10 @@
 import Runtime
 
--- set_option trace.Elab.command true
+set_option trace.Elab.command true
 
 lf {
   reactor Main
-    parameters  [one_p : Nat := 1152921504606846976, two_p : Nat := 1152921504606846976]
+    parameters  [one_p : Nat := 11, two_p : Nat := 11]
     inputs      []
     outputs     []
     actions     []
@@ -16,7 +16,7 @@ lf {
         period some (.of 1 .s)
       }
     ]
-    nested      [c : Child]
+    nested      [c : Child := []]
     connections []
     reactions   [
       {
@@ -46,7 +46,7 @@ lf {
     actions     []
     state       []
     timers      []
-    nested      [g : Grandchild]
+    nested      [g : Grandchild := []]
     connections []
     reactions   []
 

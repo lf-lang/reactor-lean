@@ -24,6 +24,19 @@ def InterfaceDecl.values (decl : InterfaceDecl) :=
 def InterfaceDecl.valueIdents (decl : InterfaceDecl) : MacroM (Array Ident) :=
   decl.mapM (·.valueIdent)
 
+structure InstanceDecl where
+  id : Ident
+  «class» : Ident
+  params : InterfaceDecl
+
+def InstanceDecl.parameterValue? (decl : InstanceDecl) (param : Name) : MacroM (Option Term) := do
+  match decl.params.find? (·.id.getId = param) with
+  | none => return none
+  | some p => return p.value
+
+def NestedDecl := Array InstanceDecl
+  deriving Inhabited
+
 structure TriggerDecl where
   ports :   Array Ident
   actions : Array Ident
@@ -53,7 +66,7 @@ structure ReactorDecl where
   name        : Ident
   interfaces  : Reactor.InterfaceKind → InterfaceDecl
   timers      : Array TimerDecl
-  nested      : InterfaceDecl
+  nested      : NestedDecl
   connections : InterfaceDecl
   reactions   : Array ReactionDecl
   deriving Inhabited
@@ -94,7 +107,7 @@ def NetworkDecl.reactorWithName (decl : NetworkDecl) (className : Name) : MacroM
 
 def NetworkDecl.numNested (decl : NetworkDecl) (rtr : Name) (kind : Reactor.InterfaceKind) : MacroM Nat := do
   let rtr ← decl.reactorWithName rtr
-  rtr.nested.values.foldlM (init := 0) fun acc «class» => do
+  rtr.nested.map (·.class) |>.foldlM (init := 0) fun acc «class» => do
     match «class» with 
     | `($c:ident) => 
       let nestedReactor ← decl.reactorWithName c.getId
@@ -125,6 +138,6 @@ where
     let rtr ← network.reactorWithName rtrName
     rtr.nested.concatMapM fun var => do
       let path := pre.push var.id.getId
-      let name := (← var.valueIdent).getId
+      let name := var.class.getId
       return #[(path, name)] ++ (← go network name path)
       

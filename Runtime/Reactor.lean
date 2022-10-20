@@ -16,12 +16,11 @@ inductive InterfaceKind
 
 abbrev InterfaceKind.interfaceType : InterfaceKind → (Interface.Scheme → Type)
   | inputs | outputs | actions => Interface?
-  | state | params => Interface
+  | state  | params            => Interface
 
 def InterfaceKind.allCases : Array Reactor.InterfaceKind :=
   #[.inputs, .outputs, .actions, .state, .params]
 
-@[reducible]
 instance : Coe PortKind InterfaceKind where
   coe
     | .input => .inputs
@@ -37,7 +36,5 @@ structure Scheme (classes : Type) where
   
 attribute [instance] Scheme.decEqTimers
 attribute [instance] Scheme.decEqChildren
-attribute [reducible] Scheme.interface
-attribute [reducible] Scheme.class
 
 end Reactor

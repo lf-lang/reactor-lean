@@ -35,11 +35,15 @@ theorem Scheme.union_type_right (σ₁ σ₂ : Scheme) (var : σ₂.vars) :
   (σ₁ ⊎ σ₂).type (.inr var) = σ₂.type var := rfl
 
 -- σs is an I-indexed family of schemes.
-abbrev Scheme.bUnion (σs : I → Scheme) [DecidableEq I] : Scheme where
+def Scheme.bUnion (σs : I → Scheme) [DecidableEq I] : Scheme where
   vars := (i : I) × (σs i).vars
   type := fun ⟨i, var⟩ => (σs i).type var
 
 prefix:100 " ⨄ " => Scheme.bUnion
+
+@[simp]
+theorem Scheme.bUnion_vars (σs : I → Scheme) [DecidableEq I] :
+  (⨄ σs).vars = ((i : I) × (σs i).vars) := rfl
 
 @[simp]
 theorem Scheme.bUnion_type (σs : I → Scheme) [DecidableEq I] (var : (σs i).vars) : 
@@ -47,14 +51,20 @@ theorem Scheme.bUnion_type (σs : I → Scheme) [DecidableEq I] (var : (σs i).v
 
 end Interface
 
-abbrev Interface (σ : Interface.Scheme) := (var : σ.vars) → (σ.type var)
+def Interface (σ : Interface.Scheme) := (var : σ.vars) → (σ.type var)
 
-abbrev Interface? (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
+def Interface? (σ : Interface.Scheme) := (var : σ.vars) → Option (σ.type var)
 
 def Interface?.empty : Interface? σ := fun _ => none
 
 @[simp]
 theorem Interface?.empty_none : Interface?.empty var = none := rfl
+
+def Interface?.isEmpty (i : Interface? σ) := i = Interface?.empty
+
+@[simp]
+theorem Interface?.isEmpty_def (i : Interface? σ) : i.isEmpty ↔ i = Interface?.empty := by 
+  simp [isEmpty]
 
 def Interface?.isPresent (i : Interface? σ) (var : σ.vars) : Bool :=
   i var |>.isSome

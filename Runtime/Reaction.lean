@@ -4,8 +4,8 @@ import Runtime.Utilities
 
 structure Reaction.Event (σAction : Interface.Scheme) (min : Time) where 
   action : σAction.vars
-  time   : Time.From min
   value  : σAction.type action
+  time   : Time.From min
 
 instance : LE (Reaction.Event σAction time) where
   le e₁ e₂ := e₁.time ≤ e₂.time
@@ -29,10 +29,10 @@ structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min :
   state  : Interface σState
   events : SortedArray (Event σActionEffect min) := #[]#
 
-abbrev _root_.ReactionT (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) (m : Type → Type) (α : Type) := 
+def _root_.ReactionT (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σPortSource σActionSource σState σParam) → m (Output σPortEffect σActionEffect σState input.tag.time × α)
 
-abbrev _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) := 
+def _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) := 
   ReactionT σPortSource σPortEffect σActionSource σActionEffect σState σParam IO
 
 variable {σInput σOutput σAction σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme} 
@@ -42,8 +42,21 @@ def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σSta
   state  := o₂.state
   events := o₁.events.merge o₂.events
 
-def Input.noop (input : ReactionM.Input σPortSource σActionSource σState σParam) : Output σPortEffect σActionEffect σState input.tag.time where 
+@[simp]
+theorem Output.merge_ports : (Output.merge o₁ o₂).ports = o₁.ports.merge o₂.ports := rfl
+
+@[simp]
+theorem Output.merge_state : (Output.merge o₁ o₂).state = o₂.state := rfl
+
+@[simp]
+theorem Output.merge_events : (Output.merge o₁ o₂).events = o₁.events.merge o₂.events := rfl
+
+def Input.noop (input : Input σPortSource σActionSource σState σParam) : Output σPortEffect σActionEffect σState input.tag.time where 
   state := input.state 
+
+@[simp]
+theorem Input.noop_ports_isEmpty (input : Input σPortSource σActionSource σState σParam) {σPortEffect σActionEffect} : 
+  input.noop (σPortEffect := σPortEffect) (σActionEffect := σActionEffect) |>.ports.isEmpty := rfl
 
 instance : Monad (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam) where
   pure a input := do
@@ -64,6 +77,9 @@ instance : Monad (ReactionM σPortSource σPortEffect σActionSource σActionEff
     let output := output₁.merge output₂
     return (output, b)
 
+instance : LawfulMonad (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam) :=
+  sorry -- https://github.com/leanprover/std4/blob/23f8577169c049e6eb472a0354c11b9b934b4282/Std/Classes/LawfulMonad.lean#L12
+
 instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam) where
   monadLift io input world := 
     match io world with 
@@ -72,6 +88,14 @@ instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σAc
 
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)
+
+/-
+-- https://github.com/leanprover/std4/blob/23f8577169c049e6eb472a0354c11b9b934b4282/Std/Classes/LawfulMonad.lean#L69
+theorem getInput_def (input : Input σPortSource σActionSource σState σParam) (port) : 
+  SatisfiesM (· = input.ports port) 
+  (getInput port (σPortEffect := σPortEffect) (σActionSource := σActionSource) (σActionEffect := σActionEffect) (σState := σState) (σParam := σParam)) 
+  := sorry
+-/
 
 def getState (stv : σState.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (σState.type stv) :=
   fun input => return (input.noop, input.state stv)

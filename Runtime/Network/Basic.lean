@@ -99,7 +99,7 @@ theorem Graph.Path.isSiblingOf_is_cons : isSiblingOf path₁ path₂ → ∃ chi
 -- Note the prefix of `.nil` is `.nil`.
 def Graph.Path.prefix : Path graph → Path graph
   | .nil | .cons _ .nil => .nil
-  | .cons head subpath => .cons head subpath.prefix
+  | .cons head subpath  => .cons head subpath.prefix
 
 theorem Graph.Path.cons_isChildOf_prefix : isChildOf (.cons child parent) («prefix» <| .cons child parent) := by
   sorry
@@ -147,23 +147,14 @@ abbrev Graph.reactionOutputScheme' (graph : Graph) (reactorID : ReactorID graph)
 abbrev Graph.reactionType' (graph : Graph) (reactorID : ReactorID graph) :=
   graph.reactionType <| graph.class reactorID
 
--- TODO: Recheck this:
--- Lean can't infer this automatically.
-@[reducible]
 instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
   InjectiveCoe reaction.portSources (graph.reactionInputScheme' reactorID).vars :=
   reaction.portSourcesInjCoe
 
--- TODO: Recheck this:
--- Lean can't infer this automatically.
-@[reducible]
 instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
   InjectiveCoe reaction.portEffects (graph.reactionOutputScheme' reactorID).vars :=
   reaction.portEffectsInjCoe
 
--- TODO: Recheck this:
--- Lean can't infer this automatically.
-@[reducible]
 instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
   InjectiveCoe reaction.actionSources (graph.interface' reactorID .actions).vars :=
   reaction.actionSourcesInjCoe

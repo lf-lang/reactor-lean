@@ -1,22 +1,27 @@
 import Runtime
 
-set_option trace.Elab.command true
+-- set_option trace.Elab.command true
 
 lf {
   reactor Main
-    parameters  [one_p : Nat := 11, two_p : Nat := 11]
+    parameters  []
     inputs      []
     outputs     []
     actions     []
-    state       [one : Nat := one_p + 2, two : Nat := two_p / 2]
-    timers      [
-      {
-        name   t
-        offset 0
-        period some (.of 1 .s)
-      }
-    ]
-    nested      [c : Child := []]
+    state       []
+    timers      []
+    nested      [c : Child := [xyz : Nat := 23]]
+    connections []
+    reactions   []
+
+  reactor Child
+    parameters  [xyz : Nat := 1]
+    inputs      []
+    outputs     []
+    actions     []
+    state       []
+    timers      []
+    nested      [g : Grandchild := []]
     connections []
     reactions   [
       {
@@ -27,28 +32,14 @@ lf {
         triggers {
           ports   []
           actions []
-          timers  [t]
+          timers  []
           meta    [startup]
         }
         body {
-          let o ← getState one
-          let t ← getState two
-          monadLift <| IO.println s!"{o}"
-          monadLift <| IO.println s!"{t}"
+          monadLift <| IO.println s!"{← getParam xyz}"
         }
       }
     ]
-
-  reactor Child
-    parameters  [p : Nat := 1]
-    inputs      []
-    outputs     []
-    actions     []
-    state       []
-    timers      []
-    nested      [g : Grandchild := []]
-    connections []
-    reactions   []
 
   reactor Grandchild
     parameters  [a : Nat := 2]
@@ -64,6 +55,6 @@ lf {
 
 def main : IO Unit := do
   let exec := LF.executable (← Time.now)
-  let topo : Array (Network.ReactionID LF.network) := #[⟨.nil, ⟨0, by simp⟩⟩]
+  let topo : Array (Network.ReactionID LF.network) := #[⟨.cons .c <| .nil, ⟨0, by simp⟩⟩]
   exec.run topo 0
  

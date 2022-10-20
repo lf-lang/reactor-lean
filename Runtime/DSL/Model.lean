@@ -32,7 +32,7 @@ structure InstanceDecl where
 def InstanceDecl.parameterValue? (decl : InstanceDecl) (param : Name) : MacroM (Option Term) := do
   match decl.params.find? (·.id.getId = param) with
   | none => return none
-  | some p => return p.value
+  | some p => return p.default
 
 def NestedDecl := Array InstanceDecl
   deriving Inhabited

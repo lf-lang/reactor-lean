@@ -313,8 +313,12 @@ partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Co
           let defaultDef := mkIdent <| ns.getId ++ `Default ++ (nameForInstancePath nestedPath) ++ param.id.getId
           return ← `(def $properDef := $defaultDef)
         | some paramExpr =>
-          let parentParamNs := mkIdent <| ns.getId ++ (nameForInstancePath path)
-          return ← `(def $properDef := open $parentParamNs:ident in $paramExpr)
+          -- Only open the parent's parameter namespace if it has parameters.
+          if rtrDecl.interfaces .params |>.isEmpty then 
+            return ← `(def $properDef := $paramExpr)
+          else
+            let parentParamNs := mkIdent <| ns.getId ++ (nameForInstancePath path)
+            return ← `(def $properDef := open $parentParamNs:ident in $paramExpr)
 where 
   nameForInstancePath (path : Array Name) : Name :=
     .mkSimple <| path.foldl (s!"{·}_{·}") ""
@@ -325,7 +329,11 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
     let id ← pathToID path
     let ns := decl.namespaceIdent.getId ++ `Parameters ++ (nameForInstancePath path)
     let rtrDecl ← decl.reactorWithName «class»
-    let value ← `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
+    -- Only open the parameter namespace if the reactor has parameters.
+    let value ← do 
+      if rtrDecl.interfaces .params |>.isEmpty 
+      then rtrDecl.genReactorInstance
+      else `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
     let timerNames ← rtrDecl.timers.map (·.name) |>.dotted
     let initialTimerEvents ← timerNames.mapM fun timerName => `( 
         match (instances $id).timer $timerName |>.initalFiring with

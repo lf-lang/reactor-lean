@@ -1,3 +1,5 @@
+import Runtime.Utilities.Lean
+
 inductive Time.Scale
   | ns | μs | ms | s | min | hour | day | week
 
@@ -14,13 +16,22 @@ def Time.Scale.nsRatio : Scale → Nat
 structure Time where
   private mk :: 
   private ns : Nat
-  deriving Ord, DecidableEq
+  deriving DecidableEq
 
 instance : ToString Time where
   toString t := s!"{t.ns} ns"
 
-instance : LE Time := leOfOrd
-instance : LT Time := ltOfOrd
+instance : LT Time where
+  lt t₁ t₂ := t₁.ns < t₂.ns
+
+instance : LE Time where
+  le t₁ t₂ := t₁.ns ≤ t₂.ns
+
+instance : Decidable ((t₁ : Time) < t₂) := by
+  simp [LT.lt]; infer_instance
+
+instance : Decidable ((t₁ : Time) ≤ t₂) := by
+  simp [LE.le]; infer_instance
 
 abbrev Duration := Time
 
@@ -30,11 +41,17 @@ def Time.of (value : Nat) (scale : Scale) : Time :=
 def Time.to (time : Time) (scale : Scale) : Nat :=
   time.ns / scale.nsRatio
 
+theorem Time.of_to : (Time.of value scale).to scale = value := by
+  simp [of, to, Scale.nsRatio]
+  cases scale <;> simp only [Nat.mul_div_same_eq] 
+
 def Time.now : IO Time := 
   return { ns := ← IO.monoNanosNow }
 
 instance : OfNat Time 0 where
   ofNat := { ns := 0 }
+
+theorem Time.zero_eq_zero : (0 : Time) = Time.of 0 scale := by simp [of]
 
 instance : HAdd Time Duration Time where
   hAdd t d := { ns := t.ns + d.ns }
@@ -50,16 +67,12 @@ instance : HMod Duration Duration Duration where
 
 abbrev Time.From (time : Time) := { t : Time // t ≥ time }
 
-instance : Ord (Time.From time) where
-  compare t₁ t₂ := compare t₁.val t₂.val
+instance : LE (Time.From t) where
+  le t₁ t₂ := t₁.val ≤ t₂.val
 
 def Time.advance (time : Time) (d : Duration) : Time.From time := {
   val := time + d
-  property := by 
-    simp [HAdd.hAdd, Add.add]
-    -- TODO: Unfold ≥
-    simp_arith
-    sorry
+  property := by simp_arith [GE.ge, LE.le, HAdd.hAdd, Add.add]
 }
 
 structure Tag where
@@ -70,9 +83,19 @@ structure Tag where
 instance : ToString Tag where
   toString tag := s!"⟨{tag.time}, {tag.microstep}⟩"
 
-def Tag.advance (tag : Tag) (time : Time) : Tag := 
-  match compare tag.time time with
-  | .lt => { time := time, microstep := 0 }
-  | .eq => { tag with microstep := tag.microstep + 1 }
-  | .gt => tag -- TODO: This can only happen if there is an error in the implementation of reactor execution.
+instance : LT Tag where
+  lt tag₁ tag₂ := 
+    if tag₁.time = tag₂.time 
+    then tag₁.microstep < tag₂.microstep 
+    else tag₁.time < tag₂.time 
 
+def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag := 
+  if tag.time < time then { time := time, microstep := 0 }
+  else                    { tag with microstep := tag.microstep + 1 }
+
+theorem Tag.lt_advance : tag < (tag : Tag).advance t := by
+  simp [advance]
+  split
+  case inr => simp_arith [LT.lt]
+  case inl => simp [LT.lt] at *; split <;> simp_all
+    

@@ -9,31 +9,6 @@ class InjectiveCoe (α β) extends Coe α β where
   
 theorem InjectiveCoe.invCoeId [inst : InjectiveCoe α β] : ∀ b, (inst.inv b = some a) → (inst.coe a = b) := 
   fun _ h => (invInj h <| inst.coeInvId a).symm  
-  
-instance [Ord α] : LE α := leOfOrd
-
-instance : DecidableEq Empty :=
-  fun empty _ => empty.casesOn
-
-@[reducible]
-instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
-  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 
-    if h : a₁ = a₂ then 
-      if h' : (h ▸ b₁) = b₂ then
-        .isTrue (by subst h h'; rfl)
-      else 
-        .isFalse (by 
-          subst h
-          intro hc
-          injection hc
-          contradiction
-        )
-    else
-      .isFalse (by
-        intro hc
-        injection hc
-        contradiction
-      )
 
 def Array.unique (as : Array α) (f : α → β) [DecidableEq β] : (Array α) × (Array α) := Id.run do
   let mut included : Array α := #[] 
@@ -68,8 +43,8 @@ theorem Array.findP?_property {as : Array α} : (Array.findP? as p = some a) →
 termination_by _ => as.size - idx
 
 -- TODO: temporary
-def Array.merge [Ord α] (s₁ s₂ : Array α) : Array α :=
-  (s₁ ++ s₂).insertionSort (Ord.compare · · |>.isLE)
+def Array.merge [LE α] [∀ a₁ a₂ : α, Decidable (a₁ ≤ a₂)] (s₁ s₂ : Array α) : Array α :=
+  (s₁ ++ s₂).insertionSort (decide <| · ≤ ·)
 
 def UInt32.clipping (n : Nat) : UInt32 := 
   UInt32.ofNatCore (min n (UInt32.size - 1)) (by

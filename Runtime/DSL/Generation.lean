@@ -350,6 +350,7 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       physicalOffset := physicalOffset
       reactors := instances
       queue := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
+      lawfulQueue := sorry
     where 
       instances : (id : $(mkIdent `Network.ReactorID) $(decl.networkIdent)) → $(mkIdent `Network.Reactor) ($(decl.networkIdent).scheme id) 
         $[| $instanceIDs => $instanceValues]*

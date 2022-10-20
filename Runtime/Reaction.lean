@@ -7,8 +7,11 @@ structure Reaction.Event (σAction : Interface.Scheme) (min : Time) where
   time   : Time.From min
   value  : σAction.type action
 
-instance : Ord (Reaction.Event σAction time) where
-  compare e₁ e₂ := compare e₁.time e₂.time
+instance : LE (Reaction.Event σAction time) where
+  le e₁ e₂ := e₁.time ≤ e₂.time
+
+instance : Decidable ((e₁ : Reaction.Event σAction time) ≤ e₂) := by
+  simp [LE.le]; infer_instance
 
 namespace ReactionM
 open Reaction

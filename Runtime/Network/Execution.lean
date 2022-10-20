@@ -21,8 +21,11 @@ def time : Event net → Time
   | .action { time := time, .. } => time
   | .timer  { time := time, .. } => time
 
-instance {graph} : Ord (Event graph) where
-  compare e₁ e₂ := compare e₁.time e₂.time
+instance : LE (Event net) where
+  le e₁ e₂ := e₁.time ≤ e₂.time
+
+instance : Decidable ((e₁ : Event net) ≤ e₂) := by
+  simp [LE.le]; infer_instance
 
 inductive ID (net : Network)
   | action : ActionID net → ID net
@@ -52,11 +55,12 @@ structure Reactor (scheme : Reactor.Scheme classes) where
   timer : scheme.timers → Timer
 
 structure Executable (net : Network) where
-  tag : Tag := ⟨0, 0⟩
+  tag : Tag := ⟨0, 0⟩ -- TODO: Define the current time as a computed property of the queue? Only have the microstep explicitly.
   physicalOffset : Duration
   queue : Array (Event net)
   reactors : (id : ReactorID net) → Reactor (net.scheme id)
   isShuttingDown : Bool := false
+  lawfulQueue : (queue[0]? = some event) → event.time ≥ tag.time
 
 namespace Executable
 
@@ -100,6 +104,7 @@ def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.re
       else if h : id.isChildOf reactorID then nestedReactor exec output id h
       else                                    exec.reactors id |>.interface 
   }
+  lawfulQueue := sorry
 }
 where 
   targetReactor (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : (kind : Reactor.InterfaceKind) → kind.interfaceType (net.scheme reactorID |>.interface kind)
@@ -186,16 +191,18 @@ structure Next (net : Network) where
   events : Array (Event net)
   queue  : Array (Event net)
 
-def next (exec : Executable net) : Option (Next net) := do
-  let nextEvent ← exec.queue[0]?
-  let nextTag := exec.tag.advance nextEvent.time
-  let ⟨candidates, later⟩ := exec.queue.split (·.time = nextTag.time)  
-  let ⟨next, postponed⟩ := candidates.unique (·.id)
-  return {
-    tag := nextTag
-    events := next
-    queue := (postponed ++ later).merge (newTimerEvents exec nextTag.time next)
-  }
+def next (exec : Executable net) : Option (Next net) := 
+  match h : exec.queue[0]? with 
+  | none => none
+  | some nextEvent =>
+    let nextTag := exec.tag.advance ⟨nextEvent.time, exec.lawfulQueue h⟩
+    let ⟨candidates, later⟩ := exec.queue.split (·.time = nextTag.time)  
+    let ⟨next, postponed⟩ := candidates.unique (·.id)
+    some {
+      tag := nextTag
+      events := next
+      queue := (postponed ++ later).merge (newTimerEvents exec nextTag.time next)
+    }
 where 
   -- This function assumes that each timer event in `next` fires at `exec.tag.time`.
   newTimerEvents (exec : Executable net) (nextTime : Time) (next : Array (Event net)) : Array (Event net) := 
@@ -216,6 +223,7 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
       | .actions           => (actionForEvents next.events ⟨id, ·⟩)
       | unchanged          => exec.reactors id |>.interface unchanged
   }
+  lawfulQueue := sorry
 }
 where 
   actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=

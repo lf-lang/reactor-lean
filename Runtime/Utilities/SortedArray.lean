@@ -1,17 +1,17 @@
 import Runtime.Utilities.Extensions
 
-inductive List.Sorted [LE α] : List α → Prop
+inductive List.Sorted [LE α] [∀ (a₁ a₂ : α), Decidable (a₁ ≤ a₂)] : List α → Prop
   | nil : Sorted []
   | singleton : Sorted [a]
   | cons : (fst ≤ snd) → Sorted (snd :: tl) → Sorted (hd :: snd :: tl)
 
-structure SortedArray (α) [Ord α] extends Array α where 
+structure SortedArray (α) [LE α] [∀ (a₁ a₂ : α), Decidable (a₁ ≤ a₂)] extends Array α where 
   isSorted : List.Sorted toArray.data
   deriving Repr
 
 namespace SortedArray
 
-variable [Ord α]
+variable [LE α] [∀ (a₁ a₂ : α), Decidable (a₁ ≤ a₂)]
 
 def nil : SortedArray α := {
   isSorted := List.Sorted.nil
@@ -30,5 +30,5 @@ notation "#[" a "]#" => SortedArray.singleton a
 -- input `s₁ ++ s₂`.
 def merge (s₁ s₂ : SortedArray α) : SortedArray α :=
   -- TODO: temporary
-  let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (Ord.compare · · |>.isLE)
+  let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (decide <| · ≤ ·)
   { toArray := sorted, isSorted := sorry }

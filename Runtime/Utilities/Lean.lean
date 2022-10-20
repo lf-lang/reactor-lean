@@ -1,3 +1,9 @@
+theorem Option.isSome_def : a?.isSome ↔ ∃ a, a? = some a := by
+  rw [Option.isSome]
+  split <;> simp
+  · exists ‹_›
+  · intro ⟨_, _⟩; contradiction
+
 theorem Nat.zero_div_eq_zero : 0 / n = 0 := by
   induction n
   case zero => simp

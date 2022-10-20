@@ -124,7 +124,7 @@ where
         | none => currentReactor.interface .outputs var
         | some val =>
           have h : ((net.reactionOutputScheme (net.class reactorID)).restrict reaction.portEffects).type var' = ((net.scheme reactorID).interface .outputs).type var := by
-            rw [(net.reactionOutputScheme' reactorID).restrict_preserves_type, InjectiveCoe.invCoeId _ h]
+            rw [(net.reactionOutputScheme' reactorID).restrict_type, InjectiveCoe.invCoeId _ h]
           h ▸ val
   nestedInputs (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net) (hc : id.isChildOf reactorID) : Interface? (net.scheme id |>.interface .inputs) :=
     let currentReactor := exec.reactors id
@@ -139,7 +139,7 @@ where
         | none => currentReactor.interface .inputs var
         | some val =>
           have h : (net.class reactorID |> net.reactionOutputScheme |>.restrict reaction.portEffects).type var₂ = (net.scheme id |>.interface .inputs).type var := by
-            rw [(net.reactionOutputScheme' reactorID).restrict_preserves_type]
+            rw [(net.reactionOutputScheme' reactorID).restrict_type]
             rw [InjectiveCoe.invCoeId _ h]
             -- have := Graph.child_schemes_eq_parent_subschemes hc
             sorry

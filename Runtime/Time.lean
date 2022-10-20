@@ -93,7 +93,7 @@ def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag :=
   if tag.time < time then { time := time, microstep := 0 }
   else                    { tag with microstep := tag.microstep + 1 }
 
-theorem Tag.lt_advance : tag < (tag : Tag).advance t := by
+theorem Tag.lt_advance : (tag : Tag) < tag.advance t := by
   simp [advance]
   split
   case inr => simp_arith [LT.lt]

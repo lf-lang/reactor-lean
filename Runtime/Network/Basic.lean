@@ -2,22 +2,6 @@ import Runtime.Network.Graph
 
 namespace Network
 
-def Graph.Path.isChildOf : Path graph → Path graph → Bool
-  | .cons _ .nil, .nil => true 
-  | .cons child₁ subpath₁, .cons child₂ subpath₂ => 
-    if h : child₁ = child₂ 
-    then subpath₁.isChildOf (h ▸ subpath₂) 
-    else false
-  | _, _ => false
-
-theorem Graph.Path.isChildOf_cons_eq_child : isChildOf (.cons child₁ child) (.cons child₂ parent) → child₁ = child₂ := by
-  intro h
-  simp [isChildOf] at h
-  split at h <;> simp [*]
-
-theorem Graph.Path.isChildOf_cons : isChildOf (.cons child' child) (.cons child' parent) → child.isChildOf parent :=
-  fun _ => by simp_all [isChildOf]
-
 def Graph.Path.last (child : Path graph) {parent} (h : child.isChildOf parent) : (graph.scheme parent).children :=
   match child, parent with
   | .cons child₁ .nil, .nil => child₁

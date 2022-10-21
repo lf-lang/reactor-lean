@@ -5,8 +5,8 @@ namespace Network
 
 structure Graph where
   classes : Type
-  schemes : classes → (Reactor.Scheme classes)
   root    : classes
+  schemes : classes → (Reactor.Scheme classes)
   [decEqClasses : DecidableEq classes]
 
 attribute [instance] Graph.decEqClasses

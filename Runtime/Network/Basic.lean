@@ -2,6 +2,7 @@ import Runtime.Network.Graph
 
 namespace Network
 
+/-
 def Graph.Path.last (child : Path graph) {parent} (h : child.isChildOf parent) : (graph.scheme parent).children :=
   match child, parent with
   | .cons child₁ .nil, .nil => child₁
@@ -17,7 +18,6 @@ def Graph.Path.isSiblingOf : Path graph → Path graph → Bool
     else false
   | _, _ => false
 
-/-
 theorem Graph.Path.isSiblingOf_symm {path₁ path₂ : Path graph} : (path₁.isSiblingOf path₂) → (path₂.isSiblingOf path₁) := by
   intro h
   unfold isSiblingOf at h
@@ -26,7 +26,6 @@ theorem Graph.Path.isSiblingOf_symm {path₁ path₂ : Path graph} : (path₁.is
   rename_i hc
   have h' := isSiblingOf_symm h
   sorry -- sibling -> cons is also sibling
--/
 
 theorem Graph.Path.isSiblingOf_is_cons : isSiblingOf path₁ path₂ → ∃ child parent, path₁ = .cons child parent := by
   intro h
@@ -45,49 +44,28 @@ def Graph.Path.prefix : Path graph → Path graph
 
 theorem Graph.Path.cons_isChildOf_prefix : isChildOf (.cons child parent) («prefix» <| .cons child parent) := by
   sorry
+-/
 
-abbrev ReactorID (graph : Graph) := Graph.Path graph
+-- TODO: Rename this to ReactorId.
+--       Should this be rooted already?
+--       Perhaps at this point we shouldn't even be using ReactorID yet, but stay at Graph.Path.
+abbrev ReactorID (graph : Graph) := Graph.Path graph graph.root
 
-abbrev Graph.interface (graph : Graph) («class» : graph.classes) :=
-  graph.schemes «class» |>.interface 
+-- TODO: Graph.subinterface seems to be a representative of the following API problem.
+--       having something like an element of `graph.classes` contains a bunch of information, which always requires
+--       us to go through `graph` though.
+--       E.g. if we want to access one of the class's childrens scheme:
+--       (graph.schemes «class»).class child |> graph.scheme
+-- Solution?:
 
-abbrev Graph.interface' (graph : Graph) (reactorID : Path graph) :=
-  graph.class reactorID |> graph.interface 
+abbrev Graph.Path.reactionInputScheme (path : Graph.Path graph start) :=
+  path.class.reactionInputScheme
 
-abbrev Graph.subinterface (graph : Graph) («class» : graph.classes) (child : graph.schemes «class» |>.children) :=
-  graph.schemes «class» |>.class child |> graph.interface
+abbrev Graph.reactionOutputScheme (path : Graph.Path graph start) :=
+  path.class.reactionOutputScheme 
 
-abbrev Graph.subinterface' (graph : Graph) («class» : graph.classes) (kind : Reactor.InterfaceKind) :=
-  ⨄ fun child => graph.subinterface «class» child kind
-
-abbrev Graph.reactionInputScheme (graph : Graph) («class» : graph.classes) :=
-  let localInputs := graph.schemes «class» |>.interface .inputs
-  let nestedOutputs := graph.subinterface' «class» .outputs
-  localInputs ⊎ nestedOutputs
-
-abbrev Graph.reactionOutputScheme (graph : Graph) («class» : graph.classes) :=
-  let localOutputs := graph.schemes «class» |>.interface .outputs
-  let nestedInputs := graph.subinterface' «class» .inputs
-  localOutputs ⊎ nestedInputs
-
-abbrev Graph.reactionType (graph : Graph) («class» : graph.classes) :=
-  let localScheme := graph.interface «class»
-  Reaction 
-    (graph.reactionInputScheme «class») 
-    (graph.reactionOutputScheme «class») 
-    (localScheme .actions) 
-    (localScheme .state)
-    (localScheme .params) 
-    (graph.schemes «class»).timers
-
-abbrev Graph.reactionInputScheme' (graph : Graph) (reactorID : ReactorID graph) :=
-  graph.reactionInputScheme <| graph.class reactorID
-
-abbrev Graph.reactionOutputScheme' (graph : Graph) (reactorID : ReactorID graph) :=
-  graph.reactionOutputScheme <| graph.class reactorID
-
-abbrev Graph.reactionType' (graph : Graph) (reactorID : ReactorID graph) :=
-  graph.reactionType <| graph.class reactorID
+abbrev Graph.reactionType (path : Graph.Path graph start) :=
+  path.class.reactionType
 
 instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
   InjectiveCoe reaction.portSources (graph.reactionInputScheme' reactorID).vars :=
@@ -98,12 +76,12 @@ instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID
   reaction.portEffectsInjCoe
 
 instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
-  InjectiveCoe reaction.actionSources (graph.interface' reactorID .actions).vars :=
+  InjectiveCoe reaction.actionSources (reactorID.scheme.interface .actions).vars :=
   reaction.actionSourcesInjCoe
 
 structure ActionID (graph : Graph) where
   reactor : ReactorID graph
-  action : graph.interface' reactor .actions |>.vars
+  action : reactor.scheme.interface .actions |>.vars
   deriving DecidableEq
 
 structure Subport (graph : Graph) («class» : graph.classes) (kind : Reactor.PortKind) where
@@ -129,17 +107,17 @@ instance : Coe Network Graph where
 
 structure ReactionID (net : Network) where
   reactor : ReactorID net
-  reactionIdx : Fin (net.class reactor |> net.reactions).size
+  reactionIdx : Fin (net.reactions reactor.class).size
 
 abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType' id.reactor :=
-  (net.class id.reactor |> net.reactions)[id.reactionIdx]
+  (net.reactions id.reactor.class)[id.reactionIdx]
 
-abbrev connections' (net : Network) (reactorID : ReactorID net) : (Connections net <| net.class reactorID) :=
-  net.class reactorID |> net.connections
+abbrev connections' (net : Network) (reactorID : ReactorID net) : (Connections net reactorID.class) :=
+  net.connections reactorID.class
 
 structure TimerID (net : Network) where
   reactor : ReactorID net
-  timer : net.scheme reactor |>.timers
+  timer : reactor.scheme.timers
   deriving DecidableEq
 
 end Network

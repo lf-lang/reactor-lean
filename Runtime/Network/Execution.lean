@@ -7,7 +7,7 @@ namespace Event
 structure ActionEvent (net : Network) where
   time  : Time
   id    : ActionID net
-  value : (net.scheme id.reactor).interface .actions |>.type id.action
+  value : id.reactor.scheme.interface .actions |>.type id.action
   
 structure TimerEvent (net : Network) where
   time : Time
@@ -58,7 +58,7 @@ structure Executable (net : Network) where
   tag : Tag := ⟨0, 0⟩ -- TODO: Define the current time as a computed property of the queue? Only have the microstep explicitly.
   physicalOffset : Duration
   queue : Array (Event net)
-  reactors : (id : ReactorID net) → Reactor (net.scheme id)
+  reactors : (id : ReactorID net) → Reactor id.scheme
   isShuttingDown : Bool := false
   lawfulQueue : (queue[0]? = some event) → event.time ≥ tag.time
 

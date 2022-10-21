@@ -157,7 +157,7 @@ namespace Reaction
 
 attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq actionEffectsDecEq portSourcesInjCoe portEffectsInjCoe actionSourcesInjCoe actionEffectsInjCoe
 
-abbrev outputType (rcn : Reaction σInput σOutput σAction σState σParam TimerNames) :=
+def outputType (rcn : Reaction σInput σOutput σAction σState σParam TimerNames) :=
   ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
 
 def run 

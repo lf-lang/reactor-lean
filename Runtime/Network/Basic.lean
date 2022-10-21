@@ -1,48 +1,6 @@
-import Runtime.Reaction
-import Runtime.Reactor
+import Runtime.Network.Graph
 
 namespace Network
-
-structure Graph where
-  classes : Type
-  schemes : classes → (Reactor.Scheme classes)
-  root    : classes
-  [decEqClasses : DecidableEq classes]
-
-attribute [instance] Graph.decEqClasses
-attribute [reducible] Graph.schemes
-
-abbrev Graph.rootScheme (graph : Graph) := graph.schemes graph.root
-
-abbrev Graph.subgraph (graph : Graph) (newRoot : graph.classes) : Graph := 
-  { graph with root := newRoot }
-
-inductive Graph.Path : Graph → Type _
-  | nil : Path graph
-  | cons (child : graph.rootScheme.children) : Path (graph.rootScheme.class child |> graph.subgraph) → Path graph
-  deriving DecidableEq
-
-def Graph.class (graph : Graph) : (Path graph) → graph.classes
-  | .nil                => graph.root
-  | .cons child subpath => graph.rootScheme.class child |> graph.subgraph |>.class subpath
-
-abbrev Graph.scheme (graph : Graph) (path : Path graph) : Reactor.Scheme graph.classes :=
-  graph.class path |> graph.schemes
-
-abbrev Graph.Path.extend {graph} (path : Path graph) (extension : graph.scheme path |>.children) : Path graph :=
-  match path with
-  | .nil                => .cons extension .nil
-  | .cons child subpath => .cons child (subpath.extend extension)
-
-theorem Graph.Path.extend_scheme {graph : Graph} {path : Path graph} {child : graph.scheme path |>.children} : 
-  (graph.scheme path |>.class child |> graph.schemes) = (path.extend child |> graph.scheme) := by
-  induction path <;> simp [extend, scheme, «class»]
-  case cons graph hd tl hi =>
-    congr
-    specialize @hi child
-    cases hc : extend tl child
-    · sorry
-    · sorry
 
 def Graph.Path.isChildOf : Path graph → Path graph → Bool
   | .cons _ .nil, .nil => true 

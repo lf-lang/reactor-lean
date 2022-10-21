@@ -61,11 +61,16 @@ def Extends (path₁ path₂ : Path graph start) :=
 
 infix:35 " ≻ " => Extends
 
-theorem Extends.not_nil : (path₁ ≻ path₂) → (path₁ ≠ .nil) := by
+theorem Extends.is_cons : (path₁ ≻ path₂) → (∃ child subpath, path₁ = .cons child subpath) := by
   intro ⟨_, h⟩
   cases path₁
-  case cons => simp
+  case cons child subpath => exists child, subpath
   case nil => cases path₂ <;> simp [extend] at h
+
+theorem Extends.not_nil : (path₁ ≻ path₂) → (path₁ ≠ .nil) := by
+  intro h
+  have ⟨_, _, h⟩ := h.is_cons
+  simp [h]
 
 theorem Extends.iff_cons_Extends {path₁ path₂} : 
   (path₁ ≻ path₂) ↔ (.cons child path₁) ≻ (.cons child path₂) := by

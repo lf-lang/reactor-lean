@@ -5,7 +5,6 @@ namespace Network
 
 structure Graph where
   classes : Type
-  root    : classes -- TODO: Is the root still needed now that paths are relative? Or should it be moved to `Network`?
   schemes : classes → (Reactor.Scheme classes)
   [decEqClasses : DecidableEq classes]
 

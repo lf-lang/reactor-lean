@@ -46,77 +46,56 @@ theorem Graph.Path.cons_isChildOf_prefix : isChildOf (.cons child parent) («pre
   sorry
 -/
 
--- TODO: Rename this to ReactorId.
---       Should this be rooted already?
---       Perhaps at this point we shouldn't even be using ReactorID yet, but stay at Graph.Path.
-abbrev ReactorID (graph : Graph) := Graph.Path graph graph.root
+structure Graph.Class.Subport (cls : Class graph) (kind : Reactor.PortKind) where
+  reactor : cls.scheme.children
+  port : (cls.child reactor).interface kind |>.vars
 
--- TODO: Graph.subinterface seems to be a representative of the following API problem.
---       having something like an element of `graph.classes` contains a bunch of information, which always requires
---       us to go through `graph` though.
---       E.g. if we want to access one of the class's childrens scheme:
---       (graph.schemes «class»).class child |> graph.scheme
--- Solution?:
+abbrev Graph.Class.Subport.type (subport : Subport cls kind) : Type := 
+  let subclass := cls.child subport.reactor
+  let subinterface := subclass.interface kind 
+  subinterface.type subport.port
 
-abbrev Graph.Path.reactionInputScheme (path : Graph.Path graph start) :=
-  path.class.reactionInputScheme
-
-abbrev Graph.reactionOutputScheme (path : Graph.Path graph start) :=
-  path.class.reactionOutputScheme 
-
-abbrev Graph.reactionType (path : Graph.Path graph start) :=
-  path.class.reactionType
-
-instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
-  InjectiveCoe reaction.portSources (graph.reactionInputScheme' reactorID).vars :=
-  reaction.portSourcesInjCoe
-
-instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
-  InjectiveCoe reaction.portEffects (graph.reactionOutputScheme' reactorID).vars :=
-  reaction.portEffectsInjCoe
-
-instance {reactorID : ReactorID graph} {reaction : graph.reactionType' reactorID} : 
-  InjectiveCoe reaction.actionSources (reactorID.scheme.interface .actions).vars :=
-  reaction.actionSourcesInjCoe
-
-structure ActionID (graph : Graph) where
-  reactor : ReactorID graph
-  action : reactor.scheme.interface .actions |>.vars
-  deriving DecidableEq
-
-structure Subport (graph : Graph) («class» : graph.classes) (kind : Reactor.PortKind) where
-  reactor : graph.schemes «class» |>.children
-  port : graph.subinterface «class» reactor kind |>.vars
-  deriving DecidableEq -- TODO: Remove this if pattern matching works for connections in Main.lean.
-
+-- TODO: The `eqTypeProof` is probably broken.
 macro "eqTypeProof" : tactic => `(intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp)
-structure Connections (graph : Graph) («class» : graph.classes) where
-  source : (Subport graph «class» .input) → Option (Subport graph «class» .output)
-  eqType : (source input = some output) → (graph.subinterface «class» output.reactor .outputs).type output.port = (graph.subinterface «class» input.reactor .inputs).type input.port := by eqTypeProof
+structure Graph.Class.Connections (cls : Class graph) where 
+  source : (Class.Subport cls .input) → Option (Class.Subport cls .output)
+  eqType : (source input = some output) → (input.type = output.type) := by eqTypeProof
 
-def Connections.empty {graph : Graph} {«class» : graph.classes} : Connections graph «class» where
+def Graph.Class.Connections.empty {cls : Graph.Class graph} : Graph.Class.Connections cls where
   source _ := none
-  eqType := by simp [source]
+  eqType := by simp
 
+open Graph in
 structure _root_.Network extends Graph where
-  reactions : («class» : toGraph.classes) → Array (toGraph.reactionType «class»)
-  connections : («class» : toGraph.classes) → (Connections toGraph «class»)
+  root        : Class toGraph
+  reactions   : (cls : Class toGraph) → Array cls.reactionType
+  connections : (cls : Class toGraph) → Class.Connections cls
 
 instance : Coe Network Graph where
   coe := (·.toGraph)
 
-structure ReactionID (net : Network) where
-  reactor : ReactorID net
-  reactionIdx : Fin (net.reactions reactor.class).size
+abbrev ReactorId (net : Network) := Graph.Path net net.root
 
-abbrev reaction (net : Network) (id : ReactionID net) : net.reactionType' id.reactor :=
-  (net.reactions id.reactor.class)[id.reactionIdx]
+def ReactorId.reactions (id : ReactorId net) :=
+  net.reactions id.class
 
-abbrev connections' (net : Network) (reactorID : ReactorID net) : (Connections net reactorID.class) :=
-  net.connections reactorID.class
+def ReactorId.connections (id : ReactorId net) :=
+  net.connections id.class
 
-structure TimerID (net : Network) where
-  reactor : ReactorID net
+structure ActionId (net : Network) where
+  reactor : ReactorId net
+  action : (reactor.scheme.interface .actions).vars
+  deriving DecidableEq
+
+structure ReactionId (net : Network) where
+  reactor : ReactorId net
+  reactionIdx : Fin reactor.reactions.size
+
+abbrev ReactionId.reaction (id : ReactionId net) :=
+  id.reactor.reactions[id.reactionIdx]
+
+structure TimerId (net : Network) where
+  reactor : ReactorId net
   timer : reactor.scheme.timers
   deriving DecidableEq
 

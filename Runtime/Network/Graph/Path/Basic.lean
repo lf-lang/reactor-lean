@@ -33,5 +33,26 @@ theorem cons_scheme : (Path.cons child subpath).scheme = subpath.scheme := rfl
 @[simp]
 theorem eq_scheme_iff_cons_eq_scheme : (path₁.scheme = path₂.scheme) ↔ (Path.cons child₁ path₁).scheme = (Path.cons child₂ path₂).scheme := ⟨id, id⟩
 
+abbrev reactionInputScheme (path : Graph.Path graph start) :=
+  path.class.reactionInputScheme
+
+abbrev reactionOutputScheme (path : Graph.Path graph start) :=
+  path.class.reactionOutputScheme 
+
+abbrev reactionType (path : Graph.Path graph start) :=
+  path.class.reactionType
+
+instance {path : Path graph start} {reaction : path.reactionType} : 
+  InjectiveCoe reaction.portSources path.reactionInputScheme.vars :=
+  reaction.portSourcesInjCoe
+
+instance {path : Path graph start} {reaction : path.reactionType} : 
+  InjectiveCoe reaction.portEffects path.reactionOutputScheme.vars :=
+  reaction.portEffectsInjCoe
+
+instance {path : Path graph start} {reaction : path.reactionType} : 
+  InjectiveCoe reaction.actionSources (path.scheme.interface .actions).vars :=
+  reaction.actionSourcesInjCoe
+
 end Path
 end Network.Graph

@@ -2,19 +2,18 @@ import Runtime.Time
 import Runtime.Interface
 import Runtime.Utilities
 
-structure Reaction.Event (σAction : Interface.Scheme) (min : Time) where 
+namespace ReactionM
+
+structure Event (σAction : Interface.Scheme) (min : Time) where 
   action : σAction.vars
   value  : σAction.type action
   time   : Time.From min
 
-instance : LE (Reaction.Event σAction time) where
+instance : LE (Event σAction time) where
   le e₁ e₂ := e₁.time ≤ e₂.time
 
-instance : Decidable ((e₁ : Reaction.Event σAction time) ≤ e₂) := by
+instance : Decidable ((e₁ : Event σAction time) ≤ e₂) := by
   simp [LE.le]; infer_instance
-
-namespace ReactionM
-open Reaction
 
 structure Input (σPortSource σActionSource σState σParam : Interface.Scheme) where
   ports          : Interface? σPortSource
@@ -29,13 +28,8 @@ structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min :
   state  : Interface σState
   events : SortedArray (Event σActionEffect min) := #[]#
 
-def _root_.ReactionT (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) (m : Type → Type) (α : Type) := 
-  (input : Input σPortSource σActionSource σState σParam) → m (Output σPortEffect σActionEffect σState input.tag.time × α)
-
-def _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) := 
-  ReactionT σPortSource σPortEffect σActionSource σActionEffect σState σParam IO
-
-variable {σInput σOutput σAction σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme} 
+def _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) (α : Type) := 
+  (input : Input σPortSource σActionSource σState σParam) → IO (Output σPortEffect σActionEffect σState input.tag.time × α)
 
 def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time where
   ports  := o₁.ports.merge o₂.ports
@@ -136,22 +130,19 @@ def schedule (action : σActionEffect.vars) (delay : Duration) (v : σActionEffe
 
 end ReactionM
 
-namespace Reaction
-
-inductive Trigger (Port Action Timer : Type)
+inductive Reaction.Trigger (Port Action Timer : Type)
   | startup
   | shutdown
   | port (p : Port)
   | action (a : Action)
   | timer (t : Timer)
 
-open Reaction in
 structure _root_.Reaction (σInput σOutput σAction σState σParam : Interface.Scheme) (TimerNames : Type) where
   portSources : Type
   portEffects : Type 
   actionSources : Type
   actionEffects : Type
-  triggers : Array (Trigger portSources actionSources TimerNames)
+  triggers : Array (Reaction.Trigger portSources actionSources TimerNames)
   [portSourcesDecEq : DecidableEq portSources]
   [portEffectsDecEq : DecidableEq portEffects]
   [actionSourcesDecEq : DecidableEq actionSources]
@@ -162,7 +153,8 @@ structure _root_.Reaction (σInput σOutput σAction σState σParam : Interface
   [actionEffectsInjCoe : InjectiveCoe actionEffects σAction.vars]
   body : ReactionM (σInput.restrict portSources) (σOutput.restrict portEffects) (σAction.restrict actionSources) (σAction.restrict actionEffects) σState σParam Unit
 
-open Reaction in
+namespace Reaction
+
 attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq actionEffectsDecEq portSourcesInjCoe portEffectsInjCoe actionSourcesInjCoe actionEffectsInjCoe
 
 abbrev outputType (rcn : Reaction σInput σOutput σAction σState σParam TimerNames) :=

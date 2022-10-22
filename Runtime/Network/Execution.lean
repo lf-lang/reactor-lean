@@ -1,54 +1,6 @@
-import Runtime.Network.Basic
+import Runtime.Network.Event
 
 namespace Network
-
-namespace Event
-
-structure ActionEvent (net : Network) where
-  time  : Time
-  id    : ActionId net
-  value : (id.reactor.class.interface .actions).type id.action
-  
-structure TimerEvent (net : Network) where
-  time : Time
-  id   : TimerId net
-
-inductive _root_.Network.Event (net : Network)
-  | action : ActionEvent net → Event net
-  | timer  : TimerEvent  net → Event net
-
-def time : Event net → Time
-  | .action { time := time, .. } => time
-  | .timer  { time := time, .. } => time
-
-instance : LE (Event net) where
-  le e₁ e₂ := e₁.time ≤ e₂.time
-
-instance : Decidable ((e₁ : Event net) ≤ e₂) := by
-  simp [LE.le]; infer_instance
-
-inductive ID (net : Network)
-  | action : ActionId net → ID net
-  | timer  : TimerId net → ID net
-  deriving DecidableEq
-
-def id : Event net → Event.ID net
-  | .action { id := id, .. } => .action id
-  | .timer  { id := id, .. } => .timer id
-
-def action? : Event net → Option (ActionEvent net)
-  | .action event => event
-  | .timer  _     => none
-
-def timer? : Event net → Option (TimerEvent net)
-  | .timer  event => event
-  | .action _     => none
-
-def action' {id} : (event : Event net) → (h : event.id = .action id) → ActionEvent net
-  | .action ae, _ => ae
-  | .timer _,   h => by simp [Event.id] at h
-
-end Event
 
 structure Reactor (cls : Graph.Class graph) where
   interface : (kind : Reactor.InterfaceKind) → kind.interfaceType (cls.interface kind)
@@ -208,12 +160,12 @@ where
   -- This function assumes that each timer event in `next` fires at `exec.tag.time`.
   newTimerEvents (exec : Executable net) (nextTime : Time) (next : Array (Event net)) : Array (Event net) := 
     next.filterMap fun event =>
-      match event.timer? with 
-      | none => none
-      | some timerEvent =>
-        match exec.timer timerEvent.id |>.period with
+      match event with 
+      | .action .. => none
+      | .timer _ id =>
+        match exec.timer id |>.period with
         | none => none
-        | some p => return .timer { id := timerEvent.id, time := nextTime + p }
+        | some p => return .timer (nextTime + p) id
 
 def advance (exec : Executable net) (next : Next net) : Executable net := { exec with
   tag := next.tag

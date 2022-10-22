@@ -55,6 +55,7 @@ namespace Network
 instance : Coe Network Graph := ⟨toGraph⟩
 
 def Graph.Class.reactions {net : Network} (cls : Class net) := net.reactions cls
+
 def Graph.Class.connections {net : Network} (cls : Class net) := net.connections cls
 
 abbrev ReactorId (net : Network) := Graph.Path net net.root

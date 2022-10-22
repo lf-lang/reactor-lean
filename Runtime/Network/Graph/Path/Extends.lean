@@ -18,16 +18,12 @@ def Extends (path₁ path₂ : Path graph start) :=
 
 infix:35 " ≻ " => Extends
 
-theorem Extends.is_cons : (path₁ ≻ path₂) → (∃ child subpath, path₁ = .cons child subpath) := by
+theorem Extends.isCons : (path₁ ≻ path₂) → path₁.isCons := by
   intro ⟨_, h⟩
+  rw [isCons_def]
   cases path₁
   case cons child subpath => exists child, subpath
   case nil => cases path₂ <;> simp [extend] at h
-
-theorem Extends.not_nil : (path₁ ≻ path₂) → (path₁ ≠ .nil) := by
-  intro h
-  have ⟨_, _, h⟩ := h.is_cons
-  simp [h]
 
 theorem Extends.iff_cons_Extends {path₁ path₂} : 
   (path₁ ≻ path₂) ↔ (.cons child path₁) ≻ (.cons child path₂) := by
@@ -103,5 +99,32 @@ instance : Decidable (path₁ ≻ path₂) :=
   if h : path₁.extends path₂
   then .isTrue (Extends.of_extends h)
   else .isFalse (mt Extends.to_extends h)
+
+-- The prefix of a path is the path without the leaf.
+-- If the path is already `.nil` it remains the same.
+def «prefix» : Path graph start → Option (Path graph start)
+  | .nil => none
+  | .cons _ .nil => some .nil
+  | .cons child subpath => subpath.prefix >>= (Path.cons child ·)
+
+theorem isCons_prefix_isSome {path : Path graph start} : path.isCons → path.prefix.isSome := by
+  intro h
+  induction path
+  case nil =>
+    have ⟨_, _, _⟩ := isCons_def.mp h
+    contradiction
+  case cons child₁ subpath₁ hi => 
+    cases subpath₁
+    case nil => simp [«prefix», Option.isSome]
+    case cons child₂ subpath₂ => 
+      specialize hi isCons_of_cons
+      have ⟨subpath, hi⟩ := Option.isSome_def.mp hi
+      simp [«prefix», hi, Option.isSome_def]
+      exists .cons child₁ subpath
+
+theorem Extends.iff_prefix : (path₁ ≻ path₂) ↔ path₁.prefix = path₂ := by
+  constructor
+  sorry
+  sorry
 
 end Network.Graph.Path

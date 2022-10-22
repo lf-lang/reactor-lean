@@ -9,6 +9,26 @@ inductive Path (graph : Graph) : Class graph → Type _
 
 namespace Path
 
+def isCons : Path graph start → Bool
+  | .nil => false
+  | .cons .. => true
+
+theorem isCons_of_cons : (Path.cons child subpath).isCons := rfl
+
+theorem isCons_of_eq_cons {path : Path graph start} : (path = .cons child subpath) → path.isCons :=
+  (by rw [·, isCons_of_cons])
+
+theorem isCons_def {path : Path graph start} : path.isCons ↔ (∃ child subpath, path = .cons child subpath) := by
+  simp [isCons]
+  constructor
+  case mp => 
+    split <;> intro
+    · contradiction
+    · exists ‹_›, ‹_›
+  case mpr =>
+    intro ⟨_, _, h⟩
+    simp [h]
+
 def «class» : (Path graph start) → Class graph
   | .nil            => start
   | .cons _ subpath => subpath.class

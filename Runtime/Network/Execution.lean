@@ -6,12 +6,12 @@ namespace Event
 
 structure ActionEvent (net : Network) where
   time  : Time
-  id    : ActionID net
-  value : id.reactor.scheme.interface .actions |>.type id.action
+  id    : ActionId net
+  value : (id.reactor.class.interface .actions).type id.action
   
 structure TimerEvent (net : Network) where
   time : Time
-  id   : TimerID net
+  id   : TimerId net
 
 inductive _root_.Network.Event (net : Network)
   | action : ActionEvent net → Event net
@@ -28,8 +28,8 @@ instance : Decidable ((e₁ : Event net) ≤ e₂) := by
   simp [LE.le]; infer_instance
 
 inductive ID (net : Network)
-  | action : ActionID net → ID net
-  | timer  : TimerID net → ID net
+  | action : ActionId net → ID net
+  | timer  : TimerId net → ID net
   deriving DecidableEq
 
 def id : Event net → Event.ID net
@@ -50,15 +50,15 @@ def action' {id} : (event : Event net) → (h : event.id = .action id) → Actio
 
 end Event
 
-structure Reactor (scheme : Reactor.Scheme classes) where
-  interface : (kind : Reactor.InterfaceKind) → kind.interfaceType (scheme.interface kind)
-  timer : scheme.timers → Timer
+structure Reactor (cls : Graph.Class graph) where
+  interface : (kind : Reactor.InterfaceKind) → kind.interfaceType (cls.interface kind)
+  timer : cls.timers → Timer
 
 structure Executable (net : Network) where
   tag : Tag := ⟨0, 0⟩ -- TODO: Define the current time as a computed property of the queue? Only have the microstep explicitly.
   physicalOffset : Duration
   queue : Array (Event net)
-  reactors : (id : ReactorID net) → Reactor id.scheme
+  reactors : (id : ReactorId net) → Reactor id.class
   isShuttingDown : Bool := false
   lawfulQueue : (queue[0]? = some event) → event.time ≥ tag.time
 
@@ -70,29 +70,30 @@ def isStartingUp (exec : Executable net) : Bool :=
 def absoluteTime (exec : Executable net) : Time :=
   exec.tag.time + exec.physicalOffset
 
-def timer (exec : Executable net) (id : TimerID net) : Timer :=
+def timer (exec : Executable net) (id : TimerId net) : Timer :=
   exec.reactors id.reactor |>.timer id.timer
 
 -- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
-def reactionInputs (exec : Executable net) (reactorID : ReactorID net) : Interface? (net.reactionInputScheme' reactorID) 
-  | .inl localInput => exec.reactors reactorID |>.interface .inputs localInput
+def reactionInputs (exec : Executable net) (reactorId : ReactorId net) : Interface? reactorId.class.reactionInputScheme
+  | .inl localInput => exec.reactors reactorId |>.interface .inputs localInput
   | .inr ⟨child, nestedOutput⟩ => 
-    have h : ((net.scheme (reactorID.extend child)).interface .outputs).type (Graph.Path.extend_scheme ▸ nestedOutput) = (net.reactionInputScheme' reactorID).type (.inr ⟨child, nestedOutput⟩) := sorry
-    h ▸ (exec.reactors <| reactorID.extend child).interface .outputs (Graph.Path.extend_scheme ▸ nestedOutput)
+    -- have h : ((net.scheme (reactorId.extend child)).interface .outputs).type (Graph.Path.extend_scheme ▸ nestedOutput) = (net.reactionInputScheme' reactorID).type (.inr ⟨child, nestedOutput⟩) := sorry
+    -- h ▸ (exec.reactors <| reactorID.extend child).interface .outputs (Graph.Path.extend_scheme ▸ nestedOutput)
+    sorry
 
-def triggers (exec : Executable net) {reactorID : ReactorID net} (reaction : net.reactionType' reactorID) : Bool :=
+def triggers (exec : Executable net) {reactorId : ReactorId net} (reaction : reactorId.class.reactionType) : Bool :=
   reaction.triggers.any fun trigger =>
     match trigger with
-    | .port   port   => exec.reactionInputs reactorID |>.isPresent port
-    | .action action => exec.reactors reactorID |>.interface .actions |>.isPresent action
-    | .timer  timer  => exec.reactors reactorID |>.timer timer |>.firesAtTag exec.tag
+    | .port   port   => exec.reactionInputs reactorId |>.isPresent port
+    | .action action => exec.reactors reactorId |>.interface .actions |>.isPresent action
+    | .timer  timer  => exec.reactors reactorId |>.timer timer |>.firesAtTag exec.tag
     | .startup       => exec.isStartingUp
     | .shutdown      => exec.isShuttingDown
 
-def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
+def apply (exec : Executable net) {reactorId : ReactorId net} {reaction : reactorId.class.reactionType} (output : reaction.outputType exec.tag.time) : Executable net := { exec with
   queue := exec.queue.merge <| output.events.map fun event => .action {
     time := event.time
-    id := ⟨reactorID, event.action⟩
+    id := ⟨reactorId, event.action⟩
     value := event.value
   }
   reactors := fun id => { exec.reactors id with
@@ -100,22 +101,22 @@ def apply (exec : Executable net) {reactorID : ReactorID net} {reaction : net.re
       -- 1. Updates the output ports of the reaction's reactor.
       -- 2. Updates the input ports of nested reactors.
       -- 3. Unaffected reactors.
-      if      h : id = reactorID         then targetReactor exec (reaction := h ▸ reaction) (h ▸ output)
-      else if h : id.isChildOf reactorID then nestedReactor exec output id h
-      else                                    exec.reactors id |>.interface 
+      if      h : id = reactorId then targetReactor exec (reaction := h ▸ reaction) (h ▸ output)
+      else if h : id ≻ reactorId then nestedReactor exec output id h
+      else                            exec.reactors id |>.interface 
   }
   lawfulQueue := sorry
 }
 where 
-  targetReactor (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : (kind : Reactor.InterfaceKind) → kind.interfaceType (net.scheme reactorID |>.interface kind)
+  targetReactor (exec : Executable net) {reactorId : ReactorId net} {reaction : reactorId.class.reactionType} (output : reaction.outputType exec.tag.time) : (kind : Reactor.InterfaceKind) → kind.interfaceType (reactorId.class.interface kind)
     | .outputs => localOutputs exec output
     | .state => output.state
-    | interface => exec.reactors reactorID |>.interface interface
-  nestedReactor (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net) (hc : id.isChildOf reactorID) : (kind : Reactor.InterfaceKind) → kind.interfaceType (net.scheme id |>.interface kind)
+    | interface => exec.reactors reactorId |>.interface interface
+  nestedReactor (exec : Executable net) {reactorId : ReactorId net} {reaction : reactorId.class.reactionType} (output : reaction.outputType exec.tag.time) (id : ReactorId net) (hc : id ≻ reactorId) : (kind : Reactor.InterfaceKind) → kind.interfaceType (id.class.interface kind)
     | .inputs => nestedInputs exec output id hc
     | interface => exec.reactors id |>.interface interface 
-  localOutputs (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) : Interface? (net.scheme reactorID |>.interface .outputs) :=
-    let currentReactor := exec.reactors reactorID
+  localOutputs (exec : Executable net) {reactorId : ReactorId net} {reaction : reactorId.class.reactionType} (output : reaction.outputType exec.tag.time) : Interface? (reactorId.class.interface .outputs) :=
+    let currentReactor := exec.reactors reactorId
     fun var =>
       match h : InjectiveCoe.inv (Sum.inl var) with 
       | none => currentReactor.interface .outputs var
@@ -123,10 +124,10 @@ where
         match output.ports var' with
         | none => currentReactor.interface .outputs var
         | some val =>
-          have h : ((net.reactionOutputScheme (net.class reactorID)).restrict reaction.portEffects).type var' = ((net.scheme reactorID).interface .outputs).type var := by
-            rw [(net.reactionOutputScheme' reactorID).restrict_type, InjectiveCoe.invCoeId _ h]
+          have h : ((net.reactionOutputScheme (net.class reactorId)).restrict reaction.portEffects).type var' = ((net.scheme reactorID).interface .outputs).type var := by
+            rw [(net.reactionOutputScheme' reactorId).restrict_type, InjectiveCoe.invCoeId _ h]
           h ▸ val
-  nestedInputs (exec : Executable net) {reactorID : ReactorID net} {reaction : net.reactionType' reactorID} (output : reaction.outputType exec.tag.time) (id : ReactorID net) (hc : id.isChildOf reactorID) : Interface? (net.scheme id |>.interface .inputs) :=
+  nestedInputs (exec : Executable net) {reactorID : ReactorId net} {reaction : reactorId.class.reactionType} (output : reaction.outputType exec.tag.time) (id : ReactorId net) (hc : id ≻ reactorId) : Interface? (id.class.interface .inputs) :=
     let currentReactor := exec.reactors id
     fun var =>
       let nestedID := id.last hc
@@ -145,17 +146,17 @@ where
             sorry
           h ▸ val
 
-def propagate (exec : Executable net) (reactorID : ReactorID net)  : Executable net := { exec with
+def propagate (exec : Executable net) (reactorID : ReactorId net)  : Executable net := { exec with
   reactors := fun id => { exec.reactors id with
     interface := 
-      if h : id.isSiblingOf reactorID then 
-        siblingReactor exec reactorID id h
+      if h : id.isSiblingOf reactorId then 
+        siblingReactor exec reactorId id h
       else                                  
         exec.reactors id |>.interface
   }
 }
 where
-  siblingReactor (exec : Executable net) (reactorID : ReactorID net) (id : ReactorID net) (hs : id.isSiblingOf reactorID) : (kind : Reactor.InterfaceKind) → kind.interfaceType (net.scheme id |>.interface kind) :=
+  siblingReactor (exec : Executable net) (reactorID : ReactorId net) (id : ReactorId net) (hs : id.isSiblingOf reactorId) : (kind : Reactor.InterfaceKind) → kind.interfaceType (id.class.interface kind) :=
     let currentReactor := exec.reactors id
     fun
     | .inputs => 
@@ -226,7 +227,7 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
   lawfulQueue := sorry
 }
 where 
-  actionForEvents (events : Array <| Event net) (id : ActionID net) : Option <| net.scheme id.reactor |>.interface .actions |>.type id.action :=
+  actionForEvents (events : Array <| Event net) (id : ActionId net) : Option <| (id.reactor.class.interface .actions).type id.action :=
     match h : events.findP? (·.id = .action id) with
     | none => none
     | some event => 
@@ -241,23 +242,23 @@ def prepareForShutdown (exec : Executable net) : Executable net := { exec with
 }
 
 -- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
-partial def run (exec : Executable net) (topo : Array (ReactionID net)) (reactionIdx : Nat) : IO Unit := do
+partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with 
   | none => 
     unless exec.isShuttingDown do
       match exec.next with
       | none => run exec.prepareForShutdown topo 0
       | some next => run (exec.advance next) topo 0
-  | some reactionID =>
+  | some reactionId =>
     IO.sleepUntil exec.absoluteTime
     let mut exec := exec
-    let reaction := net.reaction reactionID
+    let reaction := reactionId.reaction
     if exec.triggers reaction then
-      let reactorID := reactionID.reactor
-      let ports     := exec.reactionInputs reactorID
-      let actions   := exec.reactors reactorID |>.interface .actions
-      let state     := exec.reactors reactorID |>.interface .state
-      let params    := exec.reactors reactorID |>.interface .params
+      let reactorId := reactionId.reactor
+      let ports     := exec.reactionInputs reactorId
+      let actions   := exec.reactors reactorId |>.interface .actions
+      let state     := exec.reactors reactorId |>.interface .state
+      let params    := exec.reactors reactorId |>.interface .params
       let output ← reaction.run ports actions state params exec.tag exec.physicalOffset
       exec := exec.apply output |>.propagate reactorID
     run exec topo (reactionIdx + 1)

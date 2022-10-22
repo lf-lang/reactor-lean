@@ -2,19 +2,13 @@ import Runtime.Network.Graph.Path.Basic
 
 namespace Network.Graph.Path
 
-abbrev extend (path : Path graph start) (leaf : path.scheme.children) : Path graph start :=
+abbrev extend (path : Path graph start) (leaf : Class.Child path.class) : Path graph start :=
   match path with
   | .nil                => .cons leaf .nil
   | .cons child subpath => .cons child (subpath.extend leaf)
 
 @[simp]
-theorem extend_scheme {path : Path graph start} {leaf} : (path.extend leaf).scheme = (path.class.child leaf).scheme :=
-  match path with
-  | .nil => rfl
-  | .cons _ subpath => subpath.extend_scheme
-
-@[simp]
-theorem extend_class {path : Path graph start} {leaf} : (path.extend leaf).class = path.class.child leaf := 
+theorem extend_class {path : Path graph start} {leaf} : (path.extend leaf).class = leaf.class := 
   match path with
   | .nil => rfl
   | .cons _ subpath => subpath.extend_class

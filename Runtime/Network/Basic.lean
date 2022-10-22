@@ -1,7 +1,5 @@
 import Runtime.Network.Graph
 
-namespace Network
-
 /-
 def Graph.Path.last (child : Path graph) {parent} (h : child.isChildOf parent) : (graph.scheme parent).children :=
   match child, parent with
@@ -46,57 +44,36 @@ theorem Graph.Path.cons_isChildOf_prefix : isChildOf (.cons child parent) («pre
   sorry
 -/
 
-structure Graph.Class.Subport (cls : Class graph) (kind : Reactor.PortKind) where
-  reactor : cls.scheme.children
-  port : (cls.child reactor).interface kind |>.vars
-
-abbrev Graph.Class.Subport.type (subport : Subport cls kind) : Type := 
-  let subclass := cls.child subport.reactor
-  let subinterface := subclass.interface kind 
-  subinterface.type subport.port
-
--- TODO: The `eqTypeProof` is probably broken.
-macro "eqTypeProof" : tactic => `(intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp)
-structure Graph.Class.Connections (cls : Class graph) where 
-  source : (Class.Subport cls .input) → Option (Class.Subport cls .output)
-  eqType : (source input = some output) → (input.type = output.type) := by eqTypeProof
-
-def Graph.Class.Connections.empty {cls : Graph.Class graph} : Graph.Class.Connections cls where
-  source _ := none
-  eqType := by simp
-
-open Graph in
-structure _root_.Network extends Graph where
+open Network Graph in
+structure Network extends Graph where
   root        : Class toGraph
   reactions   : (cls : Class toGraph) → Array cls.reactionType
   connections : (cls : Class toGraph) → Class.Connections cls
 
-instance : Coe Network Graph where
-  coe := (·.toGraph)
+namespace Network
+
+instance : Coe Network Graph := ⟨toGraph⟩
+
+def Graph.Class.reactions {net : Network} (cls : Class net) := net.reactions cls
+def Graph.Class.connections {net : Network} (cls : Class net) := net.connections cls
 
 abbrev ReactorId (net : Network) := Graph.Path net net.root
 
-def ReactorId.reactions (id : ReactorId net) :=
-  net.reactions id.class
-
-def ReactorId.connections (id : ReactorId net) :=
-  net.connections id.class
-
 structure ActionId (net : Network) where
   reactor : ReactorId net
-  action : (reactor.scheme.interface .actions).vars
+  action : (reactor.class.interface .actions).vars
   deriving DecidableEq
 
 structure ReactionId (net : Network) where
   reactor : ReactorId net
-  reactionIdx : Fin reactor.reactions.size
+  reactionIdx : Fin reactor.class.reactions.size
 
 abbrev ReactionId.reaction (id : ReactionId net) :=
-  id.reactor.reactions[id.reactionIdx]
+  id.reactor.class.reactions[id.reactionIdx]
 
 structure TimerId (net : Network) where
   reactor : ReactorId net
-  timer : reactor.scheme.timers
+  timer : reactor.class.timers
   deriving DecidableEq
 
 end Network

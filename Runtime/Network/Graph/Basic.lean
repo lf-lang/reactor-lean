@@ -27,13 +27,22 @@ structure Child (cls : Class graph) where
 def Child.class {cls : Class graph} (child : Child cls) : Class graph := 
   cls.scheme.class child.id
 
-def subinterface (cls : Class graph) (kind : Reactor.InterfaceKind) :=
+abbrev subinterface (cls : Class graph) (kind : Reactor.InterfaceKind) :=
   ⨄ fun child : Child cls => child.class.interface kind
 
 abbrev reactionInputScheme (cls : Class graph) :=
   let localInputs := cls.interface .inputs
   let nestedOutputs := cls.subinterface .outputs
   localInputs ⊎ nestedOutputs
+
+@[simp]
+theorem reactionInputScheme_type_left {cls : Class graph} (localInput) : 
+  cls.reactionInputScheme.type (.inl localInput) = (cls.interface .inputs).type localInput := rfl 
+
+@[simp]
+theorem reactionInputScheme_type_right {cls : Class graph} (child childOutput) : 
+  cls.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = (child.class.interface .outputs).type childOutput := by
+  simp [Interface.Scheme.bUnion_type]  
 
 abbrev reactionOutputScheme (cls : Class graph) :=
   let localOutputs := cls.interface .outputs

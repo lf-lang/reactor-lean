@@ -54,8 +54,8 @@ namespace Network
 
 instance : Coe Network Graph := ⟨toGraph⟩
 
+-- TODO: These might not work at call site, as `net` might not be inferred.
 def Graph.Class.reactions {net : Network} (cls : Class net) := net.reactions cls
-
 def Graph.Class.connections {net : Network} (cls : Class net) := net.connections cls
 
 abbrev ReactorId (net : Network) := Graph.Path net net.root

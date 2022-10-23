@@ -10,12 +10,12 @@ inductive Sibling : Path graph start → Path graph start → Prop
 infix:35 " ≂ " => Sibling
 
 theorem Sibling.refl : ∀ path : Path graph start, (path ≂ path)
-  | .nil => .nil
-  | .cons _ subpath => by have ⟨_, h⟩ := Extends.cons subpath; exact .cons h h 
+  | .nil => nil
+  | .cons _ subpath => by have ⟨_, h⟩ := Extends.cons subpath; exact cons h h 
 
 theorem Sibling.symm : (path₁ ≂ path₂) → (path₂ ≂ path₁)
-  | .nil => .nil
-  | .cons h₁ h₂ => .cons h₂ h₁
+  | nil => nil
+  | cons h₁ h₂ => cons h₂ h₁
 
 theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix = path₂.prefix) := by
   constructor
@@ -44,7 +44,7 @@ theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix = path
 
 instance : Decidable (path₁ ≂ path₂) :=
   if h : path₁.prefix = path₂.prefix 
-  then .isTrue <| Sibling.iff_eq_prefix.mpr h
-  else .isFalse <| mt Sibling.iff_eq_prefix.mp h
+  then isTrue <| Sibling.iff_eq_prefix.mpr h
+  else isFalse <| mt Sibling.iff_eq_prefix.mp h
   
 end Network.Graph.Path

@@ -4,14 +4,14 @@ namespace Network.Graph.Path
 
 abbrev extend (path : Path graph start) (leaf : Class.Child path.class) : Path graph start :=
   match path with
-  | .nil                => .cons leaf .nil
-  | .cons child subpath => .cons child (subpath.extend leaf)
+  | nil                => cons leaf nil
+  | cons child subpath => cons child (subpath.extend leaf)
 
 @[simp]
 theorem extend_class {path : Path graph start} {leaf} : (path.extend leaf).class = leaf.class := 
   match path with
-  | .nil => rfl
-  | .cons _ subpath => subpath.extend_class
+  | nil => rfl
+  | cons _ subpath => subpath.extend_class
 
 def Extends (path₁ path₂ : Path graph start) :=
   ∃ leaf, path₁ = path₂.extend leaf
@@ -26,7 +26,7 @@ theorem Extends.isCons : (path₁ ≻ path₂) → path₁.isCons := by
   case nil => cases path₂ <;> simp [extend] at h
 
 theorem Extends.iff_cons_Extends {path₁ path₂} : 
-  (path₁ ≻ path₂) ↔ (.cons child path₁) ≻ (.cons child path₂) := by
+  (path₁ ≻ path₂) ↔ (cons child path₁) ≻ (cons child path₂) := by
   constructor
   case mp =>
     intro ⟨child, h⟩
@@ -38,20 +38,20 @@ theorem Extends.iff_cons_Extends {path₁ path₂} :
     case nil => cases path₂ <;> simp [extend] at h  
     case cons => simp at h; exact ⟨_, h⟩
   
-theorem Extends.cons_child : (.cons child₁ path₁) ≻ (.cons child₂ path₂) → child₁ = child₂ := by
+theorem Extends.cons_child : (cons child₁ path₁) ≻ (cons child₂ path₂) → child₁ = child₂ := by
   intro ⟨child, h⟩
   simp [extend] at h
   exact h.left
 
 def «extends» : Path graph start → Path graph start → Bool
-  | .cons _ .nil,          .nil                  => true 
-  | .cons child₁ subpath₁, .cons child₂ subpath₂ => if h : child₁ = child₂ then subpath₁.extends (h ▸ subpath₂) else false
-  | _,                      _                    => false
+  | cons _ nil,           nil                  => true 
+  | cons child₁ subpath₁, cons child₂ subpath₂ => if h : child₁ = child₂ then subpath₁.extends (h ▸ subpath₂) else false
+  | _,                     _                    => false
 
 theorem extend_extends {path : Path graph start} {child} : (path.extend child).extends path :=
   match path with
-  | .nil => rfl
-  | .cons _ _ => by simp [«extends», extend_extends]
+  | nil => rfl
+  | cons _ _ => by simp [«extends», extend_extends]
 
 theorem Extends.of_extends : path₁.extends path₂ → (path₁ ≻ path₂) := by
   intro h
@@ -97,15 +97,15 @@ theorem Extends.iff_extends : (path₁ ≻ path₂) ↔ (path₁.extends path₂
 
 instance : Decidable (path₁ ≻ path₂) :=
   if h : path₁.extends path₂
-  then .isTrue (Extends.of_extends h)
-  else .isFalse (mt Extends.to_extends h)
+  then isTrue (Extends.of_extends h)
+  else isFalse (mt Extends.to_extends h)
 
 -- The prefix of a path is the path without the leaf.
 -- If the path is already `.nil` it remains the same.
 def «prefix» : Path graph start → Option (Path graph start)
-  | .nil => none
-  | .cons _ .nil => some .nil
-  | .cons child subpath => subpath.prefix >>= (Path.cons child ·)    
+  | nil => none
+  | cons _ nil => some nil
+  | cons child subpath => subpath.prefix >>= (cons child ·)    
 
 theorem isCons_prefix_isSome {path : Path graph start} : path.isCons → path.prefix.isSome := by
   intro h

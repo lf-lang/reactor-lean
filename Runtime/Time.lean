@@ -33,6 +33,12 @@ instance : Decidable ((t₁ : Time) < t₂) := by
 instance : Decidable ((t₁ : Time) ≤ t₂) := by
   simp [LE.le]; infer_instance
 
+theorem Time.ext {time₁ time₂ : Time} : time₁.ns = time₂.ns → time₁ = time₂ := by
+  intro h; cases time₁ <;> cases time₂; simp [h]
+
+theorem Time.le_antisymm {time₁ : Time} : (time₁ ≤ time₂) → (time₂ ≤ time₁) → time₁ = time₂ :=
+  (Time.ext <| Nat.le_antisymm · ·)
+
 abbrev Duration := Time
 
 def Time.of (value : Nat) (scale : Scale) : Time :=
@@ -93,6 +99,11 @@ def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag :=
   if tag.time < time then { time := time, microstep := 0 }
   else                    { tag with microstep := tag.microstep + 1 }
 
+theorem Tag.advance_time (tag : Tag) (time) : (tag.advance time).time = time := by
+  simp [advance]
+  split <;> simp
+  case _ h => simp_arith [LT.lt] at h; exact Time.le_antisymm time.property h
+    
 theorem Tag.lt_advance : (tag : Tag) < tag.advance t := by
   simp [advance]
   split

@@ -38,3 +38,14 @@ instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : Dec
         injection hc
         contradiction
       )
+
+-- https://github.com/leanprover-community/mathlib4/blob/a56a3c33fe9ffe2312439b8b54f6cdd243b464c6/Mathlib/Data/List/Perm.lean#L8
+inductive List.Perm {α} : List α → List α → Prop
+  | nil   : Perm [] []
+  | cons  : ∀ (x : α) {l₁ l₂ : List α}, Perm l₁ l₂ → Perm (x::l₁) (x::l₂)
+  | swap  : ∀ (x y : α) (l : List α), Perm (y::x::l) (x::y::l)
+  | trans : ∀ {l₁ l₂ l₃ : List α}, Perm l₁ l₂ → Perm l₂ l₃ → Perm l₁ l₃
+
+def Array.Perm (as₁ as₂ : Array α) := List.Perm as₁.data as₂.data
+
+infixl:50 " ~ " => Array.Perm

@@ -26,6 +26,10 @@ namespace Network
 def Executable.LawfulQueue (queue : Array (Event net)) (time : Time) := 
   ∀ {event}, (queue[0]? = some event) → event.time ≥ time
 
+theorem Executable.LawfulQueue.merge :
+  (LawfulQueue queue₁ time) → (LawfulQueue queue₂ time) → (LawfulQueue (queue₁.merge queue₂) time) :=
+  sorry
+
 structure Executable (net : Network) where
   tag : Tag := ⟨0, 0⟩
   physicalOffset : Duration

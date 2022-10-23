@@ -1,6 +1,5 @@
 import Runtime.Network.Execution.Next
 
-open Graph Path Class in
 theorem Network.Graph.Path.reactionInputScheme_right_type_eq_extend_child_type {path : Path graph start} {child childOutput} : 
   path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = 
   ((path.extend child).class.interface .outputs).type (extend_class ▸ childOutput) := by

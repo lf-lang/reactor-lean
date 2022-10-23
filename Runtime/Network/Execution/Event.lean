@@ -26,6 +26,10 @@ def id : Event net → Event.Id net
   | action _ id _ => .action id
   | timer _ id => .timer id
 
+def timer? : Event net → Option (TimerId net) 
+  | action .. => none
+  | timer _ id => id
+
 def actionValue (event : Event net) {id} (h : event.id = .action id) : id.reactor.class.interface .actions |>.type id.action :=
   match event with
   | timer .. => by simp [Network.Event.id] at h 

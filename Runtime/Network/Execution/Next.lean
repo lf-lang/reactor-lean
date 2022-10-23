@@ -2,33 +2,43 @@ import Runtime.Network.Execution.Basic
 
 namespace Network.Executable
 
+private def nextTime (exec : Executable net) : Option (Time.From exec.tag.time) :=
+  match h : exec.queue[0]? with 
+  | none => none
+  | some nextEvent => some ⟨nextEvent.time, exec.lawfulQueue h⟩
+
+private def nextTag (exec : Executable net) : Option Tag := 
+  match exec.nextTime with
+  | none => none
+  | some time => exec.tag.advance time
+
+-- The first array are the next events to be executed at `time`.
+-- The second array is the remaining queue. 
+private def eventSplit (exec : Executable net) (time : Time) : Array (Event net) × Array (Event net) := 
+  let ⟨candidates, later⟩ := exec.queue.split (·.time = time)  
+  let ⟨next, postponed⟩ := candidates.unique (·.id)
+  (next, postponed ++ later)
+
+private def nextTimerEvents (exec : Executable net) (timers : Array (TimerId net)) (anchor : Time) : Array (Event net) :=
+  timers.filterMap fun ⟨reactor, timer⟩ =>
+    match exec.reactors reactor |>.timer timer |>.period with
+    | none => none
+    | some period => return .timer (anchor + period) ⟨reactor, timer⟩
+
 structure Next (net : Network) where
   tag    : Tag
   events : Array (Event net)
   queue  : Array (Event net)
 
 def Next.for (exec : Executable net) : Option (Next net) := 
-  match h : exec.queue[0]? with 
+  match exec.nextTag with 
   | none => none
-  | some nextEvent =>
-    let nextTag := exec.tag.advance ⟨nextEvent.time, exec.lawfulQueue h⟩
-    let ⟨candidates, later⟩ := exec.queue.split (·.time = nextTag.time)  
-    let ⟨next, postponed⟩ := candidates.unique (·.id)
-    some {
-      tag := nextTag
-      events := next
-      queue := (postponed ++ later).merge (newTimerEvents exec nextTag.time next)
-    }
-where 
-  -- This function assumes that each timer event in `next` fires at `exec.tag.time`.
-  newTimerEvents (exec : Executable net) (nextTime : Time) (next : Array (Event net)) : Array (Event net) := 
-    next.filterMap fun event =>
-      match event with 
-      | .action .. => none
-      | .timer _ id =>
-        match exec.reactors id.reactor |>.timer id.timer |>.period with
-        | none => none
-        | some p => return .timer (nextTime + p) id
+  | some tag =>
+    let ⟨events, later⟩ := exec.eventSplit tag.time
+    let timers := events.filterMap (·.timer?)
+    let timerEvents := exec.nextTimerEvents timers tag.time
+    let queue := later.merge timerEvents
+    some { tag, events, queue }
 
 theorem Next.lawfulQueue (next : Next net) : LawfulQueue next.queue next.tag.time := sorry
 

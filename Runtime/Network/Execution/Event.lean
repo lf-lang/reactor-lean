@@ -26,5 +26,10 @@ def id : Event net → Event.Id net
   | .action _ id _ => .action id
   | .timer _ id => .timer id
 
+def actionValue (event : Event net) {id} (h : event.id = .action id) : id.reactor.class.interface .actions |>.type id.action :=
+  match event with
+  | .timer .. => by simp [Network.Event.id] at h 
+  | .action _ id' value => (by simp_all [Network.Event.id] : id = id') ▸ value
+  
 end Event
 end Network

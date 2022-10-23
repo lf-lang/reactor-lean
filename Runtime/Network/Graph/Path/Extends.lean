@@ -105,7 +105,7 @@ instance : Decidable (path₁ ≻ path₂) :=
 def «prefix» : Path graph start → Option (Path graph start)
   | .nil => none
   | .cons _ .nil => some .nil
-  | .cons child subpath => subpath.prefix >>= (Path.cons child ·)
+  | .cons child subpath => subpath.prefix >>= (Path.cons child ·)    
 
 theorem isCons_prefix_isSome {path : Path graph start} : path.isCons → path.prefix.isSome := by
   intro h
@@ -126,5 +126,15 @@ theorem Extends.iff_prefix : (path₁ ≻ path₂) ↔ path₁.prefix = path₂ 
   constructor
   sorry
   sorry
+
+theorem Extends.cons (path₁) : ∃ path₂, (Path.cons child path₁) ≻ path₂ := by
+  cases h : (Path.cons child path₁).prefix
+  case none =>
+    have h : ¬(Path.cons child path₁).prefix.isSome := by simp [Option.isSome_def]; intro ⟨_, _⟩; simp_all
+    have := mt isCons_prefix_isSome h
+    contradiction
+  case some pre => 
+    exists pre
+    exact Extends.iff_prefix.mpr h
 
 end Network.Graph.Path

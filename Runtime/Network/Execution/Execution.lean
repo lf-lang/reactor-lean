@@ -73,7 +73,7 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
     interface := fun
       | .inputs | .outputs => Interface?.empty
       | .actions           => next.actions id
-      | unaffected         => exec.interface id unaffected
+      | _                  => exec.interface id _
   }
   lawfulQueue := next.lawfulQueue 
 }
@@ -101,9 +101,8 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
       let actions := exec.interface reactor .actions
       let state   := exec.interface reactor .state
       let params  := exec.interface reactor .params
-      let rawOutput ← reaction.run ports actions state params exec.tag exec.physicalOffset
-      let output := Reaction.Output.fromRaw rawOutput
-      exec := exec.apply output |>.propagate reactor
+      let output ← reaction.run ports actions state params exec.tag exec.physicalOffset
+      exec := exec.apply (.fromRaw output) |>.propagate reactor
     run exec topo (reactionIdx + 1)
 
 end Network.Executable

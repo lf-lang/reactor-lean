@@ -27,6 +27,10 @@ structure Child (cls : Class graph) where
 def Child.class {cls : Class graph} (child : Child cls) : Class graph := 
   cls.scheme.class child.id
 
+-- TODO: Get this coercion to work at call site.
+instance {cls : Class graph} : Coe (Child cls) (Class graph) where
+  coe child := child.class
+
 abbrev subinterface (cls : Class graph) (kind : Reactor.InterfaceKind) :=
   ⨄ fun child : Child cls => child.class.interface kind
 

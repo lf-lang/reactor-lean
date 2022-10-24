@@ -28,6 +28,10 @@ theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSo
     case inl => exists as[0]
     case inr hs => exact absurd (Nat.zero_lt_of_ne_zero h) hs
 
+def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} : 
+  (as.map f)[i]? = as[i]? >>= (some ∘ f) :=
+  sorry
+
 instance [Ord α] : LE α := leOfOrd
 
 instance : DecidableEq Empty :=

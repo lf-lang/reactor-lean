@@ -1,6 +1,6 @@
 import Runtime.Network.Execution.Basic
 
-namespace Network.Executable
+namespace Network.Executable    
 
 private def nextTime (exec : Executable net) : Option (Time.From exec.tag.time) :=
   match h : exec.queue[0]? with 
@@ -9,32 +9,19 @@ private def nextTime (exec : Executable net) : Option (Time.From exec.tag.time) 
 
 theorem nextTime_isSome_iff_queue_not_isEmpty {exec : Executable net} : 
   exec.nextTime.isSome ↔ ¬exec.queue.isEmpty := by
-  simp [Array.isEmpty, Option.isSome_def, nextTime]
+  rw [←Array.getElem?_zero_isSome_iff_not_isEmpty]
+  simp [Option.isSome_def, nextTime]
   constructor
   case mp =>
-    intro ⟨_, h⟩ hc
+    intro ⟨_, h⟩
     split at h
     · contradiction
-    case _ h' => 
-      simp [getElem?] at h'
-      split at h' 
-      case inl h => simp [hc] at h
-      case inr => contradiction
+    · exists ‹_›
   case mpr =>
-    intro h
-    let fst := exec.queue[0]' (Nat.zero_lt_of_ne_zero h)
-    by_cases exec.queue[0]? = some fst
-    case inl hc =>
-      have hq := exec.lawfulQueue hc
-      exists ⟨fst.time, hq⟩
-      split 
-      · simp_all [hc]
-      · simp_all
-    case inr hc =>
-      simp [getElem?] at hc
-      split at hc
-      case inl => contradiction
-      case inr => simp_all [Nat.zero_lt_of_ne_zero h]
+    intro ⟨_, h⟩
+    split 
+    · simp_all [h]
+    case _ nextEvent hq => exists ⟨nextEvent.time, exec.lawfulQueue hq⟩
 
 -- The first array are the next events to be executed at `time`.
 -- The second array is the remaining queue. 

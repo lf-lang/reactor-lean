@@ -14,6 +14,20 @@ theorem Nat.mul_div_same_eq : (n : Nat) * m / m = n := by
   case zero => simp [zero_div_eq_zero]
   case succ n hi => rw [Nat.mul_comm, mul_succ]; sorry
 
+theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSome ↔ ¬as.isEmpty := by
+  simp [Array.isEmpty, Option.isSome_def, getElem?]
+  constructor
+  case mp => 
+    intro ⟨_, h⟩
+    split at h
+    case inl hs => exact Nat.not_eq_zero_of_lt hs
+    case inr => contradiction
+  case mpr =>
+    intro h
+    split
+    case inl => exists as[0]
+    case inr hs => exact absurd (Nat.zero_lt_of_ne_zero h) hs
+
 instance [Ord α] : LE α := leOfOrd
 
 instance : DecidableEq Empty :=

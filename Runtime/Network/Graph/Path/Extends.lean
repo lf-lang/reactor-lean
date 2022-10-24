@@ -13,6 +13,13 @@ theorem extend_class {path : Path graph start} {leaf} : (path.extend leaf).class
   | nil => rfl
   | cons _ subpath => subpath.extend_class
 
+@[simp]
+theorem reactionInputScheme_right_type_eq_extend_child_type {path : Path graph start} {child childOutput} : 
+  path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = 
+  ((path.extend child).class.interface .outputs).type (extend_class ▸ childOutput) := by
+  simp
+  sorry -- by extend_class
+
 def Extends (path₁ path₂ : Path graph start) :=
   ∃ leaf, path₁ = path₂.extend leaf
 

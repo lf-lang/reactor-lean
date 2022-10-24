@@ -1,13 +1,9 @@
 import Runtime.Network.Execution.Next
-
-theorem Network.Graph.Path.reactionInputScheme_right_type_eq_extend_child_type {path : Path graph start} {child childOutput} : 
-  path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = 
-  ((path.extend child).class.interface .outputs).type (extend_class ▸ childOutput) := by
-  simp
-  sorry -- by extend_class
+import Runtime.Network.Execution.Apply
 
 namespace Network.Executable
 
+-- TODO?: Refactor this à la `Reaction.Output.LocalValue` and `Reaction.Output.local`.
 -- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
 def reactionInputs (exec : Executable net) (reactor : ReactorId net) : Interface? reactor.class.reactionInputScheme
   | .inl localInput           => exec.interface reactor .inputs localInput
@@ -21,55 +17,6 @@ def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : react
     | .timer  timer  => exec.timer reactor timer        |>.firesAtTag exec.tag
     | .startup       => exec.isStartingUp
     | .shutdown      => exec.isShuttingDown
-
-def apply (exec : Executable net) (output : Reaction.Output net exec.tag.time) : Executable net := { exec with
-  queue := exec.queue.merge output.events
-  reactors := fun id => { exec.reactors id with
-    interface := 
-      if      h : id = output.reactor then h ▸ targetReactor exec output  -- Updates the output ports of the reaction's reactor.
-      else if h : id ≻ output.reactor then nestedReactor exec output id h -- Updates the input ports of nested reactors.
-      else                                 exec.reactors id |>.interface  -- Unaffected reactors.
-  }
-  lawfulQueue := sorry
-}
-where 
-  targetReactor (exec : Executable net) (output : Reaction.Output net exec.tag.time) : (kind : Reactor.InterfaceKind) → kind.interfaceType (output.reactor.class.interface kind)
-    | .outputs => localOutputs exec output
-    | .state => output.raw.state
-    | interface => exec.interface output.reactor interface
-  nestedReactor (exec : Executable net) (output : Reaction.Output net exec.tag.time) (id : ReactorId net) (hc : id ≻ output.reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType (id.class.interface kind)
-    | .inputs => nestedInputs exec output id hc
-    | interface => exec.reactors id |>.interface interface 
-  localOutputs (exec : Executable net) (output : Reaction.Output net exec.tag.time) : Interface? (output.reactor.class.interface .outputs) :=
-    fun var =>
-      match h : InjectiveCoe.inv (Sum.inl var) with 
-      | none => exec.interface output.reactor .outputs var
-      | some var' =>
-        match output.raw.ports var' with
-        | none => exec.interface output.reactor .outputs var
-        | some val =>
-          sorry -- h ▸ val
-  nestedInputs (exec : Executable net) (output : Reaction.Output net exec.tag.time) (id : ReactorId net) (hc : id ≻ output.reactor) : Interface? (id.class.interface .inputs) :=
-    let currentReactor := exec.reactors id
-    fun var =>
-      /-
-      let nestedID := id.last hc
-      have h₁ : (net.scheme id |>.interface .inputs).vars = (net.subinterface (net.class reactorID) nestedID .inputs).vars := by sorry -- rw [Graph.child_schemes_eq_parent_subschemes]
-      let var₁ : (net.reactionOutputScheme' reactorID).vars := .inr ⟨nestedID, h₁ ▸ var⟩
-      match h : InjectiveCoe.inv var₁ with 
-      | none => currentReactor.interface .inputs var
-      | some var₂ =>
-        match output.ports var₂ with
-        | none => currentReactor.interface .inputs var
-        | some val =>
-          have h : (net.class reactorID |> net.reactionOutputScheme |>.restrict reaction.portEffects).type var₂ = (net.scheme id |>.interface .inputs).type var := by
-            rw [(net.reactionOutputScheme' reactorID).restrict_type]
-            rw [InjectiveCoe.invCoeId _ h]
-            -- have := Graph.child_schemes_eq_parent_subschemes hc
-            sorry
-          h ▸ val
-      -/
-      sorry
 
 def propagate (exec : Executable net) (reactor : ReactorId net) : Executable net := { exec with
   reactors := fun id => { exec.reactors id with

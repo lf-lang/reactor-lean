@@ -48,7 +48,7 @@ structure Next (net : Network) where
   queue       : Array (Event net)
   lawfulQueue : LawfulQueue queue tag.time
 
-def Next.for (exec : Executable net) : Option (Next net) := 
+protected def Next.for (exec : Executable net) : Option (Next net) := 
   match exec.nextTime with 
   | none => none
   | some time =>
@@ -74,8 +74,17 @@ theorem Next.for_isSome_iff_queue_not_isEmpty {exec : Executable net} :
   (Next.for exec).isSome ↔ ¬exec.queue.isEmpty := by
   simp [for_isSome_iff_nextTime_isSome, nextTime_isSome_iff_queue_not_isEmpty]
 
-theorem Next.for_preserves_events : ∃ timerEvents, (Next.for exec = some next) → (next.events ++ next.queue) ~ (exec.queue ++ timerEvents) :=
-  sorry
+theorem Next.for_preserves_events : (Next.for exec = some next) → ∃ timerEvents, (next.events ++ next.queue) ~ (exec.queue ++ timerEvents) := by
+  intro h
+  simp [Next.for] at h
+  split at h
+  · contradiction
+  case _ time _ =>
+    simp at h
+    let events := (exec.eventSplit time).fst
+    let timers := events.filterMap (·.timer?)
+    exists exec.nextTimerEvents timers time
+    sorry 
 
 -- The actions-interface for a given reactor according to the `Next` instance.
 def Next.actions (next : Next net) (reactor : ReactorId net) : Interface? (reactor.class.interface .actions) := 

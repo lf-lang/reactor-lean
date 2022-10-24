@@ -5,22 +5,6 @@ structure Reactor {net : Network} (cls : Class net) where
   interface : (kind : Reactor.InterfaceKind) → kind.interfaceType (cls.interface kind)
   timer : cls.timers → Timer
 
-open Network in
-structure Reaction.Output (net : Network) (time : Time) where
-  reactor : ReactorId net
-  reaction : reactor.class.reactionType
-  raw : reaction.outputType time
-
-open Network in
-def Reaction.Output.fromRaw {reactor : ReactorId net} {reaction : reactor.class.reactionType} (raw : reaction.outputType time) : Reaction.Output net time where
-  reactor := reactor
-  reaction := reaction
-  raw := raw
-
-def Reaction.Output.events (output : Reaction.Output net time) :=
-  output.raw.events.map fun event => 
-    Network.Event.action event.time ⟨output.reactor, event.action⟩ event.value
-
 namespace Network
 
 def Executable.LawfulQueue (queue : Array (Event net)) (time : Time) := 
@@ -51,9 +35,6 @@ def interface (exec : Executable net) (id : ReactorId net) :=
 
 def timer (exec : Executable net) (id : ReactorId net) :=
   (exec.reactors id).timer
-
--- def timer (exec : Executable net) (id : TimerId net) : Timer :=
---   exec.reactors id.reactor |>.timer id.timer
 
 end Executable
 

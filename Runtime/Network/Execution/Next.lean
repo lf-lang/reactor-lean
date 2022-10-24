@@ -10,18 +10,12 @@ private def nextTime (exec : Executable net) : Option (Time.From exec.tag.time) 
 theorem nextTime_isSome_iff_queue_not_isEmpty {exec : Executable net} : 
   exec.nextTime.isSome ↔ ¬exec.queue.isEmpty := by
   rw [←Array.getElem?_zero_isSome_iff_not_isEmpty]
-  simp [Option.isSome_def, nextTime]
+  simp [nextTime]
   constructor
-  case mp =>
-    intro ⟨_, h⟩
-    split at h
-    · contradiction
-    · exists ‹_›
-  case mpr =>
-    intro ⟨_, h⟩
+  all_goals
     split 
-    · simp_all [h]
-    case _ nextEvent hq => exists ⟨nextEvent.time, exec.lawfulQueue hq⟩
+    · intro _; simp_all; contradiction
+    · simp [*, Option.isSome]
 
 -- The first array are the next events to be executed at `time`.
 -- The second array is the remaining queue. 
@@ -68,13 +62,17 @@ def Next.for (exec : Executable net) : Option (Next net) :=
     some { tag, events, queue, lawfulQueue := (exec.tag.advance_time time) ▸ LawfulQueue.merge eventSplit_snd_LawfulQueue nextTimerEvents_LawfulQueue }
 
 theorem Next.for_isSome_iff_nextTime_isSome {exec : Executable net} :
-  (Next.for exec).isSome ↔ ¬exec.queue.isEmpty := by
+  (Next.for exec).isSome ↔ exec.nextTime.isSome := by
   simp [Next.for]
-  sorry
+  constructor
+  all_goals
+    split 
+    · intro _; simp_all; contradiction
+    · simp [*, Option.isSome]
 
 theorem Next.for_isSome_iff_queue_not_isEmpty {exec : Executable net} :
   (Next.for exec).isSome ↔ ¬exec.queue.isEmpty := by
-  sorry
+  simp [for_isSome_iff_nextTime_isSome, nextTime_isSome_iff_queue_not_isEmpty]
 
 theorem Next.for_preserves_events : ∃ timerEvents, (Next.for exec = some next) → (next.events ++ next.queue) ~ (exec.queue ++ timerEvents) :=
   sorry

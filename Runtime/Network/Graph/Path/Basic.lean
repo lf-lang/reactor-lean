@@ -42,7 +42,7 @@ theorem isNil_iff_not_isCons {path : Path graph start} : path.isNil ↔ ¬path.i
 def «class» : (Path graph start) → Class graph
   | nil            => start
   | cons _ subpath => subpath.class
-
+  
 @[simp]
 theorem nil_class : (nil : Path graph start).class = start := rfl
 

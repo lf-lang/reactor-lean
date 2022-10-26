@@ -29,6 +29,9 @@ abbrev ReactorId.Child (reactor : ReactorId net) :=
 def ReactorId.Child.class (child : Child reactor) : Graph.Class.Child reactor.class where
   id := sorry -- child.val.class 
 
+theorem ReactorId.Child.class_eq_class {child : Child reactor} : child.class = child.class.class := 
+  sorry
+
 structure ActionId (net : Network) where
   reactor : ReactorId net
   action : (reactor.class.interface .actions).vars

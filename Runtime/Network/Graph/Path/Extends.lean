@@ -1,4 +1,5 @@
-import Runtime.Network.Graph.Path.Basic
+import Runtime.Network.Graph.Path.Subpaths
+
 
 namespace Network.Graph.Path
 
@@ -107,70 +108,52 @@ instance : Decidable (path₁ ≻ path₂) :=
   then isTrue (Extends.of_extends h)
   else isFalse (mt Extends.to_extends h)
 
--- The prefix of a path is the path without the leaf.
--- If the path is already `.nil` it remains the same.
-def «prefix» : Path graph start → Option (Path graph start)
-  | nil => none
-  | cons _ nil => some nil
-  | cons child subpath => subpath.prefix >>= (cons child ·)    
-
-theorem isCons_prefix_isSome {path : Path graph start} : path.isCons → path.prefix.isSome := by
-  intro h
-  induction path
-  case nil =>
-    have ⟨_, _, _⟩ := isCons_def.mp h
-    contradiction
-  case cons child₁ subpath₁ hi => 
-    cases subpath₁
-    case nil => simp [«prefix», Option.isSome]
-    case cons child₂ subpath₂ => 
-      specialize hi isCons_of_cons
-      have ⟨subpath, hi⟩ := Option.isSome_def.mp hi
-      simp [«prefix», hi, Option.isSome_def]
-      exists .cons child₁ subpath
-
 -- TODO: Once we prove this, we don't need `extends` to show decidability of `Extends` anymore.
-theorem Extends.iff_prefix : (path₁ ≻ path₂) ↔ path₁.prefix = path₂ := by
+theorem Extends.iff_prefix? : (path₁ ≻ path₂) ↔ path₁.prefix? = path₂ := by
   constructor
   sorry
   sorry
 
 theorem Extends.cons (path₁) : ∃ path₂, (Path.cons child path₁) ≻ path₂ := by
-  cases h : (Path.cons child path₁).prefix
+  cases h : (Path.cons child path₁).prefix?
   case none =>
-    have h : ¬(Path.cons child path₁).prefix.isSome := by simp [Option.isSome_def]; intro ⟨_, _⟩; simp_all
+    have h : ¬(Path.cons child path₁).prefix?.isSome := by simp [Option.isSome_def]; intro ⟨_, _⟩; simp_all
     have := mt isCons_prefix_isSome h
     contradiction
   case some pre => 
     exists pre
-    exact Extends.iff_prefix.mpr h
+    exact Extends.iff_prefix?.mpr h
 
--- TODO:
--- def suffix (path : Path graph start) : Option (Path graph (Class.Child start)) := sorry
+
+
+
+
 
 def Child (path : Path graph start) := { child // child ≻ path }
 
--- An extended path's class is a child class of its parent's class.
-def Child.class' {start} {path : Path graph start} : (child : Child path) → Class.Child path.class := fun child => 
-  match h : child.val with 
-  | cons c nil => 
-    have ht : start = path.class := by
-      have h' := Extends.iff_prefix.mp child.property
-      simp [h, «prefix»] at h'; simp [←h']
-    ht ▸ c
-  | cons c subpath@(cons _ _) =>
-    /-
-    have : subpath ≻ path.suffix /- we need a notion of a suffix, which is kind of the opposite of prefix. But first finish apply.child-/ := by
-      have ⟨_, H⟩  := Extends.cons subpath
-      rename_i h₁ _
-      rw [h₁] at H
-    -/
-    sorry
-  | nil => 
-    by have := h ▸ child.property.isCons; contradiction
 
+theorem suffix_class {path : Path graph start} {snd} : (path.suffix (snd := snd) sorry).class = path.class := sorry
+
+theorem Child.parent_eq_nil_class {path : Path graph start} {child : Child path} : (child.val = cons c nil) → start = path.class := by
+  intro h
+  have h' := Extends.iff_prefix?.mp child.property
+  simp [h, prefix?] at h'
+  simp [←h']
+
+-- An extended path's class is a child class of its parent's class.
+def Child.class : (start : Class graph) → (path : Path graph start) → (child : Child path) → Class.Child path.class := fun start => fun path => fun child =>
+  match h : child.val with 
+  | nil => by have := h ▸ child.property.isCons; contradiction
+  | cons c nil => (parent_eq_nil_class h) ▸ c
+  | cons c subpath =>
+    have H : subpath ≻ path.suffix sorry := sorry
+    have C : Child (path.suffix sorry) := ⟨subpath, H⟩
+    let s := Child.class _ _ C
+    suffix_class ▸ s
+
+-- TODO: This might go in the direction of the theorem needed to fix apply.child.
 @[simp]
-theorem Child.class'_eq_class {child : Child path} : child.class'.class = child.val.class := 
+theorem Child.class_eq_class {child : Child path} : child.class.class = child.val.class := 
   sorry
 
 end Network.Graph.Path

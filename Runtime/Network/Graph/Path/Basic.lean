@@ -52,6 +52,16 @@ theorem cons_class : (Path.cons child subpath).class = subpath.class := rfl
 @[simp]
 theorem eq_class_iff_cons_eq_class : (path₁.class = path₂.class) ↔ (Path.cons child₁ path₁).class = (Path.cons child₂ path₂).class := ⟨id, id⟩
 
+def snd? : (Path graph start) → Option (Class.Child start)
+  | nil => none
+  | cons child _ => child
+
+@[simp]
+theorem cons_snd?_eq_child : (cons child path).snd? = child := rfl
+
+theorem snd?_isSome_iff_isCons {path : Path graph start} : path.snd?.isSome ↔ path.isCons := by
+  cases path <;> simp [snd?, isCons, Option.isSome]
+
 instance {path : Path graph start} {reaction : path.class.reactionType} : 
   InjectiveCoe reaction.portSources path.class.reactionInputScheme.vars :=
   reaction.portSourcesInjCoe

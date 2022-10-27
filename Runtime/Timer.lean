@@ -1,16 +1,27 @@
 import Runtime.Time
 
-structure Timer where
-  offset : Time
-  period : Option Duration
+namespace Timer
 
-def Timer.firesAtTag (timer : Timer) (tag : Tag) : Bool := Id.run do
-  unless (timer.offset ≤ tag.time) ∧ (tag.microstep = 0) do return false
-  match timer.period with
-  | some period => return (tag.time - timer.offset) % period = 0
-  | none        => return tag.time = timer.offset
+abbrev Period := Option { dur : Duration // dur ≠ 0 }
+
+def Period.of (dur : Duration) : Timer.Period :=
+  if h : dur = 0 then none else some ⟨dur, h⟩
+
+-- This is used for `firesAtTag`.
+private def Period.duration : Timer.Period → Duration
+  | none => 0
+  | some dur => dur
+
+structure _root_.Timer where
+  offset : Time
+  period : Timer.Period -- A duration of 0 means that the timer should only fire once. 
+
+def firesAtTag (timer : Timer) (tag : Tag) : Bool :=
+  timer.offset ≤ tag.time ∧ 
+  tag.microstep = 0       ∧
+  (tag.time - timer.offset) % timer.period.duration = 0 -- TODO: Write this using the Dvd typeclass.
 
 -- The time of the timer's first firing after time 0.
-def Timer.initalFiring (timer : Timer) : Option Time :=
+def initalFiring (timer : Timer) : Option Time :=
   if timer.offset = 0 then timer.period else timer.offset
   

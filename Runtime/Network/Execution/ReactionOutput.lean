@@ -48,13 +48,15 @@ private def child_type_correctness {output : ReactionOutput exec} {child : React
   (child.class.class.interface .inputs).type port :=
   (by rw [Interface.Scheme.restrict_type, output.reaction.portEffectsInjCoe.invCoeId _ ·]; rfl)
 
-def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.class.class.interface .inputs |>.vars) : Value (child.class.class.interface .inputs |>.type port) := 
+-- TODO: `apply.child` needs the `(child : ReactorId net).inputs` form, instead of `(child.class.class.interface .inputs)`.
+def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : (child : ReactorId net).inputs.vars) : Value ((child : ReactorId net).inputs.type port) := 
+  let port := sorry
   match h : output.reaction.portEffectsInjCoe.inv (.inr ⟨child.class, port⟩) with
   | none => .independent
   | some port' =>
     match output.raw.ports port' with
     | none => .absent
-    | some value => .present (child_type_correctness h ▸ value)
+    | some value => .present sorry -- (child_type_correctness h ▸ value)
 
 theorem events_LawfulQueue (output : ReactionOutput exec) : Executable.LawfulQueue output.events exec.tag.time := by
   intro _ h

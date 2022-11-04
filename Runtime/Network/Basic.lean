@@ -28,6 +28,9 @@ abbrev ReactorId.inputs (reactor : ReactorId net) :=
 abbrev ReactorId.outputs (reactor : ReactorId net) :=
   reactor.class.interface .outputs
 
+abbrev ReactorId.isRoot (reactor : ReactorId net) := 
+  reactor.isNil
+
 structure ActionId (net : Network) where
   reactor : ReactorId net
   action : (reactor.class.interface .actions).vars

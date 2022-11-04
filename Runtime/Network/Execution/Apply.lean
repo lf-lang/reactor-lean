@@ -17,8 +17,8 @@ where
     | .outputs => fun var => (output.local var).orElse (fun _ => exec.interface output.reactor .outputs var)
     | .state => output.raw.state
     | _ => exec.interface output.reactor _
-  child (output : ReactionOutput exec) (id : ReactorId.Child output.reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType ((id : ReactorId net).class.interface kind)
-    | .inputs => fun var => (output.child var).orElse (fun _ => exec.interface id .inputs var)
-    | _ => exec.interface id _
+  child (output : ReactionOutput exec) (child : ReactorId.Child output.reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType ((child : ReactorId net).class.interface kind)
+    | .inputs => fun var => (output.child var).orElse (fun _ => exec.interface child .inputs var)
+    | _ => exec.interface child _
 
 end Network.Executable

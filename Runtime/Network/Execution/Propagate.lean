@@ -4,40 +4,23 @@ namespace Network.Executable
 
 def Sib (reactor : ReactorId net) := { id : ReactorId net // id ≂ reactor }
 
-private def aux (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) (port : sib.val.inputs.vars) : Option (sib.val.inputs.type port) :=
-  if reactor.isCons then
-    -- let c := reactor.prefix?.class.connections
-    sorry
+-- Note: By the definition of `Connections`, the root reactor can't have a connection to itself.
+--       Hence, if `reactor` = `sib` = `nil`, we automatically get `none`. 
+private def aux (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) (dst : sib.val.inputs.vars) : Option (sib.val.inputs.type dst) :=
+  if h₁ : sib.val.isRoot then 
+    none -- cf. note above
   else
-    sorry
-
-      /-
-      fun var => 
-        have hc : id.isChildOf id.prefix := open Graph.Path in by have ⟨_, _, hc⟩ := isSiblingOf_is_cons hs; simp [hc, cons_isChildOf_prefix]
-        have H : (net.subinterface (net.class id.prefix) (id.last hc) .inputs).vars = ((net.scheme id).interface .inputs).vars := sorry
-        let connections := net.connections' id.prefix
-        let destination : Subport net (net.class id.prefix) .input := { reactor := id.last hc, port := H ▸ var }
-        match hc : connections.source destination with
-        | none => currentReactor.interface .inputs var
-        | some source =>
-          -- The reactor identified by `reactorID` is the only one that can have a changed output port, 
-          -- so we only need to propagate a value if the source is part of that reactor.
-          -- TODO: We should only have to check if source.reactor = reactorID.last, because by hs we know that id.prefix = reactorID.prefix
-          if he : id.prefix.extend source.reactor = reactorID then 
-            let x := source.port
-            let y := exec.reactors reactorID |>.interface .outputs
-            have h : net.subinterface (net.class id.prefix) source.reactor = (net.scheme reactorID).interface := by
-              have h1 : id.prefix = reactorID.prefix := sorry -- cf. TODO above.
-              have h2 : ∀ id h, net.subinterface (net.class id.prefix) (id.last h) = (net.scheme id).interface := sorry
-              sorry
-            let val := y (h ▸ x)
-            have HH : ((net.scheme reactorID).interface .outputs).type (h ▸ x) = ((net.scheme id).interface .inputs).type var := by
-              have := connections.eqType hc
-              sorry
-            HH ▸ val
-          else
-            currentReactor.interface .inputs var
-          -/
+    let parent := sib.val.prefix (Graph.Path.isCons_iff_not_isNil.mpr h₁)
+    let subport : Graph.Class.Subport parent.class .input := sorry -- ⟨sorry, dst⟩  -- CONTINUE HERE
+    match h₂ : parent.class.connections.source subport with
+    | none => none -- independent
+    | some src => 
+      if h₃ : src.child.class = reactor.class then 
+        have H := parent.class.connections.eqType h₂             -- (subport.child.class.interface .inputs).type subport.port = (src.child.class.interface .outputs).type src.port
+        let a := exec.interface reactor .outputs (h₃ ▸ src.port) -- Option (reactor.class.interface .outputs).type (h₃ ▸ src.port)
+        sorry                                                    -- Option (sib.val.inputs.type dst)
+      else 
+        none -- independent
 
 def propagate (exec : Executable net) (reactor : ReactorId net) : Executable net := { exec with
   reactors := fun id => { exec.reactors id with
@@ -46,7 +29,7 @@ def propagate (exec : Executable net) (reactor : ReactorId net) : Executable net
 }
 where
   sibling (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType (sib.val.class.interface kind)
-    | .inputs => fun port => aux exec sib port
+    | .inputs => fun port => (aux exec sib port).orElse (fun _ => exec.interface sib.val .inputs port)
     | _ => (exec.reactors sib.val).interface _
 
 end Network.Executable

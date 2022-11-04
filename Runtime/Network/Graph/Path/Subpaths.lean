@@ -7,7 +7,13 @@ namespace Network.Graph.Path
 def prefix? : Path graph start → Option (Path graph start)
   | nil => none
   | cons _ nil => some nil
-  | cons child subpath => subpath.prefix? >>= (cons child ·)    
+  | cons child subpath => subpath.prefix? >>= (cons child ·)      
+
+def «prefix» (path : Path graph start) (_ : path.isCons) : Path graph start :=
+  match path with
+  | nil => by contradiction
+  | cons _ nil => nil
+  | cons child subpath@(cons _ _) => cons child (subpath.prefix <| by simp_all [isCons_of_cons])
 
 theorem prefix?_iff_cons_prefix? {graph} {start : Class graph} {child : Class.Child start} {path₁ path₂ : Path graph child.class} :
   (path₁.prefix? = some path₂) ↔ (cons child path₁).prefix? = some (cons child path₂) := by

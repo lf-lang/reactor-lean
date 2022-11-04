@@ -14,6 +14,12 @@ def Class (graph : Graph) := graph.classes
 
 namespace Class
 
+instance : DecidableEq (Class graph) :=
+  fun cls₁ cls₂ => 
+    let c₁ : graph.classes := cls₁
+    let c₂ : graph.classes := cls₂
+    if h : c₁ = c₂ then isTrue h else isFalse h
+
 private def scheme (cls : Class graph) := graph.schemes cls
 
 def interface (cls : Class graph) := cls.scheme.interface

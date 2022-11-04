@@ -2,9 +2,8 @@ import Runtime.Network.Graph.Path.Child
 
 namespace Network.Graph.Path
 
--- Note: Every node is its own sibling.
 inductive Sibling : Path graph start → Path graph start → Prop
-  | nil : Sibling .nil .nil
+  | nil : Sibling nil nil
   | cons : (path₁ ≻ parent) → (path₂ ≻ parent) → Sibling path₁ path₂
 
 infix:40 " ≂ " => Sibling
@@ -44,5 +43,5 @@ instance : Decidable (path₁ ≂ path₂) :=
   if h : path₁.prefix? = path₂.prefix? 
   then isTrue <| Sibling.iff_eq_prefix.mpr h
   else isFalse <| mt Sibling.iff_eq_prefix.mp h
-  
+
 end Network.Graph.Path

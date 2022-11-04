@@ -1,4 +1,4 @@
-import Runtime.Network.Graph.Path.Extends
+import Runtime.Network.Graph.Path.Child
 
 namespace Network.Graph.Path
 
@@ -11,7 +11,7 @@ infix:35 " ≂ " => Sibling
 
 theorem Sibling.refl : ∀ path : Path graph start, (path ≂ path)
   | .nil => nil
-  | .cons _ subpath => by have ⟨_, h⟩ := Extends.cons subpath; exact cons h h 
+  | .cons _ subpath => by have ⟨_, h⟩ := Succ.cons subpath; exact cons h h 
 
 theorem Sibling.symm : (path₁ ≂ path₂) → (path₂ ≂ path₁)
   | nil => nil
@@ -22,7 +22,7 @@ theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix? = pat
   case mp =>
     cases path₁ <;> cases path₂
     case nil.nil => simp
-    case cons.cons => intro h; cases h; simp_all [Extends]
+    case cons.cons => intro h; cases h; simp_all [Succ]
     case nil.cons => intro h; cases h; case _ h _ => have := h.isCons; contradiction
     case cons.nil => intro h; cases h; case _ h   => have := h.isCons; contradiction
   case mpr =>

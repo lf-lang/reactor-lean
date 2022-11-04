@@ -60,10 +60,10 @@ private def child' (output : ReactionOutput exec) {child : ReactorId.Child outpu
 
 private theorem child_type_correctness {reactor : ReactorId net} {child : ReactorId.Child reactor} {port} :
   (child.class.class.interface .inputs).type (Graph.Path.Child.class_eq_class ▸ port) = (child.val.inputs).type port := by
-  simp [ReactorId.inputs, Graph.Class.interface, ReactorId.Child.class, Graph.Path.Child.class_eq_class]
+  simp [ReactorId.inputs, Graph.Class.interface, ReactorId.Child.class]
   congr
-  sorry
-  sorry
+  · exact Graph.Path.Child.class_eq_class
+  · sorry -- TODO: This should hold by reflexivity.
 
 def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Value (child.val.inputs.type port) := 
   child_type_correctness ▸ output.child' (Graph.Path.Child.class_eq_class ▸ port : child.class.class.interface .inputs |>.vars)

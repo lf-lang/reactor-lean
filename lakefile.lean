@@ -5,7 +5,7 @@ package reactor_lean
 
 lean_lib Runtime
 
-@[defaultTarget]
+@[default_target]
 lean_exe Executable {
   root := `Main
 }

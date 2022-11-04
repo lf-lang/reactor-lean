@@ -1,7 +1,7 @@
 import Runtime.Time
 
-macro "invInjProof" : tactic => `(first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp)
-macro "coeInvIdProof" : tactic => `(intro a; cases a <;> rfl)
+macro "invInjProof" : tactic => `(tactic| first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp)
+macro "coeInvIdProof" : tactic => `(tactic| try (intro a; cases a <;> rfl))
 class InjectiveCoe (α β) extends Coe α β where
   inv      : β → Option α
   invInj   : ∀ {b₁ b₂ a}, (inv b₁ = some a) → (inv b₂ = some a) → (b₁ = b₂) := by invInjProof
@@ -48,7 +48,7 @@ def Array.merge [LE α] [∀ a₁ a₂ : α, Decidable (a₁ ≤ a₂)] (s₁ s�
 
 def UInt32.clipping (n : Nat) : UInt32 := 
   UInt32.ofNatCore (min n (UInt32.size - 1)) (by
-    unfold min
+    rw [Nat.min_def]
     split
     case inr => simp
     case inl h => exact Nat.lt_succ_of_le h

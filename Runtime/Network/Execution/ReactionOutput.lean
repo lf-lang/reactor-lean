@@ -41,22 +41,32 @@ def «local» (output : ReactionOutput exec) (port : output.reactor.outputs.vars
     | none => .absent
     | some value => .present (local_type_correctness h ▸ value)
 
--- Note: This theorem is really only needed for `ReactionOutput.child`.
-private def child_type_correctness {output : ReactionOutput exec} {child : ReactorId.Child output.reactor} {port port'} : 
+-- Note: This theorem is really only needed for `ReactionOutput.child'`.
+private def child'_type_correctness {output : ReactionOutput exec} {child : ReactorId.Child output.reactor} {port port'} : 
   (output.reaction.portEffectsInjCoe.inv (.inr ⟨child.class, port⟩) = some port') →
   ((output.reactor.class.reactionOutputScheme).restrict output.reaction.portEffects).type port' =
   (child.class.class.interface .inputs).type port :=
   (by rw [Interface.Scheme.restrict_type, output.reaction.portEffectsInjCoe.invCoeId _ ·]; rfl)
 
--- TODO: `apply.child` needs the `(child : ReactorId net).inputs` form, instead of `(child.class.class.interface .inputs)`.
-def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : (child : ReactorId net).inputs.vars) : Value ((child : ReactorId net).inputs.type port) := 
-  let port := sorry
+-- This function implements the core of the `child` function below.
+-- It's only missing some type casts for the `port` (and consequently the return type).
+private def child' (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : (child.class.class.interface .inputs).vars) : Value (child.class.class.interface .inputs |>.type port) := 
   match h : output.reaction.portEffectsInjCoe.inv (.inr ⟨child.class, port⟩) with
   | none => .independent
   | some port' =>
     match output.raw.ports port' with
     | none => .absent
-    | some value => .present sorry -- (child_type_correctness h ▸ value)
+    | some value => .present (child'_type_correctness h ▸ value)
+
+private theorem child_type_correctness {reactor : ReactorId net} {child : ReactorId.Child reactor} {port} :
+  (child.class.class.interface .inputs).type (Graph.Path.Child.class_eq_class ▸ port) = (child.val.inputs).type port := by
+  simp [ReactorId.inputs, Graph.Class.interface, ReactorId.Child.class, Graph.Path.Child.class_eq_class]
+  congr
+  sorry
+  sorry
+
+def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Value (child.val.inputs.type port) := 
+  child_type_correctness ▸ output.child' (Graph.Path.Child.class_eq_class ▸ port : child.class.class.interface .inputs |>.vars)
 
 theorem events_LawfulQueue (output : ReactionOutput exec) : Executable.LawfulQueue output.events exec.tag.time := by
   intro _ h

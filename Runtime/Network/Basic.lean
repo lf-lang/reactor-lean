@@ -16,21 +16,17 @@ def Graph.Class.connections {net : Network} (cls : Class net) := net.connections
 
 abbrev ReactorId (net : Network) := Graph.Path net net.root
 
+abbrev ReactorId.Child (reactor : ReactorId net) := { child : ReactorId net // child ≻ reactor }
+
+abbrev ReactorId.Child.class (child : Child reactor) : Graph.Class.Child reactor.class :=
+  let child : Graph.Path.Child reactor := child
+  child.class
+
 abbrev ReactorId.inputs (reactor : ReactorId net) :=
   reactor.class.interface .inputs
 
 abbrev ReactorId.outputs (reactor : ReactorId net) :=
   reactor.class.interface .outputs
-
-abbrev ReactorId.Child (reactor : ReactorId net) :=
-  { child : ReactorId net // child ≻ reactor }
-
--- TODO: This should probably be a more general property on Graph.Path
-def ReactorId.Child.class (child : Child reactor) : Graph.Class.Child reactor.class where
-  id := sorry -- child.val.class 
-
-theorem ReactorId.Child.class_eq_class {child : Child reactor} : child.class = child.class.class := 
-  sorry
 
 structure ActionId (net : Network) where
   reactor : ReactorId net

@@ -2,7 +2,7 @@ import Runtime.Utilities.Lean
 
 inductive Time.Scale
   | ns | μs | ms | s | min | hour | day | week
-
+  
 def Time.Scale.nsRatio : Scale → Nat
   | .ns   => 1
   | .μs   => 1000

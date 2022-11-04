@@ -1,6 +1,5 @@
 import Runtime.Network.Graph.Path.Subpaths
 
-
 namespace Network.Graph.Path
 
 abbrev extend (path : Path graph start) (leaf : Class.Child path.class) : Path graph start :=
@@ -21,6 +20,7 @@ theorem reactionInputScheme_right_type_eq_extend_child_type {path : Path graph s
   simp
   sorry -- by extend_class
 
+-- TODO: Rename this to `Succ`?
 def Extends (path₁ path₂ : Path graph start) :=
   ∃ leaf, path₁ = path₂.extend leaf
 
@@ -32,6 +32,18 @@ theorem Extends.isCons : (path₁ ≻ path₂) → path₁.isCons := by
   cases path₁
   case cons child subpath => exists child, subpath
   case nil => cases path₂ <;> simp [extend] at h
+
+theorem Extends.isCons' : (cons c₁ (cons c₂ path₁) ≻ path₂) → path₂.isCons := by
+  intro ⟨_, h⟩
+  rw [isCons_def]
+  cases path₂
+  case nil => 
+    rw [extend] at h
+    injection h with _ h _
+    subst h
+    contradiction
+  case cons => 
+    exists ‹_›, ‹_›
 
 theorem Extends.iff_cons_Extends {path₁ path₂} : 
   (path₁ ≻ path₂) ↔ (cons child path₁) ≻ (cons child path₂) := by
@@ -131,8 +143,12 @@ theorem Extends.cons (path₁) : ∃ path₂, (Path.cons child path₁) ≻ path
 
 def Child (path : Path graph start) := { child // child ≻ path }
 
-
-theorem suffix_class {path : Path graph start} {snd} : (path.suffix (snd := snd) sorry).class = path.class := sorry
+@[simp]
+theorem suffix_class {path : Path graph start} {h} : (path.suffix h).class = path.class := by
+  rw [suffix]
+  split
+  case _ h => simp [isCons] at h
+  · simp
 
 theorem Child.parent_eq_nil_class {path : Path graph start} {child : Child path} : (child.val = cons c nil) → start = path.class := by
   intro h
@@ -141,19 +157,22 @@ theorem Child.parent_eq_nil_class {path : Path graph start} {child : Child path}
   simp [←h']
 
 -- An extended path's class is a child class of its parent's class.
-def Child.class : (start : Class graph) → (path : Path graph start) → (child : Child path) → Class.Child path.class := fun start => fun path => fun child =>
+def Child.class : (child : Child path) → Class.Child path.class := fun child =>
   match h : child.val with 
   | nil => by have := h ▸ child.property.isCons; contradiction
   | cons c nil => (parent_eq_nil_class h) ▸ c
-  | cons c subpath =>
-    have H : subpath ≻ path.suffix sorry := sorry
-    have C : Child (path.suffix sorry) := ⟨subpath, H⟩
-    let s := Child.class _ _ C
-    suffix_class ▸ s
+  | cons c subpath@(cons _ _) =>
+    have path_isCons := (h ▸ child.property).isCons'
+    have h₁ : c.class = path.snd path_isCons := sorry -- TODO: look at the picture in your folder
+    let pathSuffix := path.suffix path_isCons
+    let subpath := h₁ ▸ subpath
+    have h₂ : subpath ≻ pathSuffix := sorry
+    suffix_class ▸ «class» ⟨subpath, h₂⟩
+termination_by «class» child => sizeOf child.val -- TODO: Perhaps use an explictly define path length property instead.
+decreasing_by sorry
 
--- TODO: This might go in the direction of the theorem needed to fix apply.child.
 @[simp]
-theorem Child.class_eq_class {child : Child path} : child.class.class = child.val.class := 
+theorem Child.class_eq_class {child : Child path} : child.class.class = child.val.class := by
   sorry
 
 end Network.Graph.Path

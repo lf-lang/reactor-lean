@@ -67,7 +67,7 @@ abbrev Subport.type (subport : Subport cls kind) : Type :=
   (subport.child.class.interface kind).type subport.port
 
 -- TODO: The `eqTypeProof` is probably broken.
-macro "eqTypeProof" : tactic => `(intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp)
+macro "eqTypeProof" : tactic => `(tactic| try (intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp))
 structure Connections (cls : Class graph) where 
   source : (Subport cls .input) → Option (Subport cls .output)
   eqType : (source input = some output) → (input.type = output.type) := by eqTypeProof

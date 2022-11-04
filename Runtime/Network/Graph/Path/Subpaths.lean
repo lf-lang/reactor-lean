@@ -25,14 +25,19 @@ theorem isCons_prefix_isSome {path : Path graph start} : path.isCons → path.pr
       simp [prefix?, hi, Option.isSome_def]
       exists .cons child₁ subpath
 
+def snd (path : Path graph start) (_ : path.isCons) : Class.Child start :=
+  match path with
+  | nil => by contradiction
+  | cons child _ => child
 
-
+@[simp]
+theorem cons_snd_eq_child : (cons child path).snd h = child := rfl
 
 -- Note: We can't define this property with an optional return type,
 --       as we can't even state the return type for an invalid input path.
-def suffix (path : Path graph start) (_ : path.snd? = some snd) : Path graph snd := 
+def suffix (path : Path graph start) (h) : Path graph (path.snd h) := 
   match path with
   | nil => by contradiction
-  | cons child subpath => (by simp_all [cons_snd?_eq_child] : child = snd) ▸ subpath
+  | cons _ subpath => subpath
 
 end Network.Graph.Path

@@ -4,27 +4,13 @@ namespace Network.Executable
 
 def Sib (reactor : ReactorId net) := { id : ReactorId net // id ≂ reactor }
 
-inductive Value (α : Type)
-  | independent
-  | absent
-  | present (value : α)
+private def aux (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) (port : sib.val.inputs.vars) : Option (sib.val.inputs.type port) :=
+  if reactor.isCons then
+    -- let c := reactor.prefix?.class.connections
+    sorry
+  else
+    sorry
 
-def Value.value? : Value α → Option α
-  | present value        => value
-  | independent | absent => none
-
-private def aux (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) (port : sib.val.inputs.vars) : Value (sib.val.inputs.type port) :=
-  sorry
-
-def propagate (exec : Executable net) (reactor : ReactorId net) : Executable net := { exec with
-  reactors := fun id => { exec.reactors id with
-    interface := if h : id ≂ reactor then sibling exec ⟨id, h⟩ else exec.interface id
-  }
-}
-where
-  sibling (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType (sib.val.class.interface kind)
-    | .inputs => let x := (aux exec sib sorry).value?; sorry
-    | _ => (exec.reactors sib.val).interface _
       /-
       fun var => 
         have hc : id.isChildOf id.prefix := open Graph.Path in by have ⟨_, _, hc⟩ := isSiblingOf_is_cons hs; simp [hc, cons_isChildOf_prefix]
@@ -52,5 +38,15 @@ where
           else
             currentReactor.interface .inputs var
           -/
+
+def propagate (exec : Executable net) (reactor : ReactorId net) : Executable net := { exec with
+  reactors := fun id => { exec.reactors id with
+    interface := if h : id ≂ reactor then sibling exec ⟨id, h⟩ else exec.interface id
+  }
+}
+where
+  sibling (exec : Executable net) {reactor : ReactorId net} (sib : Sib reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType (sib.val.class.interface kind)
+    | .inputs => fun port => aux exec sib port
+    | _ => (exec.reactors sib.val).interface _
 
 end Network.Executable

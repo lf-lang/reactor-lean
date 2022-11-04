@@ -7,7 +7,7 @@ inductive Sibling : Path graph start → Path graph start → Prop
   | nil : Sibling .nil .nil
   | cons : (path₁ ≻ parent) → (path₂ ≻ parent) → Sibling path₁ path₂
 
-infix:35 " ≂ " => Sibling
+infix:40 " ≂ " => Sibling
 
 theorem Sibling.refl : ∀ path : Path graph start, (path ≂ path)
   | .nil => nil

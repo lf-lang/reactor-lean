@@ -17,15 +17,6 @@ def fromRaw {reactor : ReactorId net} {reaction : reactor.class.reactionType} (r
 def events (output : ReactionOutput exec) :=
   output.raw.events.map fun event => Event.action event.time ⟨output.reactor, event.action⟩ event.value
 
-inductive Value (α : Type)
-  | independent
-  | absent
-  | present (value : α)
-
-def Value.value? : Value α → Option α
-  | present value        => value
-  | independent | absent => none
-
 -- Note: This theorem is really only needed for `ReactionOutput.local`.
 private def local_type_correctness {output : ReactionOutput exec} {port port'} : 
   (output.reaction.portEffectsInjCoe.inv (.inl port) = some port') → 
@@ -33,13 +24,10 @@ private def local_type_correctness {output : ReactionOutput exec} {port port'} :
   output.reactor.outputs.type port :=
   (by rw [Interface.Scheme.restrict_type, output.reaction.portEffectsInjCoe.invCoeId _ ·])
 
-def «local» (output : ReactionOutput exec) (port : output.reactor.outputs.vars) : Value (output.reactor.outputs.type port) := 
+def «local» (output : ReactionOutput exec) (port : output.reactor.outputs.vars) : Option (output.reactor.outputs.type port) := 
   match h : output.reaction.portEffectsInjCoe.inv (.inl port) with
-  | none => .independent
-  | some port' =>
-    match output.raw.ports port' with
-    | none => .absent
-    | some value => .present (local_type_correctness h ▸ value)
+  | none => none -- independent port
+  | some port' => local_type_correctness h ▸ output.raw.ports port'
 
 -- Note: This theorem is really only needed for `ReactionOutput.child'`.
 private def child'_type_correctness {output : ReactionOutput exec} {child : ReactorId.Child output.reactor} {port port'} : 
@@ -50,13 +38,10 @@ private def child'_type_correctness {output : ReactionOutput exec} {child : Reac
 
 -- This function implements the core of the `child` function below.
 -- It's only missing some type casts for the `port` (and consequently the return type).
-private def child' (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : (child.class.class.interface .inputs).vars) : Value (child.class.class.interface .inputs |>.type port) := 
+private def child' (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : (child.class.class.interface .inputs).vars) : Option (child.class.class.interface .inputs |>.type port) := 
   match h : output.reaction.portEffectsInjCoe.inv (.inr ⟨child.class, port⟩) with
-  | none => .independent
-  | some port' =>
-    match output.raw.ports port' with
-    | none => .absent
-    | some value => .present (child'_type_correctness h ▸ value)
+  | none => none -- independent port
+  | some port' => child'_type_correctness h ▸ output.raw.ports port'
 
 private theorem child_type_correctness {reactor : ReactorId net} {child : ReactorId.Child reactor} {port} :
   (child.class.class.interface .inputs).type (Graph.Path.Child.class_eq_class ▸ port) = (child.val.inputs).type port := by
@@ -65,7 +50,7 @@ private theorem child_type_correctness {reactor : ReactorId net} {child : Reacto
   · exact Graph.Path.Child.class_eq_class
   · sorry -- TODO: This should hold by reflexivity.
 
-def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Value (child.val.inputs.type port) := 
+def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Option (child.val.inputs.type port) := 
   child_type_correctness ▸ output.child' (Graph.Path.Child.class_eq_class ▸ port : child.class.class.interface .inputs |>.vars)
 
 theorem events_LawfulQueue (output : ReactionOutput exec) : Executable.LawfulQueue output.events exec.tag.time := by

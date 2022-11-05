@@ -43,6 +43,9 @@ structure ReactionId (net : Network) where
 abbrev ReactionId.reaction (id : ReactionId net) :=
   id.reactor.class.reactions[id.reactionIdx]
 
+def ReactionId.affects (id : ReactionId net) (port : (id.reactor.class.interface .outputs).vars) : Bool :=
+  id.reaction.portEffectsInjCoe.inv (.inl port) |>.isSome
+
 structure TimerId (net : Network) where
   reactor : ReactorId net
   timer : reactor.class.timers

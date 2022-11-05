@@ -4,6 +4,16 @@ namespace Network.Executable
 
 def Sib (reactor : ReactorId net) := { id : ReactorId net // id ≂ reactor }
 
+theorem aux_type_correctness {reaction : ReactionId net} {sib : Sib reaction.reactor} {dst h port src} :
+  ((sib.val.split h).fst.class.connections.source ⟨(sib.val.split h).snd, Graph.Path.split_class (path := sib.val) ▸ dst⟩ = some src) → 
+  (reaction.reactor.class.interface .outputs).type port =
+  (sib.val.class.interface .inputs).type dst := by
+  intro h'
+  have := (sib.val.split h).fst.class.connections.eqType h'
+  sorry
+
+-- TODO: Now that you have ReactionOutput.local, perhaps it would be easy to reintegrate propagation into `apply`?
+
 -- Note: By the definition of `Connections`, the root reactor can't have a connection to itself.
 --       Hence, if `reactor` = `sib` = `nil`, we automatically get `none`. 
 private def aux (exec : Executable net) (reaction : ReactionId net) (sib : Sib reaction.reactor) (dst : sib.val.inputs.vars) : Option (sib.val.inputs.type dst) :=
@@ -16,11 +26,11 @@ private def aux (exec : Executable net) (reaction : ReactionId net) (sib : Sib r
     match h₂ : parent.class.connections.source ⟨leaf, Graph.Path.split_class (path := sib.val) ▸ dst⟩ with
     | none => none -- independent
     | some src => 
-      -- TODO: Make this check more precise, by checking whether the given port is an effect of the reaction.
       if h₃ : src.child.class = reaction.reactor.class then 
-        have H := parent.class.connections.eqType h₂                      -- (subport.child.class.interface .inputs).type subport.port = (src.child.class.interface .outputs).type src.port
-        let a := exec.interface reaction.reactor .outputs (h₃ ▸ src.port) -- Option (reactor.class.interface .outputs).type (h₃ ▸ src.port)
-        sorry                                                             -- Option (sib.val.inputs.type dst)
+        let port := h₃ ▸ src.port
+        if reaction.affects port 
+        then aux_type_correctness h₂ ▸ exec.interface reaction.reactor .outputs port
+        else none -- independent
       else 
         none -- independent
 

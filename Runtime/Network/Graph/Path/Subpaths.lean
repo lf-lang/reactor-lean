@@ -9,12 +9,6 @@ def prefix? : Path graph start → Option (Path graph start)
   | cons _ nil => some nil
   | cons child subpath => subpath.prefix? >>= (cons child ·)      
 
-def «prefix» (path : Path graph start) (_ : path.isCons) : Path graph start :=
-  match path with
-  | nil => by contradiction
-  | cons _ nil => nil
-  | cons child subpath@(cons _ _) => cons child (subpath.prefix <| by simp_all [isCons_of_cons])
-
 theorem prefix?_iff_cons_prefix? {graph} {start : Class graph} {child : Class.Child start} {path₁ path₂ : Path graph child.class} :
   (path₁.prefix? = some path₂) ↔ (cons child path₁).prefix? = some (cons child path₂) := by
   constructor
@@ -71,5 +65,21 @@ theorem suffix_class {path : Path graph start} {h} : (path.suffix h).class = pat
   split
   case _ h => simp [isCons] at h
   · simp
+
+def split (path : Path graph start) (_ : path.isCons) : Σ «prefix» : Path graph start, Class.Child prefix.class :=
+  match path with
+  | nil => by contradiction
+  | cons child nil => ⟨nil, child⟩
+  | cons child subpath@(cons _ _) => 
+    let ⟨sub, cls⟩ := subpath.split (by simp_all [isCons_of_cons])
+    ⟨cons child sub, cls⟩
+
+theorem split_class {path : Path graph start} {h : path.isCons} : (path.split h).snd.class = path.class := by
+  induction path
+  case nil => contradiction
+  case cons child subpath hi =>
+    cases subpath
+    case nil => rfl
+    case cons child' subpath => rw [split]; exact hi
 
 end Network.Graph.Path

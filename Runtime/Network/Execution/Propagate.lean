@@ -4,7 +4,7 @@ namespace Network.Executable
 
 open Graph
 
-def Sib (reactor : ReactorId net) := { id : ReactorId net // id ≂ reactor }
+private def Sib (reactor : ReactorId net) := { id : ReactorId net // id ≂ reactor }
 
 def propagate (exec : Executable net) (reaction : ReactionId net) : Executable net := { exec with
   reactors := fun id => { exec.reactors id with

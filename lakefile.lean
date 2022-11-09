@@ -9,3 +9,5 @@ lean_lib Runtime
 lean_exe Executable {
   root := `Main
 }
+
+require std from git "https://github.com/leanprover/std4" @ "main"

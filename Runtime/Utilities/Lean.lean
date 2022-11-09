@@ -34,9 +34,6 @@ def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} :
 
 instance [Ord α] : LE α := leOfOrd
 
-instance : DecidableEq Empty :=
-  fun empty _ => empty.casesOn
-
 @[reducible]
 instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
   fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 

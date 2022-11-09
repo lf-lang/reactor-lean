@@ -61,7 +61,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
       let state   := exec.interface reactor .state
       let params  := exec.interface reactor .params
       let output ← reaction.run ports actions state params exec.tag exec.physicalOffset
-      exec := exec.apply (.fromRaw output) |>.propagate reactor
+      exec := exec.apply (.fromRaw output) |>.propagate reactionId
     run exec topo (reactionIdx + 1)
 
 end Network.Executable

@@ -19,6 +19,9 @@ def nil : SortedArray α := {
 
 notation "#[]#" => SortedArray.nil
 
+instance : Inhabited (SortedArray α) where
+  default := #[]#
+
 def singleton (a : α) : SortedArray α := {
   isSorted := List.Sorted.singleton (a := a)
 }

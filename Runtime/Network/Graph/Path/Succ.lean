@@ -31,7 +31,7 @@ instance : Decidable (path₁ ≻ path₂) :=
 theorem Succ.cons (path₁) : ∃ path₂, (cons child path₁) ≻ path₂ := by
   cases h : (Path.cons child path₁).prefix?
   case none =>
-    have h : ¬(Path.cons child path₁).prefix?.isSome := by simp [Option.isSome_def]; intro ⟨_, _⟩; simp_all
+    have h : ¬(Path.cons child path₁).prefix?.isSome := by simp_all [Option.isSome_def]
     have := mt prefix?_isSome_iff_isCons.mpr h
     contradiction
   case some pre => exists pre

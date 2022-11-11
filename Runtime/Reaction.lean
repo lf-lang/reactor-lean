@@ -77,22 +77,12 @@ instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σAc
     match io world with 
     | .error e world' => .error e world'
     | .ok    a world' => .ok (input.noop, a) world'
- 
-/-
-def ReactionSatisfiesM 
-  (σPortSource σPortEffect σActionSource σActionEffect σState σParam) 
-  (val : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam α) 
-  (p : (input : Input σPortSource σActionSource σState σParam) → (Output σPortEffect σActionEffect σState input.tag.time) → α → Prop) :=
-  ∀ input, SatisfiesM (fun ⟨output, v⟩ => p input output v) (val input)
 
-set_option hygiene false
-macro val:term " ⊢ " p:term : term => `(ReactionSatisfiesM σPortSource σPortEffect σActionSource σActionEffect σState σParam $val $p)
--/
 
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)
 
-def ReactionSatisfiesM' 
+def ReactionSatisfiesM
   (σPortSource σPortEffect σActionSource σActionEffect σState σParam) 
   (val : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam α) 
   (input : Input σPortSource σActionSource σState σParam)
@@ -100,7 +90,7 @@ def ReactionSatisfiesM'
   SatisfiesM (α := (Output σPortEffect σActionEffect σState input.tag.time) × _) p (val input)
 
 set_option hygiene false
-macro val:term " -[" i:term "]→ " p:term : term => `(ReactionSatisfiesM' σPortSource σPortEffect σActionSource σActionEffect σState σParam $val $i $p)
+macro val:term " -[" i:term "]→ " p:term : term => `(ReactionSatisfiesM σPortSource σPortEffect σActionSource σActionEffect σState σParam $val $i $p)
 
 macro "rcn_rfl" : tactic => `(tactic| exists return ⟨(input.noop, _), by first | rfl | simp⟩)
 
@@ -141,7 +131,7 @@ theorem getLogicalTime_def' :
     return {
       val := (input.noop, t.snd.time)
       property := by
-        simp [ReactionSatisfiesM'] at h ⊢
+        simp [ReactionSatisfiesM] at h ⊢
         -- PROBLEM: We Lean has no clue of the definition of t.
         sorry
     }

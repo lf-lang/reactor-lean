@@ -11,11 +11,7 @@ theorem nextTime_isSome_iff_queue_not_isEmpty {exec : Executable net} :
   exec.nextTime.isSome ↔ ¬exec.queue.isEmpty := by
   rw [←Array.getElem?_zero_isSome_iff_not_isEmpty]
   simp [nextTime]
-  constructor
-  all_goals
-    split 
-    · intro _; simp_all; contradiction
-    · simp [*, Option.isSome]
+  constructor <;> split <;> simp_all [Option.isSome]
 
 -- The first array are the next events to be executed at `time`.
 -- The second array is the remaining queue. 
@@ -64,12 +60,8 @@ protected def Next.for (exec : Executable net) : Option (Next net) :=
 theorem Next.for_isSome_iff_nextTime_isSome {exec : Executable net} :
   (Next.for exec).isSome ↔ exec.nextTime.isSome := by
   simp [Next.for]
-  constructor
-  all_goals
-    split 
-    · intro _; simp_all; contradiction
-    · simp [*, Option.isSome]
-
+  constructor <;> split <;> simp_all [Option.isSome]
+    
 theorem Next.for_isSome_iff_queue_not_isEmpty {exec : Executable net} :
   (Next.for exec).isSome ↔ ¬exec.queue.isEmpty := by
   simp [for_isSome_iff_nextTime_isSome, nextTime_isSome_iff_queue_not_isEmpty]

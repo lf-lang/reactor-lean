@@ -39,9 +39,9 @@ def ReactionDecl.DependencyKind.name : ReactionDecl.DependencyKind → Name
   | .actionEffect => `ActionEffect
 
 def ReactionDecl.DependencyKind.injCoeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term 
-  | .portSource                   => `((Network.Graph.reactionInputScheme $graphIdent .$className |>.vars))
-  | .portEffect                   => `((Network.Graph.reactionOutputScheme $graphIdent .$className |>.vars))
-  | .actionSource | .actionEffect => `((Network.Graph.schemes $graphIdent .$className |>.interface .actions |>.vars))
+  | .portSource                   => `((@Network.Graph.Class.reactionInputScheme $graphIdent .$className |>.vars))
+  | .portEffect                   => `((@Network.Graph.Class.reactionOutputScheme $graphIdent .$className |>.vars))
+  | .actionSource | .actionEffect => `((@Network.Graph.Class.interface $graphIdent .$className .actions |>.vars))
 
 def ReactionDecl.genDependencyEnums (decl : ReactionDecl) (ns : Ident) : MacroM (Array Command) := do
   ReactionDecl.DependencyKind.allCases.mapM fun kind =>
@@ -90,7 +90,7 @@ def InjCoeGenDescription.sumTerms (descr : InjCoeGenDescription) : MacroM (Array
   descr.ids.mapM fun id => do
     match id.getId with
     | .str .anonymous l            => `(.inl .$(mkIdent l))
-    | .str (.str .anonymous rtr) l => `(.inr ⟨.$(mkIdent rtr), .$(mkIdent l)⟩)
+    | .str (.str .anonymous rtr) l => `(.inr ⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent l)⟩)
     | _                            => throwUnsupported 
 
 def InjCoeGenDescription.genInjectiveCoe (descr : InjCoeGenDescription) : MacroM Command := do
@@ -124,7 +124,7 @@ where
     )
 
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
-  `({ «offset» := $(decl.offset), «period» := $(decl.period) })
+  `({ «offset» := $(decl.offset), «period» := $(mkIdent `Timer.Period.of) $(decl.period) })
 
 def Reactor.InterfaceKind.name : Reactor.InterfaceKind → Name
   | .inputs  => `Input
@@ -186,19 +186,19 @@ def ReactorDecl.genConnections (decl : ReactorDecl) (isComplete : Bool) : MacroM
     { 
       source := fun subport => match subport with $[| $lhs => $rhs ]* 
       -- TODO: Find out why the default argument on `Connections` doesn't work here.
-      eqType := by intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp
+      eqType := sorry
     }
   )
 where 
-  inputTerms (decl : ReactorDecl) : MacroM (Array Term) := 
-    decl.connections.ids.mapM fun id => do
-      match id.getId with
-      | .str (.str .anonymous rtr) p => `(⟨.$(mkIdent rtr), .$(mkIdent p)⟩)
-      | _                            => throwUnsupported 
-  outputTerms (decl : ReactorDecl) : MacroM (Array Term) := do
+  inputTerms (decl : ReactorDecl) : MacroM (Array Term) := do 
     (← decl.connections.valueIdents).mapM fun id => do
       match id.getId with
-      | .str (.str .anonymous rtr) p => `(some ⟨.$(mkIdent rtr), .$(mkIdent p)⟩)
+      | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
+      | _                            => throwUnsupported 
+  outputTerms (decl : ReactorDecl) : MacroM (Array Term) :=
+    decl.connections.ids.mapM fun id => do
+      match id.getId with
+      | .str (.str .anonymous rtr) p => `(some ⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
       | _                            => throwUnsupported 
 
 def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do 
@@ -234,7 +234,6 @@ def NetworkDecl.genGraphInstance (decl : NetworkDecl) : MacroM Command := do
   `(
     abbrev $decl.graphIdent : Network.Graph where
     classes := $classEnumIdent
-    root := $(← decl.mainReactorClass)
     schemes $[| $(← decl.reactorNames.dotted) => $classSchemes]*
   )
 
@@ -277,6 +276,7 @@ def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
 def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `(
   abbrev $(decl.networkIdent) : Network where
     toGraph := $(decl.graphIdent)
+    root := $(← decl.mainReactorClass)
     «reactions» := $(← decl.genReactionInstanceMap)
     «connections» := $(← decl.genConnectionsMap)
 )
@@ -325,6 +325,7 @@ where
 
 partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Command := do 
   let executableIdent := mkIdentFrom decl.namespaceIdent (decl.namespaceIdent.getId ++ `executable)
+  let instancesIdent := mkIdent `instances
   let ⟨instanceIDs, rhs⟩ := Array.unzip <| ← (← decl.instancePaths).mapM fun ⟨path, «class»⟩ => do
     let id ← pathToID path
     let ns := decl.namespaceIdent.getId ++ `Parameters ++ (nameForInstancePath path)
@@ -336,23 +337,20 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       else `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
     let timerNames ← rtrDecl.timers.map (·.name) |>.dotted
     let initialTimerEvents ← timerNames.mapM fun timerName => `( 
-        match (instances $id).timer $timerName |>.initalFiring with
+        match ($instancesIdent $id).timer $timerName |>.initalFiring with
         | none => none
-        | some t => some <| .timer { 
-            id := { «reactor» := $id, timer := $timerName }
-            time := t
-          }
+        | some t => some <| .timer t { «reactor» := $id, timer := $timerName }
       )
     return (id, value, initialTimerEvents) 
   let ⟨instanceValues, initalTimerEvents⟩ := rhs.unzip
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Network.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
-      reactors := instances
+      reactors := $instancesIdent
       queue := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
       lawfulQueue := sorry
     where 
-      instances : (id : $(mkIdent `Network.ReactorID) $(decl.networkIdent)) → $(mkIdent `Network.Reactor) ($(decl.networkIdent).scheme id) 
+      $instancesIdent:ident : (id : $(mkIdent `Network.ReactorId) $(decl.networkIdent)) → $(mkIdent `Reactor) id.class 
         $[| $instanceIDs => $instanceValues]*
   )
 where
@@ -361,11 +359,12 @@ where
   pathToID (path : Array Name) : MacroM Term := do
     if path.isEmpty 
     then `(.nil)
-    else `(.cons .$(mkIdent path[0]!) <| $(← pathToID path[1:]))
+    else `(.cons ⟨.$(mkIdent path[0]!)⟩ <| $(← pathToID path[1:]))
 
+-- TODO: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/mkNullNode
 macro network:network_decl : command => do
   let network ← NetworkDecl.fromSyntax network
-  return mkNullNode <|
+  let commands := mkNullNode <|
     (← network.genInterfaceSchemes) ++ 
     [← network.genClassesEnum] ++
     (← network.genReactorSchemes) ++
@@ -377,3 +376,4 @@ macro network:network_decl : command => do
     (← network.genRootParameterDefs) ++
     (← network.genParameterDefs) ++
     [← network.genExecutableInstance]
+  return ⟨commands⟩

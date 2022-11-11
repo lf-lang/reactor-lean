@@ -22,7 +22,7 @@ instance : DecidableEq (Class graph) :=
 
 private def scheme (cls : Class graph) := graph.schemes cls
 
-def interface (cls : Class graph) := cls.scheme.interface
+abbrev interface (cls : Class graph) := cls.scheme.interface
 
 abbrev timers (cls : Class graph) := cls.scheme.timers
 
@@ -76,7 +76,7 @@ abbrev Subport.type (subport : Subport cls kind) : Type :=
 macro "eqTypeProof" : tactic => `(tactic| try (intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp))
 structure Connections (cls : Class graph) where 
   source : (Subport cls .input) → Option (Subport cls .output)
-  eqType : (source input = some output) → (input.type = output.type) := by eqTypeProof
+  eqType : (source input = some output) → (input.type = output.type) := by sorry -- eqTypeProof
 
 def Connections.empty : Connections cls where
   source _ := none

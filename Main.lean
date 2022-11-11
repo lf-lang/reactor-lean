@@ -1,86 +1,60 @@
 import Runtime
-
--- set_option trace.Elab.command true
-
+ 
 lf {
   reactor Main
-    parameters  []
-    inputs      []
-    outputs     []
-    actions     []
-    state       []
-    timers      []
-    nested      [c : Child := [xyz : Nat := 5]]
-    connections []
-    reactions   []
-
-  reactor Child
-    parameters  [xyz : Nat := 1]
-    inputs      []
-    outputs     []
-    actions     []
+    parameters  [p : (Nat × Nat) := (1, 2)]
+    inputs      [i : Int]
+    outputs     [o : Bool]
+    actions     [a : String]
     state       [s : Nat := 0]
-    timers      []
-    nested      [g : Grandchild := [a : Nat := xyz]]
-    connections []
+    timers      [
+      {
+        name t
+        offset 0
+        period 0
+      }  
+    ]
+    nested      [
+      n₁ : Nest := [pn : String := "first"], 
+      n₂ : Nest := [pn : String := "second"]
+    ]
+    connections [n₁.o : n₂.i]
     reactions   [
       {
-        portSources   []
-        portEffects   []
-        actionSources []
-        actionEffects []
+        portSources   [i, n₂.o]
+        portEffects   [o, n₁.i]
+        actionSources [a]
+        actionEffects [a]
         triggers {
-          ports   []
-          actions []
-          timers  []
-          meta    [startup]
+          ports   [i]
+          actions [a]
+          timers  [t]
+          meta    [startup, shutdown]
         }
         body {
-          monadLift <| IO.println s!"c: {← getParam xyz}"
+          let w ← getState s
+          let x ← getInput i
+          let y ← getInput n₂.o
+          let z ← getAction ActionSource.a
+          let p ← getParam p
+          let t ← getTag
+          let l ← getLogicalTime
+          let q ← getPhysicalTime
+          setOutput o true
+          setOutput n₁.i (-1 : Int)
+          schedule ActionEffect.a (.of 10 .s) "hello"
         }
       }
     ]
 
-  reactor Grandchild
-    parameters  [a : Nat := 1]
-    inputs      []
-    outputs     []
+  reactor Nest
+    parameters  [pn : String := ""]
+    inputs      [i : Int]
+    outputs     [o : Bool]
     actions     []
     state       []
-    timers      [ 
-      { 
-        name t 
-        offset (.of 5 .s) 
-        period some (.of a .s) 
-      } 
-    ]
+    timers      []
     nested      []
     connections []
-    reactions   [
-      {
-        portSources   []
-        portEffects   []
-        actionSources []
-        actionEffects []
-        triggers {
-          ports   []
-          actions []
-          timers  [t]
-          meta    [startup]
-        }
-        body {
-          return
-          -- monadLift <| IO.println s!"g: {← getParam a}"
-        }
-      }
-    ]
-}
-
-def main : IO Unit := do
-  let exec := LF.executable (← Time.now)
-  let topo : Array (Network.ReactionID LF.network) := #[
-    ⟨.cons .c <| .nil,             ⟨0, by simp⟩⟩, 
-    ⟨.cons .c <| .cons .g <| .nil, ⟨0, by simp⟩⟩
-  ]
-  exec.run topo 0
- 
+    reactions   []
+} 

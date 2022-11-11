@@ -27,12 +27,12 @@ theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix? = pat
   case mpr =>
     intro h
     by_cases hp : path₁.prefix?.isSome
-    case inr =>
+    case neg =>
       have hc₁ := isNil_iff_not_isCons.mpr <| mt prefix?_isSome_iff_isCons.mpr hp; simp at hc₁
       rw [h] at hp
       have hc₂ := isNil_iff_not_isCons.mpr <| mt prefix?_isSome_iff_isCons.mpr hp; simp at hc₂
       simp [hc₁, hc₂, Sibling.nil]
-    case inl =>
+    case pos =>
       have ⟨_, hp₁⟩ := Option.isSome_def.mp hp
       rw [h] at hp
       have ⟨_, hp₂⟩ := Option.isSome_def.mp hp

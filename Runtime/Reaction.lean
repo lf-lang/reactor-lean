@@ -83,14 +83,22 @@ def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σ
   fun input => return (input.noop, input.ports port)
 
 def ReactionSatisfiesM
-  (σPortSource σPortEffect σActionSource σActionEffect σState σParam) 
   (val : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam α) 
   (input : Input σPortSource σActionSource σState σParam)
   (p : (Output σPortEffect σActionEffect σState input.tag.time × α) → Prop) :=
   SatisfiesM (α := (Output σPortEffect σActionEffect σState input.tag.time) × _) p (val input)
 
 set_option hygiene false
-macro val:term " -[" i:term "]→ " p:term : term => `(ReactionSatisfiesM σPortSource σPortEffect σActionSource σActionEffect σState σParam $val $i $p)
+local macro val:term " -[" i:term "]→ " p:term : term => `(
+  ReactionSatisfiesM 
+    (σPortSource := σPortSource) 
+    (σPortEffect := σPortEffect)
+    (σActionSource := σActionSource)
+    (σActionEffect := σActionEffect)
+    (σState := σState)
+    (σParam := σParam)
+    $val $i $p
+)
 
 macro "rcn_rfl" : tactic => `(tactic| exists return ⟨(input.noop, _), by first | rfl | simp⟩)
 

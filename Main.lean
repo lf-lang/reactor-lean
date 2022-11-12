@@ -40,6 +40,7 @@ lf {
           let t ← getTag
           let l ← getLogicalTime
           let q ← getPhysicalTime
+          setState s w
           setOutput o true
           setOutput n₁.i (-1 : Int)
           schedule ActionEffect.a (.of 10 .s) "hello"
@@ -58,3 +59,18 @@ lf {
     connections []
     reactions   []
 } 
+
+macro val:term " -[" i:term "]→ " p:term : term => `(ReactionM.ReactionSatisfiesM $val $i $p)
+
+-- TODO: Have the reactions array contain the bodies, not the reaction.
+open LF ReactionM
+example : Main.reactions[0].body -[input]→ 
+  (·.fst.state .s = ReactionM.Input.state input Main.State.s) := by
+  let output := do
+    setOutput .o true
+    setOutput .n₁.i (-1 : Int)
+    schedule  .a (.of 10 .s) sorry
+  let x := output input
+  exists (return ⟨x, by sorry⟩)
+  sorry
+

@@ -261,6 +261,14 @@ def NetworkDecl.genReactorSchemes (decl : NetworkDecl) : MacroM (Array Command) 
 def NetworkDecl.genReactionDependencyEnums (decl : NetworkDecl) : MacroM (Array Command) := do
   decl.reactors.concatMapM (·.genReactionDependencyEnums decl.namespaceIdent)
 
+-- For user proofs.
+def NetworkDecl.genReactionDefs (decl : NetworkDecl) : MacroM (Array Command) :=
+  decl.reactors.mapM fun rtr => do
+    let rcns ← rtr.genReactionInstances decl.namespaceIdent
+    let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ `reactions
+    let rcnType : Term ← `(@Network.Graph.Class.reactionType $(mkIdent <| decl.namespaceIdent.getId ++ `graph) .$(mkIdent rtr.name.getId))
+    `(def $defName : Array $rcnType := $rcns)
+
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
   let instanceArrays ← decl.reactors.mapM (·.genReactionInstances decl.namespaceIdent)
@@ -375,5 +383,6 @@ macro network:network_decl : command => do
     (← network.genDefaultParameterDefs) ++
     (← network.genRootParameterDefs) ++
     (← network.genParameterDefs) ++
-    [← network.genExecutableInstance]
+    [← network.genExecutableInstance] ++
+    (← network.genReactionDefs)
   return ⟨commands⟩

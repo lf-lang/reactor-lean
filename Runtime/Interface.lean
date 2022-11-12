@@ -10,14 +10,6 @@ structure Scheme where
 attribute [reducible] Scheme.type
 attribute [instance] Scheme.varsDecidableEq
 
-abbrev Scheme.restrict (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCoe Sub σ.vars] : Scheme where
-  vars := Sub
-  type var := σ.type var
-
-@[simp]
-theorem Scheme.restrict_type (σ : Scheme) (Sub : Type) [DecidableEq Sub] [InjectiveCoe Sub σ.vars] (var : Sub) : 
-  (σ.restrict Sub).type var = σ.type var := rfl
-
 abbrev Scheme.union (σ₁ σ₂ : Scheme) : Scheme where
   vars := Sum σ₁.vars σ₂.vars
   type
@@ -49,6 +41,16 @@ theorem Scheme.bUnion_vars (σs : I → Scheme) [DecidableEq I] :
 theorem Scheme.bUnion_type (σs : I → Scheme) [DecidableEq I] (var : (σs i).vars) : 
   (⨄ σs).type ⟨i, var⟩ = (σs i).type var := rfl
 
+class Subscheme (σ₁ σ₂ : Scheme) where
+  coe       : σ₁.vars → σ₂.vars
+  inv       : σ₂.vars → Option σ₁.vars
+  invInj    : ∀ {a b₁ b₂}, (inv b₁ = some a) → (inv b₂ = some a) → (b₁ = b₂)
+  coeInvId  : ∀ a, inv (coe a) = a
+  coeEqType : ∀ {v}, σ₂.type (coe v) = σ₁.type v 
+
+theorem Subscheme.invEqType [inst : Subscheme σ₁ σ₂] : ∀ {b}, (inst.inv b = some a) → (σ₁.type a = σ₂.type b) := 
+  fun h => by rw [←inst.coeEqType (v := a), inst.invInj h (inst.coeInvId a)]
+
 end Interface
 
 def Interface (σ : Interface.Scheme) := (var : σ.vars) → (σ.type var)
@@ -71,7 +73,7 @@ def Interface?.isPresent (i : Interface? σ) (var : σ.vars) : Bool :=
 
 @[simp]
 theorem Interface?.isPresent_def (i : Interface? σ) : i.isPresent var ↔ ∃ v, i var = some v := by
-  simp [isPresent, Option.isSome_def]
+  simp [isPresent, Option.isSome_iff_exists]
 
 -- Merge i₂ into i₁.
 def Interface?.merge (i₁ i₂ : Interface? σ) : Interface? σ :=
@@ -82,3 +84,6 @@ theorem Interface?.merge_val₁ (i₁ i₂ : Interface? σ) : (i₂ var = none) 
 
 theorem Interface?.merge_val₂ (i₁ i₂ : Interface? σ) : (i₂ var = some v) → (i₁.merge i₂) var = some v := by
   simp_all [merge, Option.orElse]
+
+def Interface?.restrict [inst : Interface.Subscheme σ₁ σ₂] (i : Interface? σ₂) : Interface? σ₁ := 
+  fun var => inst.coeEqType ▸ i (inst.coe var)

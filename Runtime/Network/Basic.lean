@@ -3,7 +3,7 @@ import Runtime.Network.Graph
 open Network Graph in
 structure Network extends Graph where
   root        : Class toGraph
-  reactions   : (cls : Class toGraph) → Array cls.reactionType
+  reactions   : (cls : Class toGraph) → Array (Class.ReactionType cls)
   connections : (cls : Class toGraph) → Class.Connections cls
 
 namespace Network
@@ -44,7 +44,7 @@ abbrev ReactionId.reaction (id : ReactionId net) :=
   id.reactor.class.reactions[id.reactionIdx]
 
 def ReactionId.affects (id : ReactionId net) (port : (id.reactor.class.interface .outputs).vars) : Bool :=
-  id.reaction.portEffectsInjCoe.inv (.inl port) |>.isSome
+  id.reaction.subPE.inv (.inl port) |>.isSome
 
 structure TimerId (net : Network) where
   reactor : ReactorId net

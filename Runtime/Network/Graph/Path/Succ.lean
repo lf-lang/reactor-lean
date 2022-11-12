@@ -8,11 +8,11 @@ def Succ (path₁ path₂ : Path graph start) :=
 infix:35 " ≻ " => Succ
 
 theorem Succ.isCons : (path₁ ≻ path₂) → path₁.isCons :=
-  fun h => prefix?_isSome_iff_isCons.mp (Option.isSome_def.mpr ⟨_, h⟩)
+  fun h => prefix?_isSome_iff_isCons.mp (Option.isSome_iff_exists.mpr ⟨_, h⟩)
 
 theorem Succ.isCons' : (cons c₁ (cons c₂ path₁) ≻ path₂) → path₂.isCons := by
   intro h
-  have ⟨subpath, hp⟩ := prefix?_isSome_iff_isCons.mpr (@isCons_of_cons _ _ c₂ path₁) |> Option.isSome_def.mp
+  have ⟨subpath, hp⟩ := prefix?_isSome_iff_isCons.mpr (@isCons_of_cons _ _ c₂ path₁) |> Option.isSome_iff_exists.mp
   simp [Succ, prefix?, hp] at h
   simp [isCons_def]
   exists c₁, subpath
@@ -31,7 +31,7 @@ instance : Decidable (path₁ ≻ path₂) :=
 theorem Succ.cons (path₁) : ∃ path₂, (cons child path₁) ≻ path₂ := by
   cases h : (Path.cons child path₁).prefix?
   case none =>
-    have h : ¬(Path.cons child path₁).prefix?.isSome := by simp_all [Option.isSome_def]
+    have h : ¬(Path.cons child path₁).prefix?.isSome := by simp_all [Option.isSome_iff_exists]
     have := mt prefix?_isSome_iff_isCons.mpr h
     contradiction
   case some pre => exists pre

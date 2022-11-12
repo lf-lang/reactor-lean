@@ -1,7 +1,6 @@
 import Runtime.Time
 import Runtime.Interface
 import Runtime.Utilities
-import Std
 
 namespace ReactionM
 
@@ -77,7 +76,6 @@ instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σAc
     match io world with 
     | .error e world' => .error e world'
     | .ok    a world' => .ok (input.noop, a) world'
-
 
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)
@@ -195,40 +193,34 @@ inductive Reaction.Trigger (Port Action Timer : Type)
   | action (a : Action)
   | timer (t : Timer)
 
-structure _root_.Reaction (σInput σOutput σAction σState σParam : Interface.Scheme) (TimerNames : Type) where
-  portSources : Type
-  portEffects : Type 
-  actionSources : Type
-  actionEffects : Type
-  triggers : Array (Reaction.Trigger portSources actionSources TimerNames)
-  [portSourcesDecEq : DecidableEq portSources]
-  [portEffectsDecEq : DecidableEq portEffects]
-  [actionSourcesDecEq : DecidableEq actionSources]
-  [actionEffectsDecEq : DecidableEq actionEffects]
-  [portSourcesInjCoe : InjectiveCoe portSources σInput.vars]
-  [portEffectsInjCoe : InjectiveCoe portEffects σOutput.vars]
-  [actionSourcesInjCoe : InjectiveCoe actionSources σAction.vars]
-  [actionEffectsInjCoe : InjectiveCoe actionEffects σAction.vars]
-  body : ReactionM (σInput.restrict portSources) (σOutput.restrict portEffects) (σAction.restrict actionSources) (σAction.restrict actionEffects) σState σParam Unit
+structure _root_.Reaction (σState σParam : Interface.Scheme) (TimerNames : Type) where
+  portSources : Interface.Scheme
+  portEffects : Interface.Scheme
+  actionSources : Interface.Scheme
+  actionEffects : Interface.Scheme
+  triggers : Array (Reaction.Trigger portSources.vars actionSources.vars TimerNames)
+  body : ReactionM portSources portEffects actionSources actionEffects σState σParam Unit
 
 namespace Reaction
 
-attribute [instance] portSourcesDecEq portEffectsDecEq actionSourcesDecEq actionEffectsDecEq portSourcesInjCoe portEffectsInjCoe actionSourcesInjCoe actionEffectsInjCoe
+abbrev inputType (rcn : Reaction σState σParam TimerNames) :=
+  ReactionM.Input rcn.portSources rcn.actionSources σState σParam
 
-def outputType (rcn : Reaction σInput σOutput σAction σState σParam TimerNames) :=
-  ReactionM.Output (σOutput.restrict rcn.portEffects) (σAction.restrict rcn.actionEffects) σState 
+abbrev outputType (rcn : Reaction σState σParam TimerNames) :=
+  ReactionM.Output rcn.portEffects rcn.actionEffects σState 
+
+abbrev bodyType (rcn : Reaction σState σParam TimerNames) :=
+  ReactionM rcn.portSources rcn.portEffects rcn.actionSources rcn.actionEffects σState σParam Unit
 
 def run 
-  (rcn : Reaction σInput σOutput σAction σState σParam TimerNames) 
-  (inputs : Interface? σInput) (actions : Interface? σAction) 
-  (state : Interface σState) (params : Interface σParam) 
-  (tag : Tag) (physicalOffset : Duration) : 
-  IO (rcn.outputType tag.time) := do
-  let ⟨output, _⟩ ← rcn.body { 
-    ports := (inputs ·), actions := (actions ·), 
-    state := state, params := params, 
-    tag := tag, physicalOffset := physicalOffset 
-  }
-  return output
+  (rcn : Reaction σState σParam TimerNames) 
+  (inputs : Interface? rcn.portSources) 
+  (actions : Interface? rcn.actionSources) 
+  (state : Interface σState) 
+  (params : Interface σParam) 
+  (tag : Tag) 
+  (physicalOffset : Duration) : 
+  IO (rcn.outputType tag.time) :=
+  Prod.fst <$> rcn.body { ports := inputs, actions, state, params, tag, physicalOffset }
 
 end Reaction

@@ -10,11 +10,18 @@ def reactionInputs (exec : Executable net) (reactor : ReactorId net) : Interface
   | .inl localInput           => exec.interface reactor .inputs localInput
   | .inr ⟨child, childOutput⟩ => open Graph Path Class in reactionInputScheme_right_type_eq_extend_child_type ▸ exec.interface (reactor.extend child) .outputs (extend_class ▸ childOutput)
 
-def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : reactor.class.reactionType) : Bool :=
-  reaction.triggers.any fun trigger =>
+def runRcn (exec : Executable net) {reactor : ReactorId net} (reaction : Graph.Class.ReactionType reactor.class) := do
+  let ports   := exec.reactionInputs reactor |>.restrict
+  let actions := exec.interface reactor .actions |>.restrict
+  let state   := exec.interface reactor .state
+  let params  := exec.interface reactor .params
+  reaction.val.run ports actions state params exec.tag exec.physicalOffset
+
+def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Graph.Class.ReactionType reactor.class) : Bool :=
+  reaction.val.triggers.any fun trigger =>
     match trigger with
-    | .port   port   => exec.reactionInputs reactor     |>.isPresent port
-    | .action action => exec.interface reactor .actions |>.isPresent action
+    | .port   port   => exec.reactionInputs reactor     |>.isPresent (reaction.subPS.coe port)
+    | .action action => exec.interface reactor .actions |>.isPresent (reaction.subAS.coe action)
     | .timer  timer  => exec.timer reactor timer        |>.firesAtTag exec.tag
     | .startup       => exec.isStartingUp
     | .shutdown      => exec.isShuttingDown
@@ -48,20 +55,18 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
   | none => 
     unless exec.isShuttingDown do
       match Next.for exec with
-      | none => run exec.prepareForShutdown topo 0
+      | none      => run exec.prepareForShutdown topo 0
       | some next => run (exec.advance next) topo 0
   | some reactionId =>
     IO.sleepUntil exec.absoluteTime
     let mut exec := exec
     let reaction := reactionId.reaction
     if exec.triggers reaction then
-      let reactor := reactionId.reactor
-      let ports   := exec.reactionInputs reactor
-      let actions := exec.interface reactor .actions
-      let state   := exec.interface reactor .state
-      let params  := exec.interface reactor .params
-      let output ← reaction.run ports actions state params exec.tag exec.physicalOffset
-      exec := exec.apply (.fromRaw output) |>.propagate reactionId
+      exec := 
+        (← exec.runRcn reaction)
+        |> ReactionOutput.fromRaw
+        |> exec.apply
+        |>.propagate reactionId 
     run exec topo (reactionIdx + 1)
 
 end Network.Executable

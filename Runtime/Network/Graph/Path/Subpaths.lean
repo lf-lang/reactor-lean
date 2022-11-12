@@ -40,8 +40,8 @@ theorem prefix?_isSome_iff_isCons {path : Path graph start} : path.prefix?.isSom
       case nil => simp [prefix?, Option.isSome]
       case cons child₂ subpath₂ => 
         specialize hi isCons_of_cons
-        have ⟨subpath, hi⟩ := Option.isSome_def.mp hi
-        simp [prefix?, hi, Option.isSome_def]
+        have ⟨subpath, hi⟩ := Option.isSome_iff_exists.mp hi
+        simp [prefix?, hi, Option.isSome_iff_exists]
         exists .cons child₁ subpath
 
 def snd (path : Path graph start) (_ : path.isCons) : Class.Child start :=

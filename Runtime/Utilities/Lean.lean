@@ -1,21 +1,7 @@
-theorem Option.isSome_def : a?.isSome ↔ ∃ a, a? = some a := by
-  rw [Option.isSome]
-  split <;> simp
-  · exists ‹_›
-  · intro ⟨_, _⟩; contradiction
-
-theorem Nat.zero_div_eq_zero : 0 / n = 0 := by
-  induction n
-  case zero => simp
-  case succ => rw [div_eq]; split <;> simp_all
-
-theorem Nat.mul_div_same_eq : (n : Nat) * m / m = n := by
-  induction n generalizing m
-  case zero => simp [zero_div_eq_zero]
-  case succ n hi => rw [Nat.mul_comm, mul_succ]; sorry
+import Std
 
 theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSome ↔ ¬as.isEmpty := by
-  simp [Array.isEmpty, Option.isSome_def, getElem?]
+  simp [Array.isEmpty, Option.isSome_iff_exists, getElem?]
   constructor
   case mp => 
     intro ⟨_, h⟩

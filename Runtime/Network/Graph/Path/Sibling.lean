@@ -33,9 +33,9 @@ theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix? = pat
       have hc₂ := isNil_iff_not_isCons.mpr <| mt prefix?_isSome_iff_isCons.mpr hp; simp at hc₂
       simp [hc₁, hc₂, Sibling.nil]
     case pos =>
-      have ⟨_, hp₁⟩ := Option.isSome_def.mp hp
+      have ⟨_, hp₁⟩ := Option.isSome_iff_exists.mp hp
       rw [h] at hp
-      have ⟨_, hp₂⟩ := Option.isSome_def.mp hp
+      have ⟨_, hp₂⟩ := Option.isSome_iff_exists.mp hp
       simp_all
       exact Sibling.cons hp₁ hp₂
 

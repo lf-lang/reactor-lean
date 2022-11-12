@@ -3,6 +3,10 @@ import Runtime.DSL.Extensions
 import Lean
 open Lean Macro
 
+-- TODO: 
+-- 1. Generate interface schemes for each reaction's 4 kinds of dependencies.
+-- 2. Generate `Subscheme` instances for each of these dependencies.
+
 def InterfaceVar.genDefaultValue (var : InterfaceVar) : MacroM Term := do
   match var.default with
   | some default => `(($default : $(var.value)))
@@ -54,7 +58,7 @@ def ReactionDecl.genTriggers (decl : ReactionDecl) : MacroM Term := do
 
 def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ident) (reactionName : Name) : MacroM Term := do
   let reactionIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId ++ reactionName) 
-  `({
+  `(⟨{
       «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource))
       «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect))
       «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource))
@@ -65,7 +69,7 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
                      $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
                      $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
                      in do $(decl.body)
-  })
+  }⟩)
 
 structure InjCoeGenDescription where
   dependencyKind : ReactionDecl.DependencyKind
@@ -378,7 +382,7 @@ macro network:network_decl : command => do
     (← network.genReactorSchemes) ++
     [← network.genGraphInstance] ++
     (← network.genReactionDependencyEnums) ++
-    (← network.genInjectiveCoes) ++
+    -- (← network.genInjectiveCoes) ++
     [← network.genNetworkInstance] ++
     (← network.genDefaultParameterDefs) ++
     (← network.genRootParameterDefs) ++

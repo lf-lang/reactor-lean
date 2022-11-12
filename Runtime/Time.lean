@@ -49,7 +49,7 @@ def Time.to (time : Time) (scale : Scale) : Nat :=
 
 theorem Time.of_to : (Time.of value scale).to scale = value := by
   simp [of, to, Scale.nsRatio]
-  cases scale <;> simp only [Nat.mul_div_same_eq] 
+  cases scale <;> simp only [Nat.mul_div_cancel] 
 
 def Time.now : IO Time := 
   return { ns := ← IO.monoNanosNow }

@@ -15,10 +15,11 @@ def apply (exec : Executable net) (output : ReactionOutput exec) : Executable ne
 where 
   container (output : ReactionOutput exec) : (kind : Reactor.InterfaceKind) → kind.interfaceType (output.reactor.class.interface kind)
     | .outputs => fun var => (output.local var).orElse (fun _ => exec.interface output.reactor .outputs var)
-    | .state => output.raw.state
-    | _ => exec.interface output.reactor _
+    | .state   => output.reaction.eqState ▸ output.raw.state
+    | _        => exec.interface output.reactor _
+
   child (output : ReactionOutput exec) (child : ReactorId.Child output.reactor) : (kind : Reactor.InterfaceKind) → kind.interfaceType ((child : ReactorId net).class.interface kind)
     | .inputs => fun var => (output.child var).orElse (fun _ => exec.interface child .inputs var)
-    | _ => exec.interface child _
+    | _       => exec.interface child _
 
 end Network.Executable

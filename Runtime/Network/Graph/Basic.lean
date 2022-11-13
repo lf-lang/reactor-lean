@@ -60,14 +60,17 @@ abbrev reactionOutputScheme (cls : Class graph) :=
   localOutputs ⊎ nestedInputs
 
 open Interface in
-structure ReactionType (cls : Class graph) where
-  val : Reaction (cls.interface .state) (cls.interface .params) cls.scheme.timers
+structure Reaction (cls : Class graph) where
+  val : Reaction
   [subPS : Subscheme val.portSources cls.reactionInputScheme]
   [subPE : Subscheme val.portEffects cls.reactionOutputScheme]
   [subAS : Subscheme val.actionSources (cls.interface .actions)]
   [subAE : Subscheme val.actionEffects (cls.interface .actions)]
+  eqState  : cls.interface .state  = val.state  := by rfl
+  eqParams : cls.interface .params = val.params := by rfl
+  eqTimers : cls.timers = val.timers            := by rfl
 
-open ReactionType in
+open Reaction in
 attribute [instance] subPS subPE subAS subAE
 
 structure Subport (cls : Class graph) (kind : Reactor.PortKind) where

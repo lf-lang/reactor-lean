@@ -23,13 +23,15 @@ structure Input (σPortSource σActionSource σState σParam : Interface.Scheme)
   tag            : Tag
   physicalOffset : Duration
 
+abbrev Input.time (input : Input σPortSource σActionSource σState σParam) := input.tag.time
+
 structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min : Time) where
   ports  : Interface? σPortEffect := Interface?.empty
   state  : Interface σState
   events : SortedArray (Event σActionEffect min) := #[]#
 
 def _root_.ReactionM (σPortSource σPortEffect σActionSource σActionEffect σState σParam : Interface.Scheme) (α : Type) := 
-  (input : Input σPortSource σActionSource σState σParam) → IO (Output σPortEffect σActionEffect σState input.tag.time × α)
+  (input : Input σPortSource σActionSource σState σParam) → IO (Output σPortEffect σActionEffect σState input.time × α)
 
 def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σState time) : Output σPortEffect σActionEffect σState time where
   ports  := o₁.ports.merge o₂.ports
@@ -45,7 +47,7 @@ theorem Output.merge_state : (Output.merge o₁ o₂).state = o₂.state := rfl
 @[simp]
 theorem Output.merge_events : (Output.merge o₁ o₂).events = o₁.events.merge o₂.events := rfl
 
-def Input.noop (input : Input σPortSource σActionSource σState σParam) : Output σPortEffect σActionEffect σState input.tag.time where 
+def Input.noop (input : Input σPortSource σActionSource σState σParam) : Output σPortEffect σActionEffect σState input.time where 
   state := input.state 
 
 @[simp]
@@ -83,8 +85,8 @@ def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σ
 def ReactionSatisfiesM
   (val : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam α) 
   (input : Input σPortSource σActionSource σState σParam)
-  (p : (Output σPortEffect σActionEffect σState input.tag.time × α) → Prop) :=
-  SatisfiesM (α := (Output σPortEffect σActionEffect σState input.tag.time) × _) p (val input)
+  (p : (Output σPortEffect σActionEffect σState input.time × α) → Prop) :=
+  SatisfiesM (α := (Output σPortEffect σActionEffect σState input.time) × _) p (val input)
 
 set_option hygiene false
 local macro val:term " -[" i:term "]→ " p:term : term => `(
@@ -125,7 +127,7 @@ theorem getTag_def : getTag -[input]→ (·.snd = input.tag) := by rcn_rfl
 def getLogicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam Time := do
   return (← getTag).time
 
-theorem getLogicalTime_def : getLogicalTime -[input]→ (·.snd = input.tag.time) := by rcn_rfl
+theorem getLogicalTime_def : getLogicalTime -[input]→ (·.snd = input.time) := by rcn_rfl
   
 -- TODO: Figure out how composition of `SatisfiesM`s works.
 theorem getLogicalTime_def' : 
@@ -174,14 +176,14 @@ theorem setState_eq_old_val : (setState stv v) -[input]→ (fun out => ∀ stv',
 
 def schedule (action : σActionEffect.vars) (delay : Duration) (v : σActionEffect.type action) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam Unit := 
   fun input => 
-    let time := input.tag.time.advance delay
+    let time := input.time.advance delay
     let event := { action, time, value := v }
     let output := { state := input.state, events := #[event]# }
     return (output, ())
 
-theorem schedule_def : (schedule action delay v) -[input]→ (·.fst.events = #[⟨action, v, input.tag.time.advance delay⟩]#) := by
+theorem schedule_def : (schedule action delay v) -[input]→ (·.fst.events = #[⟨action, v, input.time.advance delay⟩]#) := by
   exists do
-    let time := input.tag.time.advance delay
+    let time := input.time.advance delay
     return ⟨({ state := input.state, events := #[{ action, time, value := v }]# }, ()), by simp⟩
 
 end ReactionM
@@ -193,34 +195,29 @@ inductive Reaction.Trigger (Port Action Timer : Type)
   | action (a : Action)
   | timer (t : Timer)
 
-structure _root_.Reaction (σState σParam : Interface.Scheme) (TimerNames : Type) where
-  portSources : Interface.Scheme
-  portEffects : Interface.Scheme
+structure _root_.Reaction where
+  portSources   : Interface.Scheme
+  portEffects   : Interface.Scheme
   actionSources : Interface.Scheme
   actionEffects : Interface.Scheme
-  triggers : Array (Reaction.Trigger portSources.vars actionSources.vars TimerNames)
-  body : ReactionM portSources portEffects actionSources actionEffects σState σParam Unit
+  state         : Interface.Scheme
+  params        : Interface.Scheme
+  timers        : Type
+  triggers      : Array (Reaction.Trigger portSources.vars actionSources.vars timers)
+  body          : ReactionM portSources portEffects actionSources actionEffects state params Unit
 
 namespace Reaction
 
-abbrev inputType (rcn : Reaction σState σParam TimerNames) :=
-  ReactionM.Input rcn.portSources rcn.actionSources σState σParam
+abbrev inputType (rcn : Reaction) :=
+  ReactionM.Input rcn.portSources rcn.actionSources rcn.state rcn.params
 
-abbrev outputType (rcn : Reaction σState σParam TimerNames) :=
-  ReactionM.Output rcn.portEffects rcn.actionEffects σState 
+abbrev outputType (rcn : Reaction) :=
+  ReactionM.Output rcn.portEffects rcn.actionEffects rcn.state 
 
-abbrev bodyType (rcn : Reaction σState σParam TimerNames) :=
-  ReactionM rcn.portSources rcn.portEffects rcn.actionSources rcn.actionEffects σState σParam Unit
+abbrev bodyType (rcn : Reaction) :=
+  ReactionM rcn.portSources rcn.portEffects rcn.actionSources rcn.actionEffects rcn.state rcn.params Unit
 
-def run 
-  (rcn : Reaction σState σParam TimerNames) 
-  (inputs : Interface? rcn.portSources) 
-  (actions : Interface? rcn.actionSources) 
-  (state : Interface σState) 
-  (params : Interface σParam) 
-  (tag : Tag) 
-  (physicalOffset : Duration) : 
-  IO (rcn.outputType tag.time) :=
-  Prod.fst <$> rcn.body { ports := inputs, actions, state, params, tag, physicalOffset }
+def run (rcn : Reaction) (input : rcn.inputType) : IO (rcn.outputType input.time) := 
+  Prod.fst <$> rcn.body input
 
 end Reaction

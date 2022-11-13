@@ -4,25 +4,30 @@ import Runtime.Network.Execution.Propagate
 
 namespace Network.Executable
 
+open Graph Class
+
 -- TODO?: Refactor this à la `Reaction.Output.LocalValue` and `Reaction.Output.local`.
--- An interface for all ports (local and nested) that can act as inputs of reactions of a given reactor.
+-- An interface for all ports (local and nested) that can act as sources of reactions of a given reactor.
 def reactionInputs (exec : Executable net) (reactor : ReactorId net) : Interface? reactor.class.reactionInputScheme
   | .inl localInput           => exec.interface reactor .inputs localInput
-  | .inr ⟨child, childOutput⟩ => open Graph Path Class in reactionInputScheme_right_type_eq_extend_child_type ▸ exec.interface (reactor.extend child) .outputs (extend_class ▸ childOutput)
+  | .inr ⟨child, childOutput⟩ => Path.reactionInputScheme_right_type_eq_extend_child_type ▸ exec.interface (reactor.extend child) .outputs (Path.extend_class ▸ childOutput)
 
-def runRcn (exec : Executable net) {reactor : ReactorId net} (reaction : Graph.Class.ReactionType reactor.class) := do
-  let ports   := exec.reactionInputs reactor |>.restrict
-  let actions := exec.interface reactor .actions |>.restrict
-  let state   := exec.interface reactor .state
-  let params  := exec.interface reactor .params
-  reaction.val.run ports actions state params exec.tag exec.physicalOffset
+def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
+  reaction.val.run {
+    ports          := exec.reactionInputs reactor     |>.restrict
+    actions        := exec.interface reactor .actions |>.restrict
+    state          := reaction.eqState  ▸ exec.interface reactor .state
+    params         := reaction.eqParams ▸ exec.interface reactor .params
+    tag            := exec.tag
+    physicalOffset := exec.physicalOffset
+  }
 
-def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Graph.Class.ReactionType reactor.class) : Bool :=
+def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Bool :=
   reaction.val.triggers.any fun trigger =>
     match trigger with
-    | .port   port   => exec.reactionInputs reactor     |>.isPresent (reaction.subPS.coe port)
-    | .action action => exec.interface reactor .actions |>.isPresent (reaction.subAS.coe action)
-    | .timer  timer  => exec.timer reactor timer        |>.firesAtTag exec.tag
+    | .port   port   => exec.reactionInputs reactor                    |>.isPresent (reaction.subPS.coe port)
+    | .action action => exec.interface reactor .actions                |>.isPresent (reaction.subAS.coe action)
+    | .timer  timer  => exec.timer reactor (reaction.eqTimers ▸ timer) |>.firesAtTag exec.tag
     | .startup       => exec.isStartingUp
     | .shutdown      => exec.isShuttingDown
 
@@ -63,7 +68,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
     let reaction := reactionId.reaction
     if exec.triggers reaction then
       exec := 
-        (← exec.runRcn reaction)
+        (← exec.fire reaction)
         |> ReactionOutput.fromRaw
         |> exec.apply
         |>.propagate reactionId 

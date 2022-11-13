@@ -42,8 +42,8 @@ lf {
           let q ← getPhysicalTime
           setState s w
           setOutput o true
-          setOutput n₁.i (-1 : Int)
-          schedule ActionEffect.a (.of 10 .s) "hello"
+          setOutput n₁.i (-1)
+          schedule a (.of 10 .s) "hello"
         }
       }
     ]
@@ -64,7 +64,7 @@ macro val:term " -[" i:term "]→ " p:term : term => `(ReactionM.ReactionSatisfi
 
 -- TODO: Have the reactions array contain the bodies, not the reaction.
 open LF ReactionM
-example : Main.reactions[0].body -[input]→ 
+example : Main.reactions[0].val.body -[input]→ 
   (·.fst.state .s = ReactionM.Input.state input Main.State.s) := by
   let output := do
     setOutput .o true

@@ -3,7 +3,7 @@ import Runtime.Network.Graph
 open Network Graph in
 structure Network extends Graph where
   root        : Class toGraph
-  reactions   : (cls : Class toGraph) → Array (Class.ReactionType cls)
+  reactions   : (cls : Class toGraph) → Array (Class.Reaction cls)
   connections : (cls : Class toGraph) → Class.Connections cls
 
 namespace Network

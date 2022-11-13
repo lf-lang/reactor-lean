@@ -2,18 +2,18 @@ import Runtime.Network.Execution.Basic
 
 namespace Network.Executable
 
-open Graph.Class
+open Graph.Class (Reaction)
 
 structure ReactionOutput (exec : Executable net) where
   reactor : ReactorId net
-  reaction : ReactionType reactor.class
+  reaction : Reaction reactor.class
   raw : reaction.val.outputType exec.tag.time
 
 namespace ReactionOutput
 
 variable {exec : Executable net}
 
-def fromRaw {reactor : ReactorId net} {reaction : ReactionType reactor.class} (raw : reaction.val.outputType exec.tag.time) : ReactionOutput exec :=
+def fromRaw {reactor : ReactorId net} {reaction : Reaction reactor.class} (raw : reaction.val.outputType exec.tag.time) : ReactionOutput exec :=
   { reactor, reaction, raw }
 
 def events (output : ReactionOutput exec) :=

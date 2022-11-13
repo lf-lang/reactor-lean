@@ -3,10 +3,6 @@ import Runtime.DSL.Extensions
 import Lean
 open Lean Macro
 
--- TODO: 
--- 1. Generate interface schemes for each reaction's 4 kinds of dependencies.
--- 2. Generate `Subscheme` instances for each of these dependencies.
-
 def InterfaceVar.genDefaultValue (var : InterfaceVar) : MacroM Term := do
   match var.default with
   | some default => `(($default : $(var.value)))
@@ -42,36 +38,43 @@ def ReactionDecl.DependencyKind.name : ReactionDecl.DependencyKind → Name
   | .actionSource => `ActionSource
   | .actionEffect => `ActionEffect
 
-def ReactionDecl.DependencyKind.injCoeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term 
-  | .portSource                   => `((@Network.Graph.Class.reactionInputScheme $graphIdent .$className |>.vars))
-  | .portEffect                   => `((@Network.Graph.Class.reactionOutputScheme $graphIdent .$className |>.vars))
-  | .actionSource | .actionEffect => `((@Network.Graph.Class.interface $graphIdent .$className .actions |>.vars))
-
-def ReactionDecl.genDependencyEnums (decl : ReactionDecl) (ns : Ident) : MacroM (Array Command) := do
-  ReactionDecl.DependencyKind.allCases.mapM fun kind =>
-    let enumIdent := mkIdentFrom ns (ns.getId ++ kind.name)
-    let ids := decl.dependencies kind
-    `(inductive $enumIdent $[| $ids:ident]* deriving DecidableEq)
+def ReactionDecl.genDependencySchemes (net : NetworkDecl) (rtr : Name) (decl : ReactionDecl) (ns : Ident) : MacroM (Array Command) := do
+  ReactionDecl.DependencyKind.allCases.mapM fun kind => do
+    let interface : InterfaceDecl ← decl.dependencies kind |>.mapM fun depName =>
+      return { id := depName, value := (← net.type rtr kind depName.getId), default := none }
+    let ident := mkIdentFrom ns (ns.getId ++ kind.name)
+    interface.genInterfaceScheme ident 
 
 def ReactionDecl.genTriggers (decl : ReactionDecl) : MacroM Term := do
   `(#[ $[$(← decl.triggers.genTriggers)],* ])
 
 def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ident) (reactionName : Name) : MacroM Term := do
-  let reactionIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId ++ reactionName) 
-  `(⟨{
-      «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource))
-      «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect))
-      «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource))
-      «actionEffects» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionEffect))
-      «triggers»      := $(← decl.genTriggers)
-      «body» := open $ns $reactorName $(mkIdent reactionName) 
-                     $(mkIdent `PortSource) $(mkIdent `PortEffect) 
-                     $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
-                     $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
-                     in do $(decl.body)
-  }⟩)
+  let reactorIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId)
+  let reactionIdent := mkIdentFrom reactorIdent (reactorIdent.getId ++ reactionName) 
+  `({
+      val := {
+        «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource.scheme))
+        «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect.scheme))
+        «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource.scheme))
+        «actionEffects» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionEffect.scheme))
+        «state»         := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `State.scheme))
+        «params»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Parameter.scheme))
+        «timers»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Timer))
+        «triggers»      := $(← decl.genTriggers)
+        «body» := open $ns $reactorName $(mkIdent reactionName) 
+                       $(mkIdent `PortSource) $(mkIdent `PortEffect) 
+                       $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
+                       $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
+                       in do $(decl.body)
+      }
+    })
 
-structure InjCoeGenDescription where
+def ReactionDecl.DependencyKind.subschemeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term 
+  | .portSource                   => `((@Network.Graph.Class.reactionInputScheme $graphIdent .$className))
+  | .portEffect                   => `((@Network.Graph.Class.reactionOutputScheme $graphIdent .$className))
+  | .actionSource | .actionEffect => `((@Network.Graph.Class.interface $graphIdent .$className .actions))
+
+structure SubschemeGenDescription where
   dependencyKind : ReactionDecl.DependencyKind
   ids : Array Ident
   ns : Ident
@@ -80,29 +83,29 @@ structure InjCoeGenDescription where
   reactionIdx : Nat
   isComplete : Bool
 
-def InjCoeGenDescription.sourceTypeIdent (descr : InjCoeGenDescription) :=
+def SubschemeGenDescription.sourceSchemeIdent (descr : SubschemeGenDescription) :=
   let reactorIdent := mkIdentFrom descr.reactorName <| descr.ns.getId ++ descr.reactorName.getId
-  mkIdentFrom reactorIdent (reactorIdent.getId ++ s!"Reaction{descr.reactionIdx}" ++ descr.dependencyKind.name)
+  mkIdentFrom reactorIdent (reactorIdent.getId ++ s!"Reaction{descr.reactionIdx}" ++ descr.dependencyKind.name ++ `scheme)
 
-def InjCoeGenDescription.targetTypeTerm (descr : InjCoeGenDescription) :=
-  descr.dependencyKind.injCoeTarget (mkIdentFrom descr.graphName <| descr.ns.getId ++ descr.graphName.getId) descr.reactorName
+def SubschemeGenDescription.targetSchemeTerm (descr : SubschemeGenDescription) :=
+  descr.dependencyKind.subschemeTarget (mkIdentFrom descr.graphName <| descr.ns.getId ++ descr.graphName.getId) descr.reactorName
 
-def InjCoeGenDescription.injCoeType (descr : InjCoeGenDescription) := do
-  `(InjectiveCoe $(descr.sourceTypeIdent) $(← descr.targetTypeTerm))
+def SubschemeGenDescription.subschemeType (descr : SubschemeGenDescription) := do
+  `(Interface.Subscheme $(descr.sourceSchemeIdent) $(← descr.targetSchemeTerm))
 
-def InjCoeGenDescription.sumTerms (descr : InjCoeGenDescription) : MacroM (Array Term) := 
+def SubschemeGenDescription.sumTerms (descr : SubschemeGenDescription) : MacroM (Array Term) := 
   descr.ids.mapM fun id => do
     match id.getId with
     | .str .anonymous l            => `(.inl .$(mkIdent l))
     | .str (.str .anonymous rtr) l => `(.inr ⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent l)⟩)
     | _                            => throwUnsupported 
 
-def InjCoeGenDescription.genInjectiveCoe (descr : InjCoeGenDescription) : MacroM Command := do
+def SubschemeGenDescription.genSubscheme (descr : SubschemeGenDescription) : MacroM Command := do
   match descr.dependencyKind with 
     | .portSource   | .portEffect => forPorts descr
     | .actionSource | .actionEffect => forActions descr
 where
-  forPorts (descr : InjCoeGenDescription) : MacroM Command := do
+  forPorts (descr : SubschemeGenDescription) : MacroM Command := do
     let sumTerms ← descr.sumTerms
     let mut invSrcTerms := sumTerms
     let mut invDstTerms ← (← descr.ids.dotted).mapM fun term => `(some $term)
@@ -110,11 +113,14 @@ where
       invSrcTerms := invSrcTerms.push (← `(_))
       invDstTerms := invDstTerms.push (← `(Option.none))
     `(
-      @[reducible] instance : $(← descr.injCoeType) where
+      @[reducible] instance : $(← descr.subschemeType) where
         coe i := match i with $[| $(← descr.ids.dotted) => $sumTerms]*
         inv i := match i with $[| $invSrcTerms => $invDstTerms]*
+        invInj := sorry
+        coeInvId := sorry
+        coeEqType := sorry
     )
-  forActions (descr : InjCoeGenDescription) : MacroM Command := do
+  forActions (descr : SubschemeGenDescription) : MacroM Command := do
     let coeDstIdents ← descr.ids.dotted
     let mut invSrcTerms : Array Term ← descr.ids.dotted
     let mut invDstTerms : Array Term ← (← descr.ids.dotted).mapM fun ident => `(some $ident)
@@ -122,9 +128,12 @@ where
       invSrcTerms := invSrcTerms.push (← `(_))
       invDstTerms := invDstTerms.push (← `(Option.none))
     `(
-      @[reducible] instance : $(← descr.injCoeType) where
+      @[reducible] instance : $(← descr.subschemeType) where
         coe i := match i with $[| $(← descr.ids.dotted) => $coeDstIdents]*
         inv i := match i with $[| $invSrcTerms => $invDstTerms]*
+        invInj := sorry
+        coeInvId := sorry
+        coeEqType := sorry
     )
 
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
@@ -144,10 +153,10 @@ def ReactorDecl.genInterfaceSchemes (decl : ReactorDecl) (ns : Ident) : MacroM (
     let optionalTypeWhenNoDefault := match kind with | .state | .params => true | _ => false
     interface.genInterfaceScheme ident optionalTypeWhenNoDefault
 
-def ReactorDecl.genReactionDependencyEnums (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) := do
+def ReactorDecl.genReactionDependencSchemes (net : NetworkDecl) (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) := do
   decl.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ => do
     let rcnNs := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
-    rcn.genDependencyEnums rcnNs
+    rcn.genDependencySchemes net decl.name.getId rcnNs
 
 instance : Quote Reactor.InterfaceKind where
   quote
@@ -241,12 +250,12 @@ def NetworkDecl.genGraphInstance (decl : NetworkDecl) : MacroM Command := do
     schemes $[| $(← decl.reactorNames.dotted) => $classSchemes]*
   )
 
-def NetworkDecl.genInjectiveCoes (decl : NetworkDecl) : MacroM (Array Command) :=
+def NetworkDecl.genSubschemes (decl : NetworkDecl) : MacroM (Array Command) :=
   decl.reactors.concatMapM fun rtr =>
     rtr.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ =>
       ReactionDecl.DependencyKind.allCases.mapM fun kind => do
         let ids := rcn.dependencies kind
-        InjCoeGenDescription.genInjectiveCoe {
+        SubschemeGenDescription.genSubscheme {
           dependencyKind := kind
           ids := ids
           ns := decl.namespaceIdent
@@ -262,15 +271,15 @@ def NetworkDecl.genInterfaceSchemes (decl : NetworkDecl) : MacroM (Array Command
 def NetworkDecl.genReactorSchemes (decl : NetworkDecl) : MacroM (Array Command) :=
   decl.reactors.mapM (·.genReactorScheme decl.namespaceIdent)
 
-def NetworkDecl.genReactionDependencyEnums (decl : NetworkDecl) : MacroM (Array Command) := do
-  decl.reactors.concatMapM (·.genReactionDependencyEnums decl.namespaceIdent)
+def NetworkDecl.genReactionDependencySchemes (decl : NetworkDecl) : MacroM (Array Command) := do
+  decl.reactors.concatMapM (·.genReactionDependencSchemes decl decl.namespaceIdent)
 
 -- For user proofs.
 def NetworkDecl.genReactionDefs (decl : NetworkDecl) : MacroM (Array Command) :=
   decl.reactors.mapM fun rtr => do
     let rcns ← rtr.genReactionInstances decl.namespaceIdent
     let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ `reactions
-    let rcnType : Term ← `(@Network.Graph.Class.reactionType $(mkIdent <| decl.namespaceIdent.getId ++ `graph) .$(mkIdent rtr.name.getId))
+    let rcnType : Term ← `(@Network.Graph.Class.Reaction $(mkIdent <| decl.namespaceIdent.getId ++ `graph) .$(mkIdent rtr.name.getId))
     `(def $defName : Array $rcnType := $rcns)
 
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
@@ -373,7 +382,6 @@ where
     then `(.nil)
     else `(.cons ⟨.$(mkIdent path[0]!)⟩ <| $(← pathToID path[1:]))
 
--- TODO: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/mkNullNode
 macro network:network_decl : command => do
   let network ← NetworkDecl.fromSyntax network
   let commands := mkNullNode <|
@@ -381,12 +389,12 @@ macro network:network_decl : command => do
     [← network.genClassesEnum] ++
     (← network.genReactorSchemes) ++
     [← network.genGraphInstance] ++
-    (← network.genReactionDependencyEnums) ++
-    -- (← network.genInjectiveCoes) ++
+    (← network.genReactionDependencySchemes) ++
+    (← network.genSubschemes) ++
     [← network.genNetworkInstance] ++
     (← network.genDefaultParameterDefs) ++
     (← network.genRootParameterDefs) ++
     (← network.genParameterDefs) ++
     [← network.genExecutableInstance] ++
-    (← network.genReactionDefs)
+    (← network.genReactionDefs) -- WIP: For exposing reactions for user proofs.
   return ⟨commands⟩

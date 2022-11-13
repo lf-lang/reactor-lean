@@ -140,4 +140,35 @@ where
       let path := pre.push var.id.getId
       let name := var.class.getId
       return #[(path, name)] ++ (← go network name path)
-      
+
+instance : ToString Reactor.InterfaceKind where
+  toString
+    | .inputs => "inputs" 
+    | .outputs => "outputs" 
+    | .actions => "actions"
+    | .state => "state"
+    | .params => "params"
+
+def NetworkDecl.type (decl : NetworkDecl) (reactor : Name) (kind : ReactionDecl.DependencyKind) (target : Name) : MacroM Term := do
+  let rtrDecl ← decl.reactorWithName reactor
+  match target with
+  | .str .anonymous _ =>
+    match kind with
+    | .portSource                   => getLocal rtrDecl .inputs target
+    | .portEffect                   => getLocal rtrDecl .outputs target
+    | .actionSource | .actionEffect => getLocal rtrDecl .actions target
+  | .str (.str .anonymous rtr) l =>
+    match rtrDecl.nested.find? (·.id.getId = .mkSimple rtr) with
+    | some instDecl => 
+      let childRtr ← decl.reactorWithName instDecl.class.getId
+      match kind with
+      | .portSource                   => getLocal childRtr .outputs (.mkSimple l)
+      | .portEffect                   => getLocal childRtr .inputs (.mkSimple l)
+      | .actionSource | .actionEffect => getLocal childRtr .actions (.mkSimple l)
+    | none => Macro.throwError s!"NetworkDecl.type: Illformed nested reactor in target '{target}' of reactor '{reactor}'"
+  | _ => Macro.throwError s!"NetworkDecl.type: Illformed target name '{target}'"
+where
+  getLocal (rtrDecl : ReactorDecl) (kind : Reactor.InterfaceKind) (target : Name) := do
+    match (rtrDecl.interfaces kind).find? (·.id.getId = target) with
+    | some i => return i.value
+    | none => Macro.throwError s!"NetworkDecl.type: Invalid target '{target}' of kind '{kind}' in reactor '{reactor}'"

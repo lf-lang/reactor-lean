@@ -35,3 +35,5 @@ def merge (s₁ s₂ : SortedArray α) : SortedArray α :=
   -- TODO: temporary
   let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (decide <| · ≤ ·)
   { toArray := sorted, isSorted := sorry }
+
+theorem merge_empty {s : SortedArray α} : s.merge #[]# = s := sorry

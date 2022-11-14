@@ -85,5 +85,12 @@ theorem Interface?.merge_val₁ (i₁ i₂ : Interface? σ) : (i₂ var = none) 
 theorem Interface?.merge_val₂ (i₁ i₂ : Interface? σ) : (i₂ var = some v) → (i₁.merge i₂) var = some v := by
   simp_all [merge, Option.orElse]
 
+theorem Interface?.merge_idem : Interface?.merge i i = i := by
+  funext var
+  simp [merge, Option.orElse]
+  split
+  · exact Eq.symm ‹_›
+  · simp
+  
 def Interface?.restrict [inst : Interface.Subscheme σ₁ σ₂] (i : Interface? σ₂) : Interface? σ₁ := 
   fun var => inst.coeEqType ▸ i (inst.coe var)

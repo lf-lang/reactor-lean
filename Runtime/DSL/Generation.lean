@@ -52,21 +52,19 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
   let reactorIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId)
   let reactionIdent := mkIdentFrom reactorIdent (reactorIdent.getId ++ reactionName) 
   `({
-      val := {
-        «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource.scheme))
-        «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect.scheme))
-        «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource.scheme))
-        «actionEffects» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionEffect.scheme))
-        «state»         := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `State.scheme))
-        «params»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Parameter.scheme))
-        «timers»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Timer))
-        «triggers»      := $(← decl.genTriggers)
-        «body» := open $ns $reactorName $(mkIdent reactionName) 
-                       $(mkIdent `PortSource) $(mkIdent `PortEffect) 
-                       $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
-                       $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
-                       in do $(decl.body)
-      }
+      «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource.scheme))
+      «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect.scheme))
+      «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource.scheme))
+      «actionEffects» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionEffect.scheme))
+      «state»         := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `State.scheme))
+      «params»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Parameter.scheme))
+      «timers»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Timer))
+      «triggers»      := $(← decl.genTriggers)
+      «body» := open $ns $reactorName $(mkIdent reactionName) 
+                     $(mkIdent `PortSource) $(mkIdent `PortEffect) 
+                     $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
+                     $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
+                     in do $(decl.body)
     })
 
 def ReactionDecl.DependencyKind.subschemeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term 
@@ -185,10 +183,6 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
       «class» child := match child with $[| $(← decl.nested.map (·.id) |>.dotted) => $dottedClasses]*
   )  
 
-def ReactorDecl.genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
-  let instances ← decl.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => rcn.genReactionInstance ns decl.name s!"Reaction{idx}"
-  `(#[ $[$instances],* ])
-
 def ReactorDecl.genConnections (decl : ReactorDecl) (isComplete : Bool) : MacroM Term := do
   let mut lhs ← inputTerms decl
   let mut rhs ← outputTerms decl
@@ -274,18 +268,22 @@ def NetworkDecl.genReactorSchemes (decl : NetworkDecl) : MacroM (Array Command) 
 def NetworkDecl.genReactionDependencySchemes (decl : NetworkDecl) : MacroM (Array Command) := do
   decl.reactors.concatMapM (·.genReactionDependencSchemes decl decl.namespaceIdent)
 
--- For user proofs.
-def NetworkDecl.genReactionDefs (decl : NetworkDecl) : MacroM (Array Command) :=
-  decl.reactors.mapM fun rtr => do
-    let rcns ← rtr.genReactionInstances decl.namespaceIdent
-    let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ `reactions
-    let rcnType : Term ← `(@Network.Graph.Class.Reaction $(mkIdent <| decl.namespaceIdent.getId ++ `graph) .$(mkIdent rtr.name.getId))
-    `(def $defName : Array $rcnType := $rcns)
-
+def NetworkDecl.genReactionInstances (decl : NetworkDecl) : MacroM (Array Command) := do
+  decl.reactors.concatMapM fun rtr => do
+    rtr.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => do
+      let rcn ← rcn.genReactionInstance decl.namespaceIdent rtr.name s!"Reaction{idx}"
+      let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ s!"Reaction{idx}"  
+      `(abbrev $defName : Reaction := $rcn)    
+    
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
-  let instanceArrays ← decl.reactors.mapM (·.genReactionInstances decl.namespaceIdent)
+  let instanceArrays ← decl.reactors.mapM (genReactionInstances · decl.namespaceIdent)
   `(fun $[| $dottedClasses => $instanceArrays]*)
+where
+  genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
+    let instances := decl.reactions.size.fold (init := #[]) fun idx result =>
+      result.push <| mkIdent (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
+    `(#[ $[{ val := $instances }],* ])
 
 def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
@@ -381,7 +379,7 @@ where
     if path.isEmpty 
     then `(.nil)
     else `(.cons ⟨.$(mkIdent path[0]!)⟩ <| $(← pathToID path[1:]))
-
+    
 macro network:network_decl : command => do
   let network ← NetworkDecl.fromSyntax network
   let commands := mkNullNode <|
@@ -391,10 +389,10 @@ macro network:network_decl : command => do
     [← network.genGraphInstance] ++
     (← network.genReactionDependencySchemes) ++
     (← network.genSubschemes) ++
+    (← network.genReactionInstances) ++
     [← network.genNetworkInstance] ++
     (← network.genDefaultParameterDefs) ++
     (← network.genRootParameterDefs) ++
     (← network.genParameterDefs) ++
-    [← network.genExecutableInstance] ++
-    (← network.genReactionDefs) -- WIP: For exposing reactions for user proofs.
+    [← network.genExecutableInstance]
   return ⟨commands⟩

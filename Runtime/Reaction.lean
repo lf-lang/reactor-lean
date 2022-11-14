@@ -25,6 +25,7 @@ structure Input (σPortSource σActionSource σState σParam : Interface.Scheme)
 
 abbrev Input.time (input : Input σPortSource σActionSource σState σParam) := input.tag.time
 
+@[ext]
 structure Output (σPortEffect σActionEffect σState : Interface.Scheme) (min : Time) where
   ports  : Interface? σPortEffect := Interface?.empty
   state  : Interface σState
@@ -37,6 +38,12 @@ def Output.merge (o₁ o₂ : ReactionM.Output σPortEffect σActionEffect σSta
   ports  := o₁.ports.merge o₂.ports
   state  := o₂.state
   events := o₁.events.merge o₂.events
+
+@[simp]
+theorem Output.merge_idem {o : Output σPortEffect σActionEffect σState time} : (o.events = #[]#) → o.merge o = o := by
+  intro h
+  simp [Output.merge, Interface?.merge_idem, h, SortedArray.merge_empty]
+  ext <;> simp [*]
 
 @[simp]
 theorem Output.merge_ports : (Output.merge o₁ o₂).ports = o₁.ports.merge o₂.ports := rfl
@@ -79,70 +86,72 @@ instance : MonadLift IO (ReactionM σPortSource σPortEffect σActionSource σAc
     | .error e world' => .error e world'
     | .ok    a world' => .ok (input.noop, a) world'
 
+instance : LawfulMonad IO := sorry
+
 def getInput (port : σPortSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (Option $ σPortSource.type port) :=
   fun input => return (input.noop, input.ports port)
 
 def ReactionSatisfiesM
-  (val : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam α) 
   (input : Input σPortSource σActionSource σState σParam)
+  (comp : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam α) 
   (p : (Output σPortEffect σActionEffect σState input.time × α) → Prop) :=
-  SatisfiesM (α := (Output σPortEffect σActionEffect σState input.time) × _) p (val input)
+  SatisfiesM (α := (Output σPortEffect σActionEffect σState input.time) × _) p (comp input)
 
 set_option hygiene false
-local macro val:term " -[" i:term "]→ " p:term : term => `(
-  ReactionSatisfiesM 
+local macro input:term " -[" comp:term "]→ " prop:term : term => `(
+  ReactionSatisfiesM  
     (σPortSource := σPortSource) 
-    (σPortEffect := σPortEffect)
-    (σActionSource := σActionSource)
-    (σActionEffect := σActionEffect)
-    (σState := σState)
+    (σPortEffect := σPortEffect) 
+    (σActionSource := σActionSource) 
+    (σActionEffect := σActionEffect) 
+    (σState := σState) 
     (σParam := σParam)
-    $val $i $p
+    $input $comp $prop
 )
 
-macro "rcn_rfl" : tactic => `(tactic| exists return ⟨(input.noop, _), by first | rfl | simp⟩)
+local macro "rcn_rfl" : tactic => `(tactic| exists return ⟨(input.noop, _), by first | rfl | simp⟩)
 
-theorem getInput_def : (getInput port) -[input]→ (·.snd = input.ports port) := by rcn_rfl
+theorem getInput_def : input -[getInput port]→ (·.snd = input.ports port) := by rcn_rfl
   
 def getState (stv : σState.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (σState.type stv) :=
   fun input => return (input.noop, input.state stv)
 
-theorem getState_def : (getState stv) -[input]→ (·.snd = input.state stv) := by rcn_rfl
+theorem getState_def : input -[getState stv]→ (·.snd = input.state stv) := by rcn_rfl
 
 def getAction (action : σActionSource.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (Option $ σActionSource.type action) :=
   fun input => return (input.noop, input.actions action)
 
-theorem getAction_def : (getAction action) -[input]→ (·.snd = input.actions action) := by rcn_rfl
+theorem getAction_def : input -[getAction action]→ (·.snd = input.actions action) := by rcn_rfl
 
 def getParam (param : σParam.vars) : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam (σParam.type param) :=
   fun input => return (input.noop, input.params param)
 
-theorem getParam_def : (getParam param) -[input]→ (·.snd = input.params param) := by rcn_rfl
+theorem getParam_def : input -[getParam param]→ (·.snd = input.params param) := by rcn_rfl
 
 def getTag : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam Tag := 
   fun input => return (input.noop, input.tag)
 
-theorem getTag_def : getTag -[input]→ (·.snd = input.tag) := by rcn_rfl
+theorem getTag_def : input -[getTag]→ (·.snd = input.tag) := by rcn_rfl
 
 def getLogicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam Time := do
   return (← getTag).time
 
-theorem getLogicalTime_def : getLogicalTime -[input]→ (·.snd = input.time) := by rcn_rfl
-  
--- TODO: Figure out how composition of `SatisfiesM`s works.
+theorem getLogicalTime_def : input -[getLogicalTime]→ (·.snd = input.time) := by rcn_rfl
+
+-- TODO:
 theorem getLogicalTime_def' : 
-  (getTag         -[input]→ (·.snd = tag)) → 
-  (getLogicalTime -[input]→ (·.snd = tag.time)) := by
+  (input -[getTag]→         (·.snd = tag)) → 
+  (input -[getLogicalTime]→ (·.snd = tag.time)) := by
   intro h
-  exists do
-    let t ← getTag (σPortEffect := σPortEffect) (σActionEffect := σActionEffect) input
-    return {
-      val := (input.noop, t.snd.time)
-      property := by
-        simp [ReactionSatisfiesM] at h ⊢
-        -- PROBLEM: We Lean has no clue of the definition of t.
-        sorry
-    }
+  simp [ReactionSatisfiesM, getLogicalTime]
+  apply SatisfiesM.bind_pre
+  simp
+  refine SatisfiesM.imp ?_ (p := fun out => input.tag = tag) (by
+    intro a h
+    simp [h]
+    sorry
+  )
+  sorry  
 
 def getPhysicalTime : ReactionM σPortSource σPortEffect σActionSource σActionEffect σState σParam Time :=
   fun input => return (input.noop, (← Time.now) - input.physicalOffset)
@@ -153,7 +162,7 @@ def setOutput (port : σPortEffect.vars) (v : σPortEffect.type port) : Reaction
     let output := { ports := ports, state := input.state }
     return (output, ())
 
-theorem setOutput_def : (setOutput port v) -[input]→ (·.fst.ports port = some v) := by
+theorem setOutput_def : input -[setOutput port v]→ (·.fst.ports port = some v) := by
   exists do
     let ports := fun p => if h : p = port then some (h ▸ v) else none
     return ⟨({ ports, state := input.state }, ()), by simp⟩
@@ -164,12 +173,12 @@ def setState (stv : σState.vars) (v : σState.type stv) : ReactionM σPortSourc
     let output := { state := state }
     return (output, ())
 
-theorem setState_eq_new_val : (setState stv v) -[input]→ (·.fst.state stv = some v) := by
+theorem setState_eq_new_val : input -[setState stv v]→ (·.fst.state stv = some v) := by
   exists do
     let state := fun s => if h : s = stv then h ▸ v else input.state s
     return ⟨({ state }, ()), by simp⟩
 
-theorem setState_eq_old_val : (setState stv v) -[input]→ (fun out => ∀ stv', (stv' ≠ stv) → out.fst.state stv' = input.state stv') := by
+theorem setState_eq_old_val : input -[setState stv v]→ (fun out => ∀ stv', (stv' ≠ stv) → out.fst.state stv' = input.state stv') := by
   exists do
     let state := fun s => if h : s = stv then h ▸ v else input.state s
     return ⟨({ state }, ()), by simp_all⟩
@@ -181,7 +190,7 @@ def schedule (action : σActionEffect.vars) (delay : Duration) (v : σActionEffe
     let output := { state := input.state, events := #[event]# }
     return (output, ())
 
-theorem schedule_def : (schedule action delay v) -[input]→ (·.fst.events = #[⟨action, v, input.time.advance delay⟩]#) := by
+theorem schedule_def : input -[schedule action delay v]→ (·.fst.events = #[⟨action, v, input.time.advance delay⟩]#) := by
   exists do
     let time := input.time.advance delay
     return ⟨({ state := input.state, events := #[{ action, time, value := v }]# }, ()), by simp⟩

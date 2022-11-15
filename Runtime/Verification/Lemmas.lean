@@ -69,12 +69,12 @@ theorem getLogicalTime_def' :
   )
   sorry  
 
-theorem setOutput_def : input -[setOutput port v]→ (·.fst.ports port = some v) := by
+theorem setOutput_def : input -[setOutput port v]→ (·.fst.ports port = v) := by
   exists do
     let ports := fun p => if h : p = port then some (h ▸ v) else none
     return ⟨({ ports, state := input.state }, ()), by simp⟩
 
-theorem setState_eq_new_val : input -[setState stv v]→ (·.fst.state stv = some v) := by
+theorem setState_eq_new_val : input -[setState stv v]→ (·.fst.state stv = v) := by
   exists do
     let state := fun s => if h : s = stv then h ▸ v else input.state s
     return ⟨({ state }, ()), by simp⟩
@@ -88,5 +88,7 @@ theorem schedule_def : input -[schedule action delay v]→ (·.fst.events = #[�
   exists do
     let time := input.time.advance delay
     return ⟨({ state := input.state, events := #[{ action, time, value := v }]# }, ()), by simp⟩
+
+theorem schedule_state : input -[schedule action delay v]→ (·.fst.state var = input.state var) := sorry
 
 end ReactionM

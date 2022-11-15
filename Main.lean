@@ -81,22 +81,31 @@ elab "irrelevant" merge:term : tactic =>
         )))
     | none => Meta.throwTacticEx `rcn_step goal "Couldn't apply tactic to goal"
 
-
 open LF ReactionM
 example : input -[Main.Reaction0]→ (·.state .s = input.state .s) := by
   simp [Main.Reaction0]
-
+  ----
   refine ReactionM.Sat.bind 
     (prop₁ := fun out => out.snd = input.state .s)
     (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
     ?head ?_ ?merge
   case head => exact getState_value
   case merge => intros; rw [Output.merge_state]; assumption
-  
+  ----
   intro out val h
   subst h
-  
+  ----
   iterate 9 irrelevant by intros; rw [Output.merge_state]; assumption
-  sorry
-  
-
+  ----
+  refine ReactionM.Sat.bind 
+    (prop₁ := fun out => out.fst.state Main.State.s = input.state .s)
+    (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
+    ?head ?_ ?merge
+  case head => exact setState_eq_new_val
+  case merge => intros; rw [Output.merge_state]; assumption
+  ----
+  simp
+  intro out h
+  ----
+  rw [←h]
+  exact schedule_state

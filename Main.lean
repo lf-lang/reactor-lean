@@ -64,25 +64,9 @@ open Lean in
 macro input:term " -[" rcn:term "]→ " prop:term : term =>
   `(ReactionM.Sat $input $(rcn).body (fun out => $prop out.fst))
 
--- TODO: 1. Turn this into an elab that reads p from the goal state.
---       2. Find a way to "output" a goal over ReactionSatisfiesM instead of SatisfiesM.
---       3. Remove the explicit goal tag, since there's only a single goal.
-open Lean in
-macro "resolve_bind" p:term:max proof:term : tactic => 
-  `(tactic| (
-      apply SatisfiesM.bind_pre
-      simp [ReactionM.Input.noop]
-      refine SatisfiesM.imp ?next (p := $p) (by
-        intro output h
-        apply SatisfiesM.pure
-        revert h
-        exact $proof
-      )
-    )
-  )
-
+-- TODO: Factor out the proof component into a theorem on `ReactionM.Sat`.
 open Lean Elab
-elab "rcn_step" proof:term : tactic =>
+elab "irrelevant" merge:term : tactic =>
   Tactic.withMainContext do
     let goal ← Tactic.getMainGoal
     let goalDecl ← goal.getDecl
@@ -91,29 +75,28 @@ elab "rcn_step" proof:term : tactic =>
       withFreshMacroScope do
         let mvar ← Tactic.elabTerm (←`(?prop)) (expectedType? := none)
         mvar.mvarId!.assign prop
-        Tactic.evalTactic (← `(tactic| resolve_bind ?prop $proof))
+        Tactic.evalTactic (← `(tactic| (
+          refine ReactionM.Sat.bind (prop₁ := fun _ => True) (prop₂ := ?prop) SatisfiesM.trivial ?_ $merge;
+          intro out x₁ x₂; clear x₁ x₂; simp
+        )))
     | none => Meta.throwTacticEx `rcn_step goal "Couldn't apply tactic to goal"
+
 
 open LF ReactionM
 example : input -[Main.Reaction0]→ (·.state .s = input.state .s) := by
   simp [Main.Reaction0]
 
   refine ReactionM.Sat.bind 
-    (prop₁ := fun out => out.fst.state Main.State.s = input.state .s ∧ out.snd = input.state .s)
+    (prop₁ := fun out => out.snd = input.state .s)
     (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
-    ?head ?tail ?merge
-  case head => exact ReactionM.Sat.and getState_state getState_value
+    ?head ?_ ?merge
+  case head => exact getState_value
   case merge => intros; rw [Output.merge_state]; assumption
-  case tail =>
+  
+  intro out val h
+  subst h
+  
+  iterate 9 irrelevant by intros; rw [Output.merge_state]; assumption
+  sorry
+  
 
-    intro out₁ val₁ ⟨ho₁, hv₁⟩
-    simp at ho₁ hv₁
-    
-    refine ReactionM.Sat.bind 
-      (prop₁ := fun out => out.fst.state Main.State.s = input.state .s)
-      (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
-      ?head ?tail ?merge
-    case head => rw [←ho₁]; exact ReactionM.getInput_state (input := { input with «state» := out₁.state }) 
-    case merge => intros; rw [Output.merge_state]; assumption
-    case tail => 
-      sorry

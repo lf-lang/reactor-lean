@@ -4,9 +4,9 @@ instance : LawfulMonad IO := sorry
 
 namespace ReactionM
 
-theorem SatisfiesM.and [Monad m] {x : m α} : 
-  (SatisfiesM p x) → (SatisfiesM q x) → SatisfiesM (fun a => p a ∧ q a) x := by 
-  intro ⟨m₁, h₁⟩ ⟨m₂, h₂⟩
+-- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/SatisfiesM.2Eand
+theorem SatisfiesM.and [Functor m] [LawfulFunctor m] {x : m α} :
+  (SatisfiesM p x) → (SatisfiesM q x) → SatisfiesM (fun a => p a ∧ q a) x := by
   sorry
 
 protected def Sat

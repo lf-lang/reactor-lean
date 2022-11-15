@@ -54,21 +54,15 @@ theorem getPhysicalTime_state  : input -[getPhysicalTime  ]→ (·.fst.state var
 theorem getPhysicalTime_ports  : input -[getPhysicalTime  ]→ (·.fst.ports.isEmpty)               := by rcn_out_rfl getPhysicalTime
 theorem getPhysicalTime_events : input -[getPhysicalTime  ]→ (·.fst.events = #[]#)               := by rcn_out_rfl getPhysicalTime
 
--- TODO:
-theorem getLogicalTime_def' : 
+theorem getLogicalTime_value' : 
   (input -[getTag]→         (·.snd = tag)) → 
   (input -[getLogicalTime]→ (·.snd = tag.time)) := by
   intro h
-  simp [ReactionM.Sat, getLogicalTime]
-  apply SatisfiesM.bind_pre
-  simp
-  refine SatisfiesM.imp ?_ (p := fun out => input.tag = tag) (by
-    intro a h
-    simp [h]
-    sorry
-  )
-  sorry  
-
+  unfold getLogicalTime
+  refine ReactionM.Sat.bind h ?tail ?merge (prop₂ := fun out => out.snd = tag.time)
+  case tail => intros; apply SatisfiesM.pure; simp [*]
+  case merge => simp_all
+  
 theorem setOutput_def : input -[setOutput port v]→ (·.fst.ports port = v) := by
   exists do
     let ports := fun p => if h : p = port then some (h ▸ v) else none

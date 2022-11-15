@@ -61,18 +61,17 @@ lf {
 } 
 
 open Lean in
-macro input:term " -[" rcn:ident "]→ " prop:term : term =>
-  `($(mkIdent `ReactionSatisfiesM) $input $(mkIdentFrom rcn <| `LF ++ rcn.getId ++ `body) $prop)
+macro input:term " -[" rcn:term "]→ " prop:term : term =>
+  `(ReactionM.Sat $input $(rcn).body (fun out => $prop out.fst))
 
--- TODO: 0. Generalize this to use `SatisfiesM.bind`.
---       1. Turn this into an elab that reads p from the goal state.
+-- TODO: 1. Turn this into an elab that reads p from the goal state.
 --       2. Find a way to "output" a goal over ReactionSatisfiesM instead of SatisfiesM.
 --       3. Remove the explicit goal tag, since there's only a single goal.
 open Lean in
 macro "resolve_bind" p:term:max proof:term : tactic => 
   `(tactic| (
       apply SatisfiesM.bind_pre
-      simp [$(mkIdent `Input.noop):ident]
+      simp [ReactionM.Input.noop]
       refine SatisfiesM.imp ?next (p := $p) (by
         intro output h
         apply SatisfiesM.pure
@@ -82,15 +81,39 @@ macro "resolve_bind" p:term:max proof:term : tactic =>
     )
   )
 
+open Lean Elab
+elab "rcn_step" proof:term : tactic =>
+  Tactic.withMainContext do
+    let goal ← Tactic.getMainGoal
+    let goalDecl ← goal.getDecl
+    match goalDecl.type.getAppArgs[9]? with
+    | some prop => 
+      withFreshMacroScope do
+        let mvar ← Tactic.elabTerm (←`(?prop)) (expectedType? := none)
+        mvar.mvarId!.assign prop
+        Tactic.evalTactic (← `(tactic| resolve_bind ?prop $proof))
+    | none => Meta.throwTacticEx `rcn_step goal "Couldn't apply tactic to goal"
+
 open LF ReactionM
-example : input -[Main.Reaction0]→ (·.fst.state .s = input.state .s) := by
+example : input -[Main.Reaction0]→ (·.state .s = input.state .s) := by
   simp [Main.Reaction0]
-  iterate 7 resolve_bind (·.fst.state .s = input.state .s) (by rw [Output.merge_state, ·])
-  apply SatisfiesM.bind (p := (·.fst.state .s = input.state .s))
-  · resolve_bind (fun _ => True) (by simp)
-    exact SatisfiesM.trivial
-  · simp [Input.noop]
-    intro output h
-    iterate 4 resolve_bind (·.fst.state .s = input.state .s) (by rw [Output.merge_state, ·])
-    apply SatisfiesM.pure
-    simp [h]
+
+  refine ReactionM.Sat.bind 
+    (prop₁ := fun out => out.fst.state Main.State.s = input.state .s ∧ out.snd = input.state .s)
+    (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
+    ?head ?tail ?merge
+  case head => exact ReactionM.Sat.and getState_state getState_value
+  case merge => intros; rw [Output.merge_state]; assumption
+  case tail =>
+
+    intro out₁ val₁ ⟨ho₁, hv₁⟩
+    simp at ho₁ hv₁
+    
+    refine ReactionM.Sat.bind 
+      (prop₁ := fun out => out.fst.state Main.State.s = input.state .s)
+      (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
+      ?head ?tail ?merge
+    case head => rw [←ho₁]; exact ReactionM.getInput_state (input := { input with «state» := out₁.state }) 
+    case merge => intros; rw [Output.merge_state]; assumption
+    case tail => 
+      sorry

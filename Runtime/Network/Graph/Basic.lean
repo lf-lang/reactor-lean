@@ -59,18 +59,9 @@ abbrev reactionOutputScheme (cls : Class graph) :=
   let nestedInputs := cls.subinterface .inputs
   localOutputs ⊎ nestedInputs
 
-inductive Reaction.Kind
-  | pure
-  | impure
-
-abbrev Reaction.Kind.monad : Reaction.Kind → (Type → Type)
-  | pure => Id
-  | impure => IO
-
 open Interface in
 structure Reaction (cls : Class graph) where
-  kind : Reaction.Kind
-  val : Reaction kind.monad
+  val : Reaction
   [subPS : Subscheme val.portSources cls.reactionInputScheme]
   [subPE : Subscheme val.portEffects cls.reactionOutputScheme]
   [subAS : Subscheme val.actionSources (cls.interface .actions)]
@@ -81,9 +72,6 @@ structure Reaction (cls : Class graph) where
 
 open Reaction in
 attribute [instance] subPS subPE subAS subAE
-
-instance {reaction : Reaction cls} : Functor reaction.kind.monad :=
-  match reaction.kind with | .pure | .impure => inferInstance
 
 structure Subport (cls : Class graph) (kind : Reactor.PortKind) where
   child : Child cls

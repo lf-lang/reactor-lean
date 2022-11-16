@@ -22,7 +22,7 @@ def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction 
     physicalOffset := exec.physicalOffset
   }
 
-def fireToIO (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : IO (reaction.val.outputType exec.tag.time) :=
+def fireToIO (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
   toIO <| exec.fire reaction
 where
   toIO {α} {kind : Reaction.Kind} : (kind.monad α) → IO α := 
@@ -60,7 +60,7 @@ def prepareForShutdown (exec : Executable net) : Executable net := { exec with
   isShuttingDown := true
 }
 
--- We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
+-- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with 
   | none => 

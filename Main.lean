@@ -39,7 +39,7 @@ lf {
           let p ← getParam  p
           let t ← getTag
           let l ← getLogicalTime
-          let q ← getPhysicalTime
+          -- let q ← getPhysicalTime
           setOutput o    true
           setOutput n₁.i (-1)
           setState  s    w
@@ -60,52 +60,11 @@ lf {
     reactions   []
 } 
 
-open Lean in
-macro input:term " -[" rcn:term "]→ " prop:term : term =>
-  `(ReactionM.Sat $input $(rcn).body (fun out => $prop out.fst))
+open LF
 
--- TODO: Factor out the proof component into a theorem on `ReactionM.Sat`.
-open Lean Elab
-elab "irrelevant" merge:term : tactic =>
-  Tactic.withMainContext do
-    let goal ← Tactic.getMainGoal
-    let goalDecl ← goal.getDecl
-    match goalDecl.type.getAppArgs[9]? with
-    | some prop => 
-      withFreshMacroScope do
-        let mvar ← Tactic.elabTerm (←`(?prop)) (expectedType? := none)
-        mvar.mvarId!.assign prop
-        Tactic.evalTactic (← `(tactic| (
-          refine ReactionM.Sat.bind (prop₁ := fun _ => True) (prop₂ := ?prop) SatisfiesM.trivial ?_ $merge;
-          intro out x₁ x₂; clear x₁ x₂; simp
-        )))
-    | none => Meta.throwTacticEx `rcn_step goal "Couldn't apply tactic to goal"
+-- TODO: Turn this into an elab that checks it the reaction is pure.
+macro input:term " -[" rcn:ident "]→ " p:term : term => `($p ($(rcn).body $input).fst)
 
-open LF ReactionM
-example : input -[Main.Reaction0]→ (·.state .s = input.state .s) := by
-  simp [Main.Reaction0]
-  ----
-  refine ReactionM.Sat.bind 
-    (prop₁ := fun out => out.snd = input.state .s)
-    (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
-    ?head ?_ ?merge
-  case head => exact getState_value
-  case merge => intros; rw [Output.merge_state]; assumption
-  ----
-  intro out val h
-  subst h
-  ----
-  iterate 9 irrelevant by intros; rw [Output.merge_state]; assumption
-  ----
-  refine ReactionM.Sat.bind 
-    (prop₁ := fun out => out.fst.state Main.State.s = input.state .s)
-    (prop₂ := fun out => out.fst.state Main.State.s = input.state .s)
-    ?head ?_ ?merge
-  case head => exact setState_eq_new_val
-  case merge => intros; rw [Output.merge_state]; assumption
-  ----
-  simp
-  intro out h
-  ----
-  rw [←h]
-  exact schedule_state
+example : input -[Main.Reaction0]→ (·.state .s = input.state .s) := rfl
+
+example : (Main.Reaction0.body input).fst.state .s = input.state .s := rfl

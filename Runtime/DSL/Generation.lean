@@ -52,6 +52,7 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
   let reactorIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId)
   let reactionIdent := mkIdentFrom reactorIdent (reactorIdent.getId ++ reactionName) 
   `({
+      «kind»          := Reaction.Kind.pure -- TODO
       «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource.scheme))
       «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect.scheme))
       «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource.scheme))
@@ -63,7 +64,7 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
       «body» := open $ns $reactorName $(mkIdent reactionName) 
                      $(mkIdent `PortSource) $(mkIdent `PortEffect) 
                      $(mkIdent `ActionSource) $(mkIdent `ActionEffect) 
-                     $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionM) 
+                     $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionT) 
                      in do $(decl.body)
     })
 
@@ -273,7 +274,7 @@ def NetworkDecl.genReactionInstances (decl : NetworkDecl) : MacroM (Array Comman
     rtr.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => do
       let rcn ← rcn.genReactionInstance decl.namespaceIdent rtr.name s!"Reaction{idx}"
       let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ s!"Reaction{idx}"  
-      `(abbrev $defName : Reaction IO := $rcn)    
+      `(abbrev $defName : Reaction := $rcn)    
     
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
@@ -283,7 +284,7 @@ where
   genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
     let instances := decl.reactions.size.fold (init := #[]) fun idx result =>
       result.push <| mkIdent (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
-    `(#[ $[{ kind := Network.Graph.Class.Reaction.Kind.impure, val := $instances }],* ])
+    `(#[ $[{ val := $instances }],* ])
 
 def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 

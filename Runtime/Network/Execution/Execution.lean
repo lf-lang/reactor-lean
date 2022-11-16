@@ -22,6 +22,12 @@ def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction 
     physicalOffset := exec.physicalOffset
   }
 
+def fireToIO (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : IO (reaction.val.outputType exec.tag.time) :=
+  toIO <| exec.fire reaction
+where
+  toIO {α} {kind : Reaction.Kind} : (kind.monad α) → IO α := 
+    match kind with | .pure => pure | .impure => id
+
 def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Bool :=
   reaction.val.triggers.any fun trigger =>
     match trigger with
@@ -67,10 +73,9 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
     let mut exec := exec
     let reaction := reactionId.reaction
     if exec.triggers reaction then
-      exec := 
-        (← exec.fire reaction)
-        |> ReactionOutput.fromRaw
-        |> exec.apply
+      exec := (← exec.fireToIO reaction)
+        |> ReactionOutput.fromRaw 
+        |> exec.apply 
         |>.propagate reactionId 
     run exec topo (reactionIdx + 1)
 

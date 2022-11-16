@@ -273,7 +273,7 @@ def NetworkDecl.genReactionInstances (decl : NetworkDecl) : MacroM (Array Comman
     rtr.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => do
       let rcn ← rcn.genReactionInstance decl.namespaceIdent rtr.name s!"Reaction{idx}"
       let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ s!"Reaction{idx}"  
-      `(abbrev $defName : Reaction := $rcn)    
+      `(abbrev $defName : Reaction IO := $rcn)    
     
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
@@ -283,7 +283,7 @@ where
   genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
     let instances := decl.reactions.size.fold (init := #[]) fun idx result =>
       result.push <| mkIdent (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
-    `(#[ $[{ val := $instances }],* ])
+    `(#[ $[{ kind := Network.Graph.Class.Reaction.Kind.impure, val := $instances }],* ])
 
 def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 

@@ -1,5 +1,7 @@
 import Runtime.Verification.ReactionMSat
 
+/-
+
 namespace ReactionM
 
 set_option hygiene false -- TODO: `in`
@@ -49,10 +51,6 @@ theorem getLogicalTime_value   : input -[getLogicalTime   ]→ (·.snd = input.t
 theorem getLogicalTime_state   : input -[getLogicalTime   ]→ (·.fst.state var = input.state var) := by rcn_out_rfl getLogicalTime
 theorem getLogicalTime_ports   : input -[getLogicalTime   ]→ (·.fst.ports.isEmpty)               := by rcn_out_rfl getLogicalTime
 theorem getLogicalTime_events  : input -[getLogicalTime   ]→ (·.fst.events = #[]#)               := by rcn_out_rfl getLogicalTime
--- TODO: axiom getPhysicalTime_value {σPortSource σPortEffect σActionSource σActionEffect σState σParam input} : input -[getPhysicalTime]→ (·.snd ≥ input.time)
-theorem getPhysicalTime_state  : input -[getPhysicalTime  ]→ (·.fst.state var = input.state var) := by rcn_out_rfl getPhysicalTime
-theorem getPhysicalTime_ports  : input -[getPhysicalTime  ]→ (·.fst.ports.isEmpty)               := by rcn_out_rfl getPhysicalTime
-theorem getPhysicalTime_events : input -[getPhysicalTime  ]→ (·.fst.events = #[]#)               := by rcn_out_rfl getPhysicalTime
 
 theorem getLogicalTime_value' : 
   (input -[getTag]→         (·.snd = tag)) → 
@@ -86,3 +84,5 @@ theorem schedule_def : input -[schedule action delay v]→ (·.fst.events = #[�
 theorem schedule_state : input -[schedule action delay v]→ (·.fst.state var = input.state var) := sorry
 
 end ReactionM
+
+-/

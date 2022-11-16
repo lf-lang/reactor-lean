@@ -53,6 +53,7 @@ def ReactionDecl.DependencyKind.allCases : Array DependencyKind :=
   #[.portSource, .portEffect, .actionSource, .actionEffect]
 
 structure ReactionDecl where
+  kind : Ident
   dependencies : ReactionDecl.DependencyKind → Array Ident
   triggers : TriggerDecl
   body : TSyntax `Lean.Parser.Term.doSeq

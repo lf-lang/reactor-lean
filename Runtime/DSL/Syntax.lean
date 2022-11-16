@@ -21,6 +21,7 @@ syntax "triggers" "{"
 
 declare_syntax_cat reaction_decl
 syntax "{"  
+  &"kind"          ident
   "portSources"   ident_list
   "portEffects"   ident_list
   "actionSources" ident_list
@@ -86,9 +87,10 @@ def TriggerDecl.fromSyntax : TSyntax `trigger_decl → MacroM TriggerDecl
 
 def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl 
   | `(reaction_decl| { 
-      portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*] 
+      kind $k portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*] 
       actionEffects [$ae:ident,*] $ts:trigger_decl body { $b:doSeq }
     }) => return { 
+      «kind» := k
       dependencies := fun | .portSource => ps | .portEffect => pe | .actionSource => as | .actionEffect => ae
       «triggers» := ← TriggerDecl.fromSyntax ts
       «body» := b

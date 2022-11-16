@@ -52,7 +52,7 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
   let reactorIdent := mkIdentFrom reactorName (ns.getId ++ reactorName.getId)
   let reactionIdent := mkIdentFrom reactorIdent (reactorIdent.getId ++ reactionName) 
   `({
-      «kind»          := Reaction.Kind.pure -- TODO
+      «kind»          := .$(decl.kind)
       «portSources»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortSource.scheme))
       «portEffects»   := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `PortEffect.scheme))
       «actionSources» := $(mkIdentFrom reactionIdent (reactionIdent.getId ++ `ActionSource.scheme))

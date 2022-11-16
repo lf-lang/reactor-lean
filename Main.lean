@@ -21,6 +21,7 @@ lf {
     connections [n₁.o : n₂.i]
     reactions   [
       {
+        kind          pure
         portSources   [i, n₂.o]
         portEffects   [o, n₁.i]
         actionSources [a]
@@ -39,7 +40,7 @@ lf {
           let p ← getParam  p
           let t ← getTag
           let l ← getLogicalTime
-          -- let q ← getPhysicalTime
+          let q ← getPhysicalTime
           setOutput o    true
           setOutput n₁.i (-1)
           setState  s    w

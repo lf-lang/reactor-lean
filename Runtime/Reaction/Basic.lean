@@ -7,8 +7,8 @@ inductive Kind
   | impure
 
 abbrev Kind.monad : Kind → (Type → Type)
-  | .pure => Id
-  | .impure => IO
+  | pure => Id
+  | impure => IO
 
 instance {kind : Kind} : Monad kind.monad :=
   match kind with | .pure | .impure => inferInstance

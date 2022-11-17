@@ -73,6 +73,9 @@ instance : HMod Duration Duration Duration where
 
 abbrev Time.From (time : Time) := { t : Time // t ≥ time }
 
+instance : CoeDep Time t (Time.From t) where
+  coe := ⟨t, by simp_arith [GE.ge, LE.le]⟩
+
 instance : LE (Time.From t) where
   le t₁ t₂ := t₁.val ≤ t₂.val
 
@@ -95,9 +98,14 @@ instance : LT Tag where
     then tag₁.microstep < tag₂.microstep 
     else tag₁.time < tag₂.time 
 
+def Tag.increment (tag : Tag) : Tag := { tag with
+  microstep := tag.microstep + 1
+}
+
 def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag := 
-  if tag.time < time then { time := time, microstep := 0 }
-  else                    { tag with microstep := tag.microstep + 1 }
+  if tag.time < time 
+  then { time := time, microstep := 0 }
+  else tag.increment
 
 theorem Tag.advance_time (tag : Tag) (time) : (tag.advance time).time = time := by
   simp [advance]
@@ -107,6 +115,6 @@ theorem Tag.advance_time (tag : Tag) (time) : (tag.advance time).time = time := 
 theorem Tag.lt_advance : (tag : Tag) < tag.advance t := by
   simp [advance]
   split
-  case inr => simp_arith [LT.lt]
+  case inr => simp_arith [LT.lt, increment]
   case inl => simp [LT.lt] at *; split <;> simp_all
     

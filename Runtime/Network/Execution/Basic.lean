@@ -10,6 +10,9 @@ namespace Network.Executable
 def LawfulQueue (queue : Array (Event net)) (time : Time) := 
   ∀ {event}, (queue[0]? = some event) → event.time ≥ time
 
+theorem LawfulQueue.empty : LawfulQueue (#[] : Array (Event net)) time := by
+  simp [LawfulQueue]; intros; contradiction
+
 theorem LawfulQueue.merge :
   (LawfulQueue queue₁ time) → (LawfulQueue queue₂ time) → (LawfulQueue (queue₁.merge queue₂) time) :=
   sorry
@@ -31,8 +34,10 @@ structure _root_.Network.Executable (net : Network) where
 def isStartingUp (exec : Executable net) : Bool := 
   exec.tag = ⟨0, 0⟩
 
+abbrev time (exec : Executable net) : Time := exec.tag.time
+
 def absoluteTime (exec : Executable net) : Time :=
-  exec.tag.time + exec.physicalOffset
+  exec.time + exec.physicalOffset
 
 def interface (exec : Executable net) (id : ReactorId net) :=
   (exec.reactors id).interface

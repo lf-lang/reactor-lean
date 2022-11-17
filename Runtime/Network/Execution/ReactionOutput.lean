@@ -7,13 +7,13 @@ open Graph.Class (Reaction)
 structure ReactionOutput (exec : Executable net) where
   reactor : ReactorId net
   reaction : Reaction reactor.class
-  raw : reaction.val.outputType exec.tag.time
+  raw : reaction.val.outputType exec.time
 
 namespace ReactionOutput
 
 variable {exec : Executable net}
 
-def fromRaw {reactor : ReactorId net} {reaction : Reaction reactor.class} (raw : reaction.val.outputType exec.tag.time) : ReactionOutput exec :=
+def fromRaw {reactor : ReactorId net} {reaction : Reaction reactor.class} (raw : reaction.val.outputType exec.time) : ReactionOutput exec :=
   { reactor, reaction, raw }
 
 def stopRequested (output : ReactionOutput exec) := output.raw.stopRequested
@@ -47,7 +47,7 @@ private theorem child_type_correctness {reactor : ReactorId net} {child : Reacto
 def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Option (child.val.inputs.type port) := 
   child_type_correctness ▸ output.child' (Graph.Path.Child.class_eq_class ▸ port : child.class.class.interface .inputs |>.vars)
 
-theorem events_LawfulQueue (output : ReactionOutput exec) : Executable.LawfulQueue output.events exec.tag.time := by
+theorem events_LawfulQueue (output : ReactionOutput exec) : Executable.LawfulQueue output.events exec.time := by
   intro _ h
   simp [events, Array.map_getElem?, Bind.bind, Option.bind] at h
   split at h

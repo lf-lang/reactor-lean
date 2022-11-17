@@ -103,3 +103,13 @@ lf {
       }
     ]
 } 
+
+def main : IO Unit := do
+  let exec := LF.executable (← Time.now)
+  let topo : Array (Network.ReactionId LF.network) := #[
+    ⟨.cons ⟨.c⟩ <| .nil, ⟨0, by simp⟩⟩,
+    ⟨.cons ⟨.s⟩ <| .nil, ⟨0, by simp⟩⟩,
+    ⟨.cons ⟨.s⟩ <| .nil, ⟨1, by simp⟩⟩,
+    ⟨.cons ⟨.c⟩ <| .nil, ⟨1, by simp⟩⟩
+  ]
+  exec.run topo 0

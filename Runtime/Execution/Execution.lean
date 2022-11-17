@@ -36,9 +36,9 @@ where
 def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Bool :=
   reaction.val.triggers.any fun trigger =>
     match trigger with
-    | .port   port   => exec.reactionInputs reactor                    |>.isPresent (reaction.subPS.coe port)
-    | .action action => exec.interface reactor .actions                |>.isPresent (reaction.subAS.coe action)
-    | .timer  timer  => exec.timer reactor (reaction.eqTimers ▸ timer) |>.firesAtTag exec.tag
+    | .port   port   => exec.reactionInputs reactor     |>.isPresent (reaction.subPS.coe port)
+    | .action action => exec.interface reactor .actions |>.isPresent (reaction.subAS.coe action)
+    | .timer  timer  => exec.reactors reactor           |>.timer (reaction.eqTimers ▸ timer) |>.isFiring
     | .startup       => exec.isStartingUp
     | .shutdown      => exec.state = .shuttingDown
 
@@ -51,13 +51,14 @@ def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : React
 def advance (exec : Executable net) (next : Next net) : Executable net := { exec with
   tag := next.tag
   queue := next.queue
+  lawfulQueue := next.lawfulQueue
   reactors := fun id => { exec.reactors id with
+    timer := next.timers exec id
     interface := fun
       | .inputs | .outputs => Interface?.empty
       | .actions           => next.actions id
       | _                  => exec.interface id _
-  }
-  lawfulQueue := next.lawfulQueue 
+  } 
 }
 
 def shutdown (exec : Executable net) : Executable net := 

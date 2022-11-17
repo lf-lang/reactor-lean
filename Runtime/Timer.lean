@@ -14,14 +14,4 @@ private def Period.duration : Timer.Period → Duration
 
 structure _root_.Timer where
   offset : Time
-  period : Timer.Period -- A duration of 0 means that the timer should only fire once. 
-
-def firesAtTag (timer : Timer) (tag : Tag) : Bool :=
-  timer.offset ≤ tag.time ∧ 
-  tag.microstep = 0       ∧
-  (tag.time - timer.offset) % timer.period.duration = 0 -- TODO: Write this using the Dvd typeclass.
-
--- The time of the timer's first firing after time 0.
-def initalFiring (timer : Timer) : Option Time :=
-  if timer.offset = 0 then timer.period else timer.offset
-  
+  period : Timer.Period -- A period of `none` means that the timer should only fire once. 

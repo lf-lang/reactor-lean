@@ -1,11 +1,14 @@
 import Runtime.Execution.Event
 
-open Network
+open Network Graph Class
 
-open Graph in
+structure Reactor.Timer where
+  val : Timer 
+  isFiring : Bool
+
 structure Reactor {net : Network} (cls : Class net) where
   interface : (kind : Reactor.InterfaceKind) → kind.interfaceType (cls.interface kind)
-  timer : cls.timers → Timer
+  timer : cls.timers → Reactor.Timer
 
 namespace Execution.Executable
 
@@ -26,12 +29,12 @@ inductive State
   deriving DecidableEq
 
 structure _root_.Execution.Executable (net : Network) where
-  tag : Tag := ⟨0, 0⟩
+  state          : State := .executing
+  tag            : Tag := ⟨0, 0⟩
+  queue          : Array (Event net)
+  reactors       : (id : ReactorId net) → Reactor id.class
   physicalOffset : Duration
-  queue : Array (Event net)
-  reactors : (id : ReactorId net) → Reactor id.class
-  state : State := .executing
-  lawfulQueue : LawfulQueue queue tag.time
+  lawfulQueue    : LawfulQueue queue tag.time -- TODO: Replace this by some notion of a bounded, sorted array.
 
 def isStartingUp (exec : Executable net) : Bool := 
   exec.tag = ⟨0, 0⟩
@@ -43,8 +46,5 @@ def absoluteTime (exec : Executable net) : Time :=
 
 def interface (exec : Executable net) (id : ReactorId net) :=
   (exec.reactors id).interface
-
-def timer (exec : Executable net) (id : ReactorId net) :=
-  (exec.reactors id).timer
 
 end Execution.Executable

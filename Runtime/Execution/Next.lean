@@ -31,7 +31,7 @@ theorem eventSplit_snd_LawfulQueue {exec : Executable net} {time} :
 
 private def nextTimerEvents (exec : Executable net) (timers : Array (TimerId net)) (anchor : Time) : Array (Event net) :=
   timers.filterMap fun ⟨reactor, timer⟩ =>
-    match exec.reactors reactor |>.timer timer |>.period with
+    match exec.reactors reactor |>.timer timer |>.val.period with
     | none => none
     | some period => return .timer (anchor + period) ⟨reactor, timer⟩
 
@@ -81,6 +81,11 @@ def actions (next : Next net) (reactor : ReactorId net) : Interface? (reactor.cl
     | none => none
     | some event => have h := Array.findP?_property h; event.actionValue (of_decide_eq_true h)
 
-end Next
+def timers (next : Next net) (exec : Executable net) (reactor : ReactorId net) : reactor.class.timers → Reactor.Timer := 
+  fun timer => { 
+    val      := exec.reactors reactor |>.timer timer |>.val
+    isFiring := next.events.any (·.timer? = some ⟨reactor, timer⟩)
+  }
 
+end Next
 end Execution.Executable    

@@ -16,6 +16,8 @@ variable {exec : Executable net}
 def fromRaw {reactor : ReactorId net} {reaction : Reaction reactor.class} (raw : reaction.val.outputType exec.tag.time) : ReactionOutput exec :=
   { reactor, reaction, raw }
 
+def stopRequested (output : ReactionOutput exec) := output.raw.stopRequested
+
 def events (output : ReactionOutput exec) :=
   output.raw.events.map fun event => 
     Event.action 

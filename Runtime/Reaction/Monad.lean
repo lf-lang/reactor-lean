@@ -27,22 +27,19 @@ abbrev Input.time (input : Input σPS σAS σS σP) := input.tag.time
 
 @[ext]
 structure Output (σPE σAE σS : Interface.Scheme) (min : Time) where
-  ports  : Interface? σPE := Interface?.empty
-  state  : Interface σS
-  events : SortedArray (Event σAE min) := #[]#
+  ports         : Interface? σPE              := Interface?.empty
+  state         : Interface σS
+  events        : SortedArray (Event σAE min) := #[]#
+  stopRequested : Bool                        := false
 
 abbrev _root_.ReactionT (σPS σPE σAS σAE σS σP : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σPS σAS σS σP) → m (Output σPE σAE σS input.time × α)
 
 def Output.merge (o₁ o₂ : Output σPE σAE σS time) : Output σPE σAE σS time where
-  ports  := o₁.ports.merge o₂.ports
-  state  := o₂.state
-  events := o₁.events.merge o₂.events
-
-theorem Output.merge_idem {o : Output σPE σAE σS time} : (o.events = #[]#) → o.merge o = o := by
-  intro h
-  simp [Output.merge, Interface?.merge_idem, h, SortedArray.merge_empty]
-  ext <;> simp [*]
+  ports         := o₁.ports.merge o₂.ports
+  state         := o₂.state
+  events        := o₁.events.merge o₂.events
+  stopRequested := o₁.stopRequested ∨ o₂.stopRequested
 
 @[simp]
 theorem Output.merge_ports : (Output.merge o₁ o₂).ports = o₁.ports.merge o₂.ports := rfl
@@ -52,6 +49,10 @@ theorem Output.merge_state : (Output.merge o₁ o₂).state = o₂.state := rfl
 
 @[simp]
 theorem Output.merge_events : (Output.merge o₁ o₂).events = o₁.events.merge o₂.events := rfl
+
+@[simp]
+theorem Output.merge_stopRequested : (Output.merge o₁ o₂).stopRequested = o₁.stopRequested ∨ o₂.stopRequested := 
+  sorry
 
 def Input.noop (input : Input σPS σAS σS σP) : Output σPE σAE σS input.time where 
   state := input.state 
@@ -125,6 +126,11 @@ def schedule (action : σAE.vars) (delay : Duration) (v : σAE.type action) : Re
     let time := input.time.advance delay
     let event := { action, time, value := v }
     let output := { state := input.state, events := #[event]# }
+    return (output, ())
+
+def requestStop : ReactionT σPS σPE σAS σAE σS σP m Unit :=
+  fun input => 
+    let output := { stopRequested := true, state := input.state }
     return (output, ())
 
 end ReactionT

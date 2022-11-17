@@ -1,71 +1,105 @@
 import Runtime
- 
+
 lf {
   reactor Main
-    parameters  [p : (Nat × Nat) := (1, 2)]
-    inputs      [i : Int]
-    outputs     [o : Bool]
-    actions     [a : String]
-    state       [s : Nat := 0]
-    timers      [
-      {
-        name t
-        offset 0
-        period 0
-      }  
-    ]
-    nested      [
-      n₁ : Nest := [pn : String := "first"], 
-      n₂ : Nest := [pn : String := "second"]
-    ]
-    connections [n₁.o : n₂.i]
+    parameters  []
+    inputs      []
+    outputs     []
+    actions     []
+    state       []
+    timers      []
+    nested      [c : Client := [], s : Server := []]
+    connections [c.out : s.in, s.out : c.in]
+    reactions   []
+
+  reactor Server
+    parameters  []
+    inputs      [«in» : Int]
+    outputs     [out : Int]
+    actions     [err : Unit]
+    state       [error : Int]
+    timers      []
+    nested      []
+    connections []
     reactions   [
       {
         kind          pure
-        portSources   [i, n₂.o]
-        portEffects   [o, n₁.i]
-        actionSources [a]
-        actionEffects [a]
+        portSources   [«in»]
+        portEffects   [out]
+        actionSources []
+        actionEffects [err]
         triggers {
-          ports   [i]
-          actions [a]
-          timers  [t]
-          meta    [startup, shutdown]
+          ports   [«in»]
+          actions []
+          timers  []
+          meta    []
         }
         body {
-          let w ← getState  s
-          let x ← getInput  i
-          let y ← getInput  n₂.o
-          let z ← getAction ActionSource.a
-          let p ← getParam  p
-          let t ← getTag
-          let l ← getLogicalTime
-          let q ← getPhysicalTime
-          setOutput o    true
-          setOutput n₁.i (-1)
-          setState  s    w
-          schedule  a    (.of 10 .s) "hello"
+          match ← getInput «in» with
+          | none   => schedule err 0 ()
+          | some i => setOutput out i
+        }
+      },
+      {
+        kind          pure
+        portSources   []
+        portEffects   []
+        actionSources [err]
+        actionEffects []
+        triggers {
+          ports   []
+          actions [err]
+          timers  []
+          meta    []
+        }
+        body {
+          setState error (1 : Int)
         }
       }
     ]
 
-  reactor Nest
-    parameters  [pn : String := ""]
-    inputs      [i : Int]
-    outputs     [o : Bool]
+  reactor Client
+    parameters  []
+    inputs      [«in» : Int]
+    outputs     [out : Int]
     actions     []
-    state       []
+    state       [req : Int := 0]
     timers      []
     nested      []
     connections []
-    reactions   []
+    reactions   [
+      {
+        kind          pure
+        portSources   []
+        portEffects   [out]
+        actionSources []
+        actionEffects []
+        triggers {
+          ports   []
+          actions []
+          timers  []
+          meta    [startup]
+        }
+        body {
+          setState req (0 : Int)
+          setOutput out (← getState req)
+        }
+      },
+      {
+        kind          pure
+        portSources   [«in»]
+        portEffects   []
+        actionSources []
+        actionEffects []
+        triggers {
+          ports   [«in»]
+          actions []
+          timers  []
+          meta    []
+        }
+        body {
+          setState req (0 : Int)
+        }
+      }
+    ]
 } 
-
-open LF
-
--- TODO: Turn this into an elab that checks it the reaction is pure.
-macro input:term " -[" rcn:ident "]→ " p:term : term => `($p ($(rcn).body $input).fst)
-
-example : input -[Main.Reaction0]→ (·.state .s = input.state .s) := rfl
-
-example : (Main.Reaction0.body input).fst.state .s = input.state .s := rfl

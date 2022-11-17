@@ -35,7 +35,7 @@ def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : React
     | .action action => exec.interface reactor .actions                |>.isPresent (reaction.subAS.coe action)
     | .timer  timer  => exec.timer reactor (reaction.eqTimers ▸ timer) |>.firesAtTag exec.tag
     | .startup       => exec.isStartingUp
-    | .shutdown      => exec.isShuttingDown
+    | .shutdown      => exec.state = .shuttingDown
 
 -- Advances the given executable to the state given by `next`.
 -- This includes:
@@ -55,21 +55,40 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
   lawfulQueue := next.lawfulQueue 
 }
 
-def prepareForShutdown (exec : Executable net) : Executable net := { exec with
+def shutdown (exec : Executable net) : Executable net := { exec with
   tag := { exec.tag with microstep := exec.tag.microstep + 1 }
-  isShuttingDown := true
+  state := .shuttingDown
 }
 
 -- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
+-- TODO: Perhaps we can split this into mutually recursive functions, where each function covers one of the branches below.
 partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with 
+  
+  -- This branch is entered whenever we've completed an instantaneous execution.
   | none => 
-    unless exec.isShuttingDown do
+    match exec.state with
+    | .executing =>
       match Next.for exec with
-      | none      => run exec.prepareForShutdown topo 0
-      | some next => run (exec.advance next) topo 0
-  | some reactionId =>
-    IO.sleepUntil exec.absoluteTime
+      | none => 
+        -- We've reached starvation (there are no more events to be processed), 
+        -- so the next instantaneous execution performs the shutdown.
+        run exec.shutdown topo 0
+      | some next => 
+        -- Execution continues normally at the tag of the next event.
+        run (exec.advance next) topo 0
+    | .stopRequested => 
+      -- The last instantaneous execution contained a shutdown request, 
+      -- so the next instantaneous execution performs the shutdown.
+      run exec.shutdown topo 0
+    | .shuttingDown => 
+      -- The instantaneous execution where the `.shutdown` trigger is active 
+      -- has already been executed, so we terminate execution.
+      return 
+  
+  -- This branch is entered whenever we're within an instantaneous execution.
+  | some reactionId => 
+    IO.sleepUntil exec.absoluteTime -- TODO?: Move this into the branch above.
     let mut exec := exec
     let reaction := reactionId.reaction
     if exec.triggers reaction then

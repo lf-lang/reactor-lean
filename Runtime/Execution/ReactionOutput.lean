@@ -1,7 +1,8 @@
-import Runtime.Network.Execution.Basic
+import Runtime.Execution.Basic
 
-namespace Network.Executable
+namespace Execution
 
+open Network 
 open Graph.Class (Reaction)
 
 structure ReactionOutput (exec : Executable net) where
@@ -57,4 +58,4 @@ theorem events_LawfulQueue (output : ReactionOutput exec) : Executable.LawfulQue
     simp [Event.time, ←h, e.time.property]
 
 end ReactionOutput
-end Network.Executable
+end Execution

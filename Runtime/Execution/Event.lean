@@ -1,6 +1,7 @@
 import Runtime.Network.Basic
 
-namespace Network
+namespace Execution
+open Network
 
 inductive Event (net : Network)
   | action (time : Time) (id : ActionId net) (value : (id.reactor.class.interface .actions).type id.action)
@@ -32,8 +33,8 @@ def timer? : Event net → Option (TimerId net)
 
 def actionValue (event : Event net) {id} (h : event.id = .action id) : id.reactor.class.interface .actions |>.type id.action :=
   match event with
-  | timer .. => by simp [Network.Event.id] at h 
-  | action _ id' value => (by simp_all [Network.Event.id] : id = id') ▸ value
+  | timer .. => by simp [Event.id] at h 
+  | action _ id' value => (by simp_all [Event.id] : id = id') ▸ value
   
 end Event
-end Network
+end Execution

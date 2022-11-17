@@ -1,11 +1,13 @@
-import Runtime.Network.Execution.Event
+import Runtime.Execution.Event
 
-open Network.Graph in
+open Network
+
+open Graph in
 structure Reactor {net : Network} (cls : Class net) where
   interface : (kind : Reactor.InterfaceKind) → kind.interfaceType (cls.interface kind)
   timer : cls.timers → Timer
 
-namespace Network.Executable
+namespace Execution.Executable
 
 def LawfulQueue (queue : Array (Event net)) (time : Time) := 
   ∀ {event}, (queue[0]? = some event) → event.time ≥ time
@@ -23,7 +25,7 @@ inductive State
   | shuttingDown 
   deriving DecidableEq
 
-structure _root_.Network.Executable (net : Network) where
+structure _root_.Execution.Executable (net : Network) where
   tag : Tag := ⟨0, 0⟩
   physicalOffset : Duration
   queue : Array (Event net)
@@ -45,4 +47,4 @@ def interface (exec : Executable net) (id : ReactorId net) :=
 def timer (exec : Executable net) (id : ReactorId net) :=
   (exec.reactors id).timer
 
-end Network.Executable
+end Execution.Executable

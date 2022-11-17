@@ -1,6 +1,7 @@
-import Runtime.Network.Execution.ReactionOutput
+import Runtime.Execution.ReactionOutput
 
-namespace Network.Executable
+namespace Execution.Executable
+open Network
 
 def apply (exec : Executable net) (output : ReactionOutput exec) : Executable net := { exec with
   queue := exec.queue.merge output.events
@@ -33,4 +34,4 @@ where
     else
       exec.state
 
-end Network.Executable
+end Execution.Executable

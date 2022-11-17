@@ -1,16 +1,21 @@
-import Runtime.Network.Execution.Next
-import Runtime.Network.Execution.Apply
-import Runtime.Network.Execution.Propagate
+import Runtime.Execution.Next
+import Runtime.Execution.Apply
+import Runtime.Execution.Propagate
 
-namespace Network.Executable
-
-open Graph Class
+namespace Execution.Executable
+open Network Graph Class
 
 -- TODO?: Refactor this à la `Reaction.Output.LocalValue` and `Reaction.Output.local`.
 -- An interface for all ports (local and nested) that can act as sources of reactions of a given reactor.
 def reactionInputs (exec : Executable net) (reactor : ReactorId net) : Interface? reactor.class.reactionInputScheme
   | .inl localInput           => exec.interface reactor .inputs localInput
-  | .inr ⟨child, childOutput⟩ => Path.reactionInputScheme_right_type_eq_extend_child_type ▸ exec.interface (reactor.extend child) .outputs (Path.extend_class ▸ childOutput)
+  | .inr ⟨child, childOutput⟩ => type_correctness ▸ exec.interface (reactor.extend child) .outputs (Path.extend_class ▸ childOutput)
+where
+  type_correctness {graph start} {path : Path graph start} {child childOutput} : 
+    path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = 
+    ((path.extend child).class.interface .outputs).type (Path.extend_class ▸ childOutput) := by
+    simp
+    sorry -- by extend_class
 
 def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
   reaction.val.run {
@@ -94,4 +99,4 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
         |>.propagate reactionId 
     exec.run topo (reactionIdx + 1)
 
-end Network.Executable
+end Execution.Executable

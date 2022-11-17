@@ -1,6 +1,7 @@
-import Runtime.Network.Execution.Basic
+import Runtime.Execution.Basic
 
-namespace Network.Executable    
+namespace Execution.Executable  
+open Network  
 
 def nextTime (exec : Executable net) : Option (Time.From exec.time) :=
   match h : exec.queue[0]? with 
@@ -82,4 +83,4 @@ def actions (next : Next net) (reactor : ReactorId net) : Interface? (reactor.cl
 
 end Next
 
-end Network.Executable
+end Execution.Executable    

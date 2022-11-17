@@ -1,8 +1,8 @@
-import Runtime.Network.Execution.Basic
+import Runtime.Execution.Basic
 
-namespace Network.Executable
+namespace Execution.Executable
 
-open Graph
+open Network Graph
 
 private def Sib (reactor : ReactorId net) := { id : ReactorId net // id ≂ reactor }
 
@@ -70,4 +70,4 @@ where
         -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/.E2.9C.94.20Simple.20HEq
         -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Questions.20on.20dependent.20elimination.20failures
 
-end Network.Executable
+end Execution.Executable

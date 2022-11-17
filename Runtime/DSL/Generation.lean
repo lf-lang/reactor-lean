@@ -359,14 +359,18 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       then rtrDecl.genReactorInstance
       else `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
     let timerNames ← rtrDecl.timers.map (·.name) |>.dotted
-    let initialTimerEvents ← timerNames.mapM fun timerName => `(.timer ($instancesIdent $id |>.timer $timerName |>.offset) { «reactor» := $id, timer := $timerName })
+    let initialTimerEvents ← timerNames.mapM fun timerName => `( 
+         match ($instancesIdent $id).timer $timerName |>.initalFiring with
+         | none => none
+         | some t => some <| .timer t { «reactor» := $id, timer := $timerName }
+       )
     return (id, value, initialTimerEvents) 
   let ⟨instanceValues, initalTimerEvents⟩ := rhs.unzip
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Execution.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
       reactors := $instancesIdent
-      queue := #[ $[$(initalTimerEvents.concatMap id)],* ]
+      queue := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
       lawfulQueue := sorry
     where 
       $instancesIdent:ident : (id : $(mkIdent `Network.ReactorId) $(decl.networkIdent)) → $(mkIdent `Reactor) id.class 

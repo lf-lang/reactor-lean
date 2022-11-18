@@ -7,6 +7,11 @@ structure InterfaceVar where
   value : Term
   default : Option Term
 
+def InterfaceVar.getDefault (var : InterfaceVar) : MacroM Term :=
+  match var.default with
+  | some term => return term
+  | _ => Macro.throwError s!"InterfaceVar.getDefault: Expected non-none value"
+
 def InterfaceVar.valueIdent (var : InterfaceVar) : MacroM Ident :=
   match var.value with
   | `($value:ident) => return value

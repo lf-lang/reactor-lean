@@ -8,8 +8,14 @@ lf {
     actions     []
     state       []
     timers      []
-    nested      [c : Client := [], s : Server := []]
-    connections [c.out : s.in, s.out : c.in]
+    nested      [
+      c : Client := [], 
+      s : Server := []
+    ]
+    connections [
+        c.out : s.in := some (.of 1 .ns), 
+        s.out : c.in := none
+      ]
     reactions   []
 
   reactor Server

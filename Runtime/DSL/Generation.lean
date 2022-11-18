@@ -191,7 +191,7 @@ def ReactorDecl.genConnections (decl : ReactorDecl) : MacroM (Array Term) := do
   decl.connections.mapM fun con => do `({
     src := $(← subportTerm con.id)
     dst := $(← subportTerm (← con.valueIdent))
-    delay := none
+    delay := $(← con.getDefault)
   })
 where 
   subportTerm (ident : Ident) : MacroM Term := do 

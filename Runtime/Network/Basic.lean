@@ -63,4 +63,9 @@ structure TimerId (net : Network) where
   timer   : reactor.class.timers
   deriving DecidableEq
 
+structure OutputPortId (net : Network) where
+  reactor : ReactorId net
+  port    : reactor.outputs.vars
+  deriving DecidableEq
+
 end Network

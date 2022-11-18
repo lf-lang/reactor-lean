@@ -75,20 +75,20 @@ attribute [instance] subPS subPE subAS subAE
 
 structure Subport (cls : Class graph) (kind : Reactor.PortKind) where
   child : Child cls
-  port : (child.class.interface kind).vars
+  port  : (child.class.interface kind).vars
+  deriving DecidableEq
 
 abbrev Subport.type (subport : Subport cls kind) : Type := 
   (subport.child.class.interface kind).type subport.port
 
--- TODO: The `eqTypeProof` is probably broken.
-macro "eqTypeProof" : tactic => `(tactic| try (intro input output; cases input <;> cases output <;> rename_i rtr₁ prt₁ rtr₂ prt₂ <;> cases rtr₁ <;> cases prt₁ <;> cases rtr₂ <;> cases prt₂ <;> simp))
-structure Connections (cls : Class graph) where 
-  source : (Subport cls .input) → Option (Subport cls .output)
-  eqType : (source input = some output) → (input.type = output.type) := by sorry -- eqTypeProof
-
-def Connections.empty : Connections cls where
-  source _ := none
-  eqType := by simp
+-- Note: A delay of `none` means instantaneous propagation, whereas
+--       a delay of `0` moves propagation to the next microstep.
+structure Connection (cls : Class graph) where
+  src    : Subport cls .output
+  dst    : Subport cls .input
+  delay  : Option Duration
+  eqType : src.type = dst.type := by rfl
+  deriving DecidableEq
 
 end Class
 

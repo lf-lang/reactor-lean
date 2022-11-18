@@ -30,7 +30,7 @@ where
     type_correctness₂ ▸ aux₃ parent leaf (Path.split_class (path := sib.val) ▸ dst)
 
   aux₃ (parent : ReactorId net) (leaf : Class.Child parent.class) (dst : (leaf.class.interface .inputs).vars) : Option ((leaf.class.interface .inputs).type dst) :=
-    match h : parent.class.connections.source ⟨leaf, dst⟩ with
+    match h : parent.class.nonDelayedSource ⟨leaf, dst⟩ with
     | some src => type_correctness₃ h ▸ aux₄ src
     | none => none -- independent
 
@@ -55,8 +55,8 @@ where
         -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Questions.20on.20dependent.20elimination.20failures
 
   type_correctness₃ {parent : ReactorId net} {src : Class.Subport parent.class .output} {leaf : Class.Child parent.class} {dst} :
-    (parent.class.connections.source ⟨leaf, dst⟩ = some src) → src.type = (leaf.class.interface .inputs).type dst :=
-    (by simp [parent.class.connections.eqType ·])
+    (parent.class.nonDelayedSource ⟨leaf, dst⟩ = some src) → src.type = (leaf.class.interface .inputs).type dst :=
+    (by simp [Class.nonDelayedSource_eqType ·])
 
   type_correctness₄ {reaction : ReactionId net} {parent : ReactorId net} {src : Class.Subport parent.class .output} :
     (h : src.child.class = reaction.reactor.class) →

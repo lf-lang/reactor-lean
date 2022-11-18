@@ -18,6 +18,9 @@ def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} :
   (as.map f)[i]? = as[i]? >>= (some ∘ f) :=
   sorry
 
+theorem Array.findSome?_some [BEq α] {as : Array α} : (as.findSome? f = some b) → (∃ a, as.contains a ∧ f a = some b) := 
+  sorry
+
 instance [Ord α] : LE α := leOfOrd
 
 @[reducible]

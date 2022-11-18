@@ -187,30 +187,17 @@ def ReactorDecl.genReactorScheme (decl : ReactorDecl) (ns : Ident) : MacroM Comm
       «class» child := match child with $[| $(← decl.nested.map (·.id) |>.dotted) => $dottedClasses]*
   )  
 
-def ReactorDecl.genConnections (decl : ReactorDecl) (isComplete : Bool) : MacroM Term := do
-  let mut lhs ← inputTerms decl
-  let mut rhs ← outputTerms decl
-  unless isComplete do
-    lhs := lhs.push (← `(_))
-    rhs := rhs.push (← `(none))
-  `(
-    { 
-      source := fun subport => match subport with $[| $lhs => $rhs ]* 
-      -- TODO: Find out why the default argument on `Connections` doesn't work here.
-      eqType := sorry
-    }
-  )
+def ReactorDecl.genConnections (decl : ReactorDecl) : MacroM (Array Term) := do
+  decl.connections.mapM fun con => do `({
+    src := $(← subportTerm con.id)
+    dst := $(← subportTerm (← con.valueIdent))
+    delay := none
+  })
 where 
-  inputTerms (decl : ReactorDecl) : MacroM (Array Term) := do 
-    (← decl.connections.valueIdents).mapM fun id => do
-      match id.getId with
-      | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
-      | _                            => throwUnsupported 
-  outputTerms (decl : ReactorDecl) : MacroM (Array Term) :=
-    decl.connections.ids.mapM fun id => do
-      match id.getId with
-      | .str (.str .anonymous rtr) p => `(some ⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
-      | _                            => throwUnsupported 
+  subportTerm (ident : Ident) : MacroM Term := do 
+    match ident.getId with
+    | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
+    | _                            => throwUnsupported 
 
 def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do 
   let dottedIds ← decl.interfaces .state |>.map (·.id) |>.dotted
@@ -291,10 +278,8 @@ where
 
 def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
   let dottedClasses ← decl.reactors.map (·.name) |>.dotted 
-  let connectionsMaps ← decl.reactors.mapM fun rtr => do
-    let isComplete := rtr.connections.size = (← decl.numNested rtr.name.getId .inputs)
-    rtr.genConnections isComplete
-  `(fun $[| $dottedClasses => $connectionsMaps]*)
+  let connectionsArrays ← decl.reactors.mapM fun rtr => do `(#[ $[$(← rtr.genConnections)],* ])
+  `(fun $[| $dottedClasses => $connectionsArrays]*)
 
 def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `(
   abbrev $(decl.networkIdent) : Network where

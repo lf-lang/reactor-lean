@@ -81,15 +81,19 @@ structure Subport (cls : Class graph) (kind : Reactor.PortKind) where
 abbrev Subport.type (subport : Subport cls kind) : Type := 
   (subport.child.class.interface kind).type subport.port
 
--- Note: A delay of `none` means instantaneous propagation, whereas
---       a delay of `0` moves propagation to the next microstep.
-structure Connection (cls : Class graph) where
-  src    : Subport cls .output
-  dst    : Subport cls .input
-  delay  : Option Duration
-  eqType : src.type = dst.type := by rfl
-  deriving DecidableEq
+-- The data layout of this type is motivated by execution-specific use cases:
+-- * Non-delayed connections are used in a context where a destination 
+--   port needs to find its corresponding source port (if it exists).
+-- * Delayed connections are used in a context where a given source
+--   port needs to enumerate all of its delayed destinations.
+-- 
+-- Note: We're not to enforcing uniqueness of connections to input ports, 
+--       as this is handled by the LF frontend.
+structure Connections (cls : Class graph) where
+  instantaneous : (dst : Subport cls .input) → Option (Subport cls .output) 
+  delayed       : (Subport cls .output) → Array (Duration × (Subport cls .input))
+  instEqType    : ∀ {dst src}, (instantaneous dst = some src) → dst.type = src.type
+  delayedEqType : ∀ {src} (i : Fin (delayed src).size), src.type = (delayed src)[i].snd.type 
 
 end Class
-
 end Network.Graph

@@ -11,8 +11,8 @@ def reactionInputs (exec : Executable net) (reactor : ReactorId net) : Interface
   | .inl localInput           => exec.interface reactor .inputs localInput
   | .inr ⟨child, childOutput⟩ => type_correctness ▸ exec.interface (reactor.extend child) .outputs (Path.extend_class ▸ childOutput)
 where
-  type_correctness {graph start} {path : Path graph start} {child childOutput} : 
-    path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = 
+  type_correctness {graph start} {path : Path graph start} {child childOutput} :
+    path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) =
     ((path.extend child).class.interface .outputs).type (Path.extend_class ▸ childOutput) := by
     simp
     sorry -- by extend_class
@@ -30,7 +30,7 @@ def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction 
 def fireToIO (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
   toIO <| exec.fire reaction
 where
-  toIO {α} {kind : Reaction.Kind} : (kind.monad α) → IO α := 
+  toIO {α} {kind : Reaction.Kind} : (kind.monad α) → IO α :=
     match kind with | .pure => pure | .impure => id
 
 def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Bool :=
@@ -51,53 +51,55 @@ def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : React
 def advance (exec : Executable net) (next : Next net) : Executable net := { exec with
   tag := next.tag
   queue := next.queue
+  toPropagate := #[]
   lawfulQueue := next.lawfulQueue
   reactors := fun id => { exec.reactors id with
     timer := next.timers exec id
     interface := fun
-      | .inputs | .outputs => Interface?.empty
-      | .actions           => next.actions id
-      | _                  => exec.interface id _
-  } 
+      | .inputs  => next.inputs id
+      | .actions => next.actions id
+      | .outputs => Interface?.empty
+      | _        => exec.interface id _
+  }
 }
 
-def shutdown (exec : Executable net) : Executable net := 
+def shutdown (exec : Executable net) : Executable net :=
   let next :=
-    match exec.nextTime with 
+    match exec.nextTime with
     | none => .empty exec.tag.increment
     | some time => if (time = exec.time) then (Next.for exec exec.time) else (.empty exec.tag.increment)
   { exec.advance next with state := .shuttingDown }
 
 -- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
-  match topo[reactionIdx]? with 
+  match topo[reactionIdx]? with
   -- This branch is entered whenever we've completed an instantaneous execution.
-  | none => 
+  | none =>
     match exec.state, exec.nextTime with
-    -- The instantaneous execution where the `.shutdown` trigger is active 
+    -- The instantaneous execution where the `.shutdown` trigger is active
     -- has already been executed, so we terminate execution.
-    | .shuttingDown, _ => return 
-    -- Case 1: 
-    -- The last instantaneous execution contained a shutdown request, 
+    | .shuttingDown, _ => return
+    -- Case 1:
+    -- The last instantaneous execution contained a shutdown request,
     -- so the next instantaneous execution performs shutdown.
     -- Case 2:
-    -- We've reached starvation (there are no more events to be processed), 
+    -- We've reached starvation (there are no more events to be processed),
     -- so the next instantaneous execution performs shutdown.
     | .stopRequested, _ | .executing, none => exec.shutdown.run topo 0
     -- Execution continues normally at the tag of the next event.
-    | .executing, some time => 
+    | .executing, some time =>
       let exec := exec.advance (Next.for exec time)
       IO.sleepUntil exec.absoluteTime
       exec.run topo 0
   -- This branch is entered whenever we're within an instantaneous execution.
-  | some reactionId => 
+  | some reactionId =>
     let reaction := reactionId.reaction
     let mut exec := exec
     if exec.triggers reaction then
       exec := (← exec.fireToIO reaction)
-        |> ReactionOutput.fromRaw 
-        |> exec.apply 
-        |>.propagate reactionId 
+        |> ReactionOutput.fromRaw
+        |> exec.apply
+        |>.propagate reactionId
     exec.run topo (reactionIdx + 1)
 
 end Execution.Executable

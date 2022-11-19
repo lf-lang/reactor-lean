@@ -25,12 +25,21 @@ structure Input (σPS σAS σS σP : Interface.Scheme) where
 
 abbrev Input.time (input : Input σPS σAS σS σP) := input.tag.time
 
+-- Note: The `writtenPorts` field is used to record when a given port was written to.
+--       This information is used for the implementation of connections with delays.
+--       If we didn't force reaction bodies to be written in `do` notation,
+--       this field could be manipulated to break the semantics of reactor execution,
+--       by marking a port as unwritten, even though it was written to. In this case,
+--       the port's value would not be propagated along a delayed connection.
+-- TODO: If there's an implementation of a dependent hash map available, combine the
+--       fields `ports` and `writtenPorts` by using a dependent hash map.
 @[ext]
 structure Output (σPE σAE σS : Interface.Scheme) (min : Time) where
   ports         : Interface? σPE              := Interface?.empty
   state         : Interface σS
   events        : SortedArray (Event σAE min) := #[]#
   stopRequested : Bool                        := false
+  writtenPorts  : Array σPE.vars              := #[]
 
 abbrev _root_.ReactionT (σPS σPE σAS σAE σS σP : Interface.Scheme) (m : Type → Type) (α : Type) := 
   (input : Input σPS σAS σS σP) → m (Output σPE σAE σS input.time × α)
@@ -40,6 +49,7 @@ def Output.merge (o₁ o₂ : Output σPE σAE σS time) : Output σPE σAE σS 
   state         := o₂.state
   events        := o₁.events.merge o₂.events
   stopRequested := o₁.stopRequested ∨ o₂.stopRequested
+  writtenPorts  := o₁.writtenPorts ++ o₂.writtenPorts
 
 @[simp]
 theorem Output.merge_ports : (Output.merge o₁ o₂).ports = o₁.ports.merge o₂.ports := rfl
@@ -53,6 +63,9 @@ theorem Output.merge_events : (Output.merge o₁ o₂).events = o₁.events.merg
 @[simp]
 theorem Output.merge_stopRequested : (Output.merge o₁ o₂).stopRequested = o₁.stopRequested ∨ o₂.stopRequested := 
   sorry
+
+@[simp]
+theorem Output.merge_writtenPorts : (Output.merge o₁ o₂).writtenPorts = o₁.writtenPorts ++ o₂.writtenPorts := rfl
 
 def Input.noop (input : Input σPS σAS σS σP) : Output σPE σAE σS input.time where 
   state := input.state 
@@ -112,7 +125,7 @@ def getPhysicalTime : ReactionT σPS σPE σAS σAE σS σP IO Time :=
 def setOutput (port : σPE.vars) (v : σPE.type port) : ReactionT σPS σPE σAS σAE σS σP m Unit :=
   fun input => 
     let ports := fun p => if h : p = port then some (h ▸ v) else none
-    let output := { ports := ports, state := input.state }
+    let output := { ports := ports, writtenPorts := #[port], state := input.state }
     return (output, ())
 
 def setState (stv : σS.vars) (v : σS.type stv) : ReactionT σPS σPE σAS σAE σS σP m Unit :=

@@ -4,17 +4,18 @@ namespace Execution.Executable
 open Network
 
 def apply (exec : Executable net) (output : ReactionOutput exec) : Executable net := { exec with
-  queue := exec.queue.merge output.events
+  queue := exec.queue.merge output.actionEvents
   state := stateAfter output
   reactors := fun id => { exec.reactors id with
-    interface := 
+    interface :=
       if      h : id = output.reactor then h ▸ container output -- Updates the output ports of the reaction's container.
       else if h : id ≻ output.reactor then child output ⟨id, h⟩ -- Updates the input ports of child reactors.
       else                                 exec.interface id    -- Unaffected reactors.
   }
-  lawfulQueue := LawfulQueue.merge exec.lawfulQueue output.events_LawfulQueue
+  toPropagate := exec.toPropagate ++ output.writtenPortsWithDelayedConnections
+  lawfulQueue := LawfulQueue.merge exec.lawfulQueue output.actionEvents_LawfulQueue
 }
-where 
+where
   container (output : ReactionOutput exec) : (kind : Reactor.InterfaceKind) → kind.interfaceType (output.reactor.class.interface kind)
     | .outputs => fun var => (output.local var).orElse (fun _ => exec.interface output.reactor .outputs var)
     | .state   => output.reaction.eqState ▸ output.raw.state

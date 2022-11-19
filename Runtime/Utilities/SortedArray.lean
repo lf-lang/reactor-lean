@@ -33,7 +33,12 @@ notation "#[" a "]#" => SortedArray.singleton a
 -- input `s₁ ++ s₂`.
 def merge (s₁ s₂ : SortedArray α) : SortedArray α :=
   -- TODO: temporary
-  let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (decide <| · ≤ ·)
-  { toArray := sorted, isSorted := sorry }
+  if s₁.isEmpty then 
+    s₂ 
+  else if s₂.isEmpty then 
+    s₁
+  else
+    let sorted := (s₁.toArray ++ s₂.toArray).insertionSort (decide <| · ≤ ·)
+    { toArray := sorted, isSorted := sorry }
 
 theorem merge_empty {s : SortedArray α} : s.merge #[]# = s := sorry

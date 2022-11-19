@@ -3,7 +3,7 @@ import Runtime.Execution.Event
 open Network Graph Class
 
 structure Reactor.Timer where
-  val : Timer 
+  val : Timer
   isFiring : Bool
 
 structure Reactor {net : Network} (cls : Class net) where
@@ -12,7 +12,7 @@ structure Reactor {net : Network} (cls : Class net) where
 
 namespace Execution.Executable
 
-def LawfulQueue (queue : Array (Event net)) (time : Time) := 
+def LawfulQueue (queue : Array (Event net)) (time : Time) :=
   ∀ {event}, (queue[0]? = some event) → event.time ≥ time
 
 theorem LawfulQueue.empty : LawfulQueue (#[] : Array (Event net)) time := by
@@ -25,18 +25,22 @@ theorem LawfulQueue.merge :
 inductive State
   | executing
   | stopRequested
-  | shuttingDown 
+  | shuttingDown
   deriving DecidableEq
 
+-- During an instantaneous execution, the `toPropagate` field is used to collect the output ports
+-- which have been written to. When advancing from to the next tag, this field is processed by
+-- generating `.propagation` events for those ports which have delayed connections.
 structure _root_.Execution.Executable (net : Network) where
   state          : State := .executing
   tag            : Tag := ⟨0, 0⟩
   queue          : Array (Event net)
   reactors       : (id : ReactorId net) → Reactor id.class
   physicalOffset : Duration
+  toPropagate    : Array (PortId net .output) := #[]
   lawfulQueue    : LawfulQueue queue tag.time -- TODO: Replace this by some notion of a bounded, sorted array.
 
-def isStartingUp (exec : Executable net) : Bool := 
+def isStartingUp (exec : Executable net) : Bool :=
   exec.tag = ⟨0, 0⟩
 
 abbrev time (exec : Executable net) : Time := exec.tag.time

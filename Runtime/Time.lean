@@ -2,7 +2,7 @@ import Runtime.Utilities.Lean
 
 inductive Time.Scale
   | ns | μs | ms | s | min | hour | day | week
-  
+
 def Time.Scale.nsRatio : Scale → Nat
   | .ns   => 1
   | .μs   => 1000
@@ -14,7 +14,7 @@ def Time.Scale.nsRatio : Scale → Nat
   | .week => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
 
 structure Time where
-  private mk :: 
+  private mk ::
   private ns : Nat
   deriving DecidableEq
 
@@ -39,6 +39,9 @@ theorem Time.ext {time₁ time₂ : Time} : time₁.ns = time₂.ns → time₁ 
 theorem Time.le_antisymm {time₁ : Time} : (time₁ ≤ time₂) → (time₂ ≤ time₁) → time₁ = time₂ :=
   (Time.ext <| Nat.le_antisymm · ·)
 
+@[simp]
+theorem Time.le_refl {time : Time} : time ≤ time := Nat.le_refl _
+
 abbrev Duration := Time
 
 def Time.of (value : Nat) (scale : Scale) : Time :=
@@ -49,9 +52,9 @@ def Time.to (time : Time) (scale : Scale) : Nat :=
 
 theorem Time.of_to : (Time.of value scale).to scale = value := by
   simp [of, to, Scale.nsRatio]
-  cases scale <;> simp only [Nat.mul_div_cancel] 
+  cases scale <;> simp only [Nat.mul_div_cancel]
 
-def Time.now : IO Time := 
+def Time.now : IO Time :=
   return { ns := ← IO.monoNanosNow }
 
 instance : OfNat Time 0 where
@@ -93,17 +96,17 @@ instance : ToString Tag where
   toString tag := s!"⟨{tag.time}, {tag.microstep}⟩"
 
 instance : LT Tag where
-  lt tag₁ tag₂ := 
-    if tag₁.time = tag₂.time 
-    then tag₁.microstep < tag₂.microstep 
-    else tag₁.time < tag₂.time 
+  lt tag₁ tag₂ :=
+    if tag₁.time = tag₂.time
+    then tag₁.microstep < tag₂.microstep
+    else tag₁.time < tag₂.time
 
 def Tag.increment (tag : Tag) : Tag := { tag with
   microstep := tag.microstep + 1
 }
 
-def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag := 
-  if tag.time < time 
+def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag :=
+  if tag.time < time
   then { time := time, microstep := 0 }
   else tag.increment
 
@@ -111,10 +114,9 @@ theorem Tag.advance_time (tag : Tag) (time) : (tag.advance time).time = time := 
   simp [advance]
   split <;> simp
   case _ h => simp_arith [LT.lt] at h; exact Time.le_antisymm time.property h
-    
+
 theorem Tag.lt_advance : (tag : Tag) < tag.advance t := by
   simp [advance]
   split
   case inr => simp_arith [LT.lt, increment]
   case inl => simp [LT.lt] at *; split <;> simp_all
-    

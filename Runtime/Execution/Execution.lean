@@ -65,9 +65,9 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
 
 def shutdown (exec : Executable net) : Executable net :=
   let next :=
-    match exec.nextTime with
+    match h : exec.nextTime with
     | none => .empty exec.tag.increment
-    | some time => if (time = exec.time) then (Next.for exec exec.time) else (.empty exec.tag.increment)
+    | some time => if (time = exec.time) then (Next.for exec h) else (.empty exec.tag.increment)
   { exec.advance next with state := .shuttingDown }
 
 -- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
@@ -75,7 +75,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
   match topo[reactionIdx]? with
   -- This branch is entered whenever we've completed an instantaneous execution.
   | none =>
-    match exec.state, exec.nextTime with
+    match exec.state, h : exec.nextTime with
     -- The instantaneous execution where the `.shutdown` trigger is active
     -- has already been executed, so we terminate execution.
     | .shuttingDown, _ => return
@@ -87,8 +87,8 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
     -- so the next instantaneous execution performs shutdown.
     | .stopRequested, _ | .executing, none => exec.shutdown.run topo 0
     -- Execution continues normally at the tag of the next event.
-    | .executing, some time =>
-      let exec := exec.advance (Next.for exec time)
+    | .executing, some _ =>
+      let exec := exec.advance (Next.for exec h)
       IO.sleepUntil exec.absoluteTime
       exec.run topo 0
   -- This branch is entered whenever we're within an instantaneous execution.

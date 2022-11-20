@@ -38,7 +38,9 @@ structure _root_.Execution.Executable (net : Network) where
   reactors       : (id : ReactorId net) → Reactor id.class
   physicalOffset : Duration
   toPropagate    : Array (PortId net .output) := #[]
-  lawfulQueue    : LawfulQueue queue tag.time -- TODO: Replace this by some notion of a bounded, sorted array.
+  -- TODO: Replace this by some notion of a bounded, sorted array.
+  --       This type could be called `Executable.Queue`.
+  lawfulQueue    : LawfulQueue queue tag.time
 
 def isStartingUp (exec : Executable net) : Bool :=
   exec.tag = ⟨0, 0⟩

@@ -20,23 +20,12 @@ def fromRaw {reactor : ReactorId net} {reaction : Reaction reactor.class} (raw :
 def stopRequested (output : ReactionOutput exec) := output.raw.stopRequested
 
 def writtenPortsWithDelayedConnections (output : ReactionOutput exec) : Array (PortId net .output) :=
-  if h : output.reactor.isCons then
-    output.raw.writtenPorts.filterMap fun port =>
-      match output.reaction.subPE.coe port with
-      | .inr _ => none
-      | .inl port =>
-        let split := output.reactor.split h -- TODO: We can't destruct here because then the type cast on `port'` doesn't work.
-        let parent := split.fst
-        let leaf := split.snd
-        -- TODO: Reevaluate whether it's worth performing this check this early, instead of delaying
-        --       it until `Next.for`.
-        if parent.class.connections.delayed ⟨leaf, Path.split_class h ▸ port⟩ |>.isEmpty
-        then none
-        else some ⟨output.reactor, port⟩
-  else
-    -- In this case the reaction that produced the output lives in the top level reactor,
-    -- so there are no connections and hence no propagations.
-    #[]
+  output.raw.writtenPorts.filterMap fun port =>
+    match output.reaction.subPE.coe port with
+    | .inr _ => none
+    | .inl port =>
+      let id : PortId .. := ⟨output.reactor, port⟩
+      if id.hasDelayedConnection then id else none
 
 def «local» (output : ReactionOutput exec) (port : output.reactor.outputs.vars) : Option (output.reactor.outputs.type port) :=
   match h : output.reaction.subPE.inv (.inl port) with

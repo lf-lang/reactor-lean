@@ -15,7 +15,7 @@ def Class (graph : Graph) := graph.classes
 namespace Class
 
 instance : DecidableEq (Class graph) :=
-  fun cls₁ cls₂ => 
+  fun cls₁ cls₂ =>
     let c₁ : graph.classes := cls₁
     let c₂ : graph.classes := cls₂
     if h : c₁ = c₂ then isTrue h else isFalse h
@@ -30,7 +30,7 @@ structure Child (cls : Class graph) where
   id : cls.scheme.children
   deriving DecidableEq
 
-def Child.class {cls : Class graph} (child : Child cls) : Class graph := 
+def Child.class {cls : Class graph} (child : Child cls) : Class graph :=
   cls.scheme.class child.id
 
 -- TODO: Get this coercion to work at call site.
@@ -46,13 +46,13 @@ abbrev reactionInputScheme (cls : Class graph) :=
   localInputs ⊎ nestedOutputs
 
 @[simp]
-theorem reactionInputScheme_type_left {cls : Class graph} (localInput) : 
-  cls.reactionInputScheme.type (.inl localInput) = (cls.interface .inputs).type localInput := rfl 
+theorem reactionInputScheme_type_left {cls : Class graph} (localInput) :
+  cls.reactionInputScheme.type (.inl localInput) = (cls.interface .inputs).type localInput := rfl
 
 @[simp]
-theorem reactionInputScheme_type_right {cls : Class graph} (child childOutput) : 
+theorem reactionInputScheme_type_right {cls : Class graph} (child childOutput) :
   cls.reactionInputScheme.type (.inr ⟨child, childOutput⟩) = (child.class.interface .outputs).type childOutput := by
-  simp [Interface.Scheme.bUnion_type]  
+  simp [Interface.Scheme.bUnion_type]
 
 abbrev reactionOutputScheme (cls : Class graph) :=
   let localOutputs := cls.interface .outputs
@@ -78,22 +78,27 @@ structure Subport (cls : Class graph) (kind : Reactor.PortKind) where
   port  : (child.class.interface kind).vars
   deriving DecidableEq
 
-abbrev Subport.type (subport : Subport cls kind) : Type := 
+abbrev Subport.type (subport : Subport cls kind) : Type :=
   (subport.child.class.interface kind).type subport.port
 
+structure Connections.DelayedDestination {cls : Class graph} (src : Subport cls .output) where
+  dst    : Subport cls .input
+  delay  : Duration
+  eqType : src.type = dst.type
+
 -- The data layout of this type is motivated by execution-specific use cases:
--- * Non-delayed connections are used in a context where a destination 
+-- * Non-delayed connections are used in a context where a destination
 --   port needs to find its corresponding source port (if it exists).
 -- * Delayed connections are used in a context where a given source
 --   port needs to enumerate all of its delayed destinations.
--- 
--- Note: We're not to enforcing uniqueness of connections to input ports, 
+--
+-- Note: We're not to enforcing uniqueness of connections to input ports,
 --       as this is handled by the LF frontend.
+open Connections in
 structure Connections (cls : Class graph) where
-  instantaneous : (dst : Subport cls .input) → Option (Subport cls .output) 
-  delayed       : (Subport cls .output) → Array (Duration × (Subport cls .input))
+  instantaneous : (Subport cls .input) → Option (Subport cls .output)
+  delayed       : (src : Subport cls .output) → Array (DelayedDestination src)
   instEqType    : ∀ {dst src}, (instantaneous dst = some src) → dst.type = src.type
-  delayedEqType : ∀ {src} (i : Fin (delayed src).size), src.type = (delayed src)[i].snd.type 
 
 end Class
 end Network.Graph

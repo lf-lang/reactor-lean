@@ -9,12 +9,12 @@ lf {
     state       []
     timers      []
     nested      [
-      c : Client := [], 
+      c : Client := [],
       s : Server := []
     ]
     connections [
-        c.out : s.in := some (.of 1 .ns), 
-        s.out : c.in := none
+        c.out : s.in := .of 1 .ns,
+        s.out : c.in
       ]
     reactions   []
 
@@ -108,7 +108,7 @@ lf {
         }
       }
     ]
-} 
+}
 
 def main : IO Unit := do
   let exec := LF.executable (← Time.now)

@@ -84,7 +84,7 @@ abbrev Subport.type (subport : Subport cls kind) : Type :=
 structure Connections.DelayedDestination {cls : Class graph} (src : Subport cls .output) where
   dst    : Subport cls .input
   delay  : Duration
-  eqType : src.type = dst.type
+  eqType : src.type = dst.type := by rfl
 
 -- The data layout of this type is motivated by execution-specific use cases:
 -- * Non-delayed connections are used in a context where a destination

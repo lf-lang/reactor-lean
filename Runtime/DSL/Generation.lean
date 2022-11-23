@@ -115,9 +115,9 @@ where
       @[reducible] instance : $(← descr.subschemeType) where
         coe i := match i with $[| $(← descr.ids.dotted) => $sumTerms]*
         inv i := match i with $[| $invSrcTerms => $invDstTerms]*
-        invInj := sorry
-        coeInvId := sorry
-        coeEqType := sorry
+        invInj := by first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp
+        coeInvId := by intro a; cases a <;> rfl
+        coeEqType := by intro v; first | rfl | cases v
     )
   forActions (descr : SubschemeGenDescription) : MacroM Command := do
     let coeDstIdents ← descr.ids.dotted
@@ -130,9 +130,9 @@ where
       @[reducible] instance : $(← descr.subschemeType) where
         coe i := match i with $[| $(← descr.ids.dotted) => $coeDstIdents]*
         inv i := match i with $[| $invSrcTerms => $invDstTerms]*
-        invInj := sorry
-        coeInvId := sorry
-        coeEqType := sorry
+        invInj := by first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp
+        coeInvId := by intro a; cases a <;> rfl
+        coeEqType := by intro v; first | rfl | cases v
     )
 
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do
@@ -220,7 +220,7 @@ def ReactorDecl.genConnections (decl : ReactorDecl) : MacroM Term := do
   `({
     instantaneous := $(← decl.genInstantaneousConnections)
     delayed := $(← decl.genDelayedConnections)
-    instEqType := sorry
+    instEqType := by intro _ _ h; simp at h; split at h <;> simp at h <;> try rw [←h]; rfl
   })
 
 def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do

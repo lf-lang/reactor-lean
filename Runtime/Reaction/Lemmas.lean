@@ -17,8 +17,8 @@ scoped macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
     ("state",         ← `(($opApp).fst.state = $(input).state)),
     ("ports",         ← `(($opApp).fst.ports.isEmpty)),
     ("events",        ← `(($opApp).fst.events.isEmpty)),
-    ("writtenPorts",  ← `(($opApp).fst.writtenPorts.isEmpty)),
-    ("stopRequested", ← `(($opApp).fst.stopRequested = false))
+    ("stopRequested", ← `(($opApp).fst.stopRequested = false)),
+    ("writtenPorts",  ← `(($opApp).fst.writtenPorts.isEmpty))
   ]
   let commands ← lemmas.mapM fun ⟨suffix, property⟩ => `(
     @[simp] theorem $(mkIdentFrom op s!"{op.getId}_{suffix}") {$[ $var ]*} : $property := rfl
@@ -46,8 +46,8 @@ mk_set_lemma setOutput same_port : (setOutput (m := Id) (σAE := σAE) var val i
   by simp [setOutput]; first | done | rfl | intro h; simp [h]
 
 mk_set_lemma setOutput events : (setOutput (m := Id) (σAE := σAE) var val input).fst.events.isEmpty
-mk_set_lemma setOutput writtenPorts : (setOutput (m := Id) (σAE := σAE) var val input).fst.writtenPorts = #[var]
 mk_set_lemma setOutput stopRequested : (setOutput (m := Id) (σAE := σAE) var val input).fst.stopRequested = false
+mk_set_lemma setOutput writtenPorts : (setOutput (m := Id) (σAE := σAE) var val input).fst.writtenPorts = #[var]
 
 mk_set_lemma setState same_state : (setState (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.state var = val
 
@@ -57,8 +57,8 @@ mk_set_lemma setState same_state : (setState (m := Id) (σPE := σPE) (σAE := �
 
 mk_set_lemma setState ports : (setState (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.ports.isEmpty
 mk_set_lemma setState events : (setState (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.events.isEmpty
-mk_set_lemma setState writtenPorts : (setState (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.writtenPorts.isEmpty
 mk_set_lemma setState stopRequested : (setState (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.stopRequested = false
+mk_set_lemma setState writtenPorts : (setState (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.writtenPorts.isEmpty
 
 -- TODO: Lemmas for `schedule` and `requestStop`.
 

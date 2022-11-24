@@ -4,7 +4,7 @@ import Runtime.Utilities
 
 namespace ReactionT
 
-structure Event (σA : Interface.Scheme) (min : Time) where 
+structure Event (σA : Interface.Scheme) (min : Time) where
   action : σA.vars
   value  : σA.type action
   time   : Time.From min
@@ -41,7 +41,7 @@ structure Output (σPE σAE σS : Interface.Scheme) (min : Time) where
   stopRequested : Bool                        := false
   writtenPorts  : Array σPE.vars              := #[]
 
-abbrev _root_.ReactionT (σPS σPE σAS σAE σS σP : Interface.Scheme) (m : Type → Type) (α : Type) := 
+abbrev _root_.ReactionT (σPS σPE σAS σAE σS σP : Interface.Scheme) (m : Type → Type) (α : Type) :=
   (input : Input σPS σAS σS σP) → m (Output σPE σAE σS input.time × α)
 
 def Output.merge (o₁ o₂ : Output σPE σAE σS time) : Output σPE σAE σS time where
@@ -61,17 +61,18 @@ theorem Output.merge_state : (Output.merge o₁ o₂).state = o₂.state := rfl
 theorem Output.merge_events : (Output.merge o₁ o₂).events = o₁.events.merge o₂.events := rfl
 
 @[simp]
-theorem Output.merge_stopRequested : (Output.merge o₁ o₂).stopRequested = o₁.stopRequested ∨ o₂.stopRequested := 
-  sorry
+theorem Output.merge_stopRequested :
+  (Output.merge o₁ o₂).stopRequested = (o₁.stopRequested ∨ o₂.stopRequested) := by simp [merge]
 
 @[simp]
-theorem Output.merge_writtenPorts : (Output.merge o₁ o₂).writtenPorts = o₁.writtenPorts ++ o₂.writtenPorts := rfl
+theorem Output.merge_writtenPorts :
+  (Output.merge o₁ o₂).writtenPorts = o₁.writtenPorts ++ o₂.writtenPorts := rfl
 
-def Input.noop (input : Input σPS σAS σS σP) : Output σPE σAE σS input.time where 
-  state := input.state 
+def Input.noop (input : Input σPS σAS σS σP) : Output σPE σAE σS input.time where
+  state := input.state
 
 @[simp]
-theorem Input.noop_ports_isEmpty (input : Input σPS σAS σS σP) {σPE σAE} : 
+theorem Input.noop_ports_isEmpty (input : Input σPS σAS σS σP) {σPE σAE} :
   input.noop (σPE := σPE) (σAE := σAE) |>.ports.isEmpty := rfl
 
 variable [Monad m]
@@ -96,14 +97,14 @@ instance : Monad (ReactionT σPS σPE σAS σAE σS σP m) where
     return (output, b)
 
 instance : MonadLift IO (ReactionT σPS σPE σAS σAE σS σP IO) where
-  monadLift io input world := 
-    match io world with 
+  monadLift io input world :=
+    match io world with
     | .error e world' => .error e world'
     | .ok    a world' => .ok (input.noop, a) world'
 
 def getInput (port : σPS.vars) : ReactionT σPS σPE σAS σAE σS σP m (Option $ σPS.type port) :=
   fun input => return (input.noop, input.ports port)
-  
+
 def getState (stv : σS.vars) : ReactionT σPS σPE σAS σAE σS σP m (σS.type stv) :=
   fun input => return (input.noop, input.state stv)
 
@@ -113,7 +114,7 @@ def getAction (action : σAS.vars) : ReactionT σPS σPE σAS σAE σS σP m (Op
 def getParam (param : σP.vars) : ReactionT σPS σPE σAS σAE σS σP m (σP.type param) :=
   fun input => return (input.noop, input.params param)
 
-def getTag : ReactionT σPS σPE σAS σAE σS σP m Tag := 
+def getTag : ReactionT σPS σPE σAS σAE σS σP m Tag :=
   fun input => return (input.noop, input.tag)
 
 def getLogicalTime : ReactionT σPS σPE σAS σAE σS σP m Time := do
@@ -123,7 +124,7 @@ def getPhysicalTime : ReactionT σPS σPE σAS σAE σS σP IO Time :=
   fun input => return (input.noop, (← Time.now) - input.physicalOffset)
 
 def setOutput (port : σPE.vars) (v : σPE.type port) : ReactionT σPS σPE σAS σAE σS σP m Unit :=
-  fun input => 
+  fun input =>
     let ports := fun p => if h : p = port then some (h ▸ v) else none
     let output := { ports := ports, writtenPorts := #[port], state := input.state }
     return (output, ())
@@ -134,15 +135,15 @@ def setState (stv : σS.vars) (v : σS.type stv) : ReactionT σPS σPE σAS σAE
     let output := { state := state }
     return (output, ())
 
-def schedule (action : σAE.vars) (delay : Duration) (v : σAE.type action) : ReactionT σPS σPE σAS σAE σS σP m Unit := 
-  fun input => 
+def schedule (action : σAE.vars) (delay : Duration) (v : σAE.type action) : ReactionT σPS σPE σAS σAE σS σP m Unit :=
+  fun input =>
     let time := input.time.advance delay
     let event := { action, time, value := v }
     let output := { state := input.state, events := #[event]# }
     return (output, ())
 
 def requestStop : ReactionT σPS σPE σAS σAE σS σP m Unit :=
-  fun input => 
+  fun input =>
     let output := { stopRequested := true, state := input.state }
     return (output, ())
 

@@ -77,15 +77,16 @@ instance : HSub Time Time Duration where
 instance : HMod Duration Duration Duration where
    hMod d₁ d₂ := { ns := d₁.ns % d₂.ns }
 
-abbrev Time.From (time : Time) := { t : Time // time ≤ t }
-
-abbrev Time.UpTo (time : Time) := { t : Time // t ≤ time }
+abbrev Time.From (min : Time) := { time : Time // min ≤ time }
 
 instance : CoeDep Time t (Time.From t) where
   coe := ⟨t, by simp_arith [LE.le]⟩
 
 instance : LE (Time.From t) where
   le t₁ t₂ := t₁.val ≤ t₂.val
+
+@[simp]
+theorem Time.From.le_refl {time : Time.From t} : time ≤ time := Nat.le_refl _
 
 def Time.advance (time : Time) (d : Duration) : Time.From time := {
   val := time + d
@@ -115,7 +116,8 @@ def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag :=
   then { time := time, microstep := 0 }
   else tag.increment
 
-theorem Tag.advance_time (tag : Tag) (time) : (tag.advance time).time = time := by
+@[simp]
+theorem Tag.advance_time {tag : Tag} {time} : (tag.advance time).time = time := by
   simp [advance]
   split <;> simp
   case _ h => simp_arith [LT.lt] at h; exact Time.le_antisymm time.property h

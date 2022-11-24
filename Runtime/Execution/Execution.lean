@@ -52,7 +52,6 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
   tag := next.tag
   queue := next.queue
   toPropagate := #[]
-  lawfulQueue := next.lawfulQueue
   reactors := fun id => { exec.reactors id with
     timer := next.timers exec id
     interface := fun
@@ -64,33 +63,36 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
 }
 
 def shutdown (exec : Executable net) : Executable net :=
-  let next :=
-    match h : exec.nextTime with
-    | none => .empty exec.tag.increment
-    | some time => if (time = exec.time) then (Next.for exec h) else (.empty exec.tag.increment)
-  { exec.advance next with state := .shuttingDown }
+  match h : Next.for { exec with /-HACK:-/ state := .stopRequested } with
+  | some next => { exec.advance next with state := .shuttingDown }
+  | none => by
+    have h' := Next.for_isSome_if_stopRequested { exec with state := .stopRequested } rfl
+    simp [h] at h'
 
 -- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with
   -- This branch is entered whenever we've completed an instantaneous execution.
   | none =>
-    match exec.state, h : exec.nextTime with
+    match exec.state with
     -- The instantaneous execution where the `.shutdown` trigger is active
     -- has already been executed, so we terminate execution.
-    | .shuttingDown, _ => return
-    -- Case 1:
+    | .shuttingDown => return
     -- The last instantaneous execution contained a shutdown request,
     -- so the next instantaneous execution performs shutdown.
-    -- Case 2:
+    | .stopRequested => exec.shutdown.run topo 0
+    -- Case 1:
     -- We've reached starvation (there are no more events to be processed),
     -- so the next instantaneous execution performs shutdown.
-    | .stopRequested, _ | .executing, none => exec.shutdown.run topo 0
+    -- Case 2:
     -- Execution continues normally at the tag of the next event.
-    | .executing, some _ =>
-      let exec := exec.advance (Next.for exec h)
-      IO.sleepUntil exec.absoluteTime
-      exec.run topo 0
+    | .executing =>
+      match Next.for exec with
+      | none => exec.shutdown.run topo 0
+      | some next =>
+        let exec := exec.advance next
+        IO.sleepUntil exec.absoluteTime
+        exec.run topo 0
   -- This branch is entered whenever we're within an instantaneous execution.
   | some reactionId =>
     let reaction := reactionId.reaction

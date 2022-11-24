@@ -13,7 +13,6 @@ def apply (exec : Executable net) (output : ReactionOutput exec) : Executable ne
       else                                 exec.interface id    -- Unaffected reactors.
   }
   toPropagate := exec.toPropagate ++ output.writtenPortsWithDelayedConnections
-  lawfulQueue := LawfulQueue.merge exec.lawfulQueue output.actionEvents_LawfulQueue
 }
 where
   container (output : ReactionOutput exec) : (kind : Reactor.InterfaceKind) → kind.interfaceType (output.reactor.class.interface kind)

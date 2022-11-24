@@ -56,7 +56,7 @@ def actionEvents (output : ReactionOutput exec) : Queue (Event net) exec.time :=
       event.time
       ⟨output.reactor, output.reaction.subAE.coe event.action⟩
       (output.reaction.subAE.coeEqType ▸ event.value)
-  output.raw.events.map convertEvent (by simp [TimeStamped.time, Event.time])
+  output.raw.events.map convertEvent (by simp [EventType.time, Event.time])
 
 end ReactionOutput
 end Execution

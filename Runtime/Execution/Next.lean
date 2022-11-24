@@ -3,6 +3,20 @@ import Runtime.Execution.Basic
 namespace Execution.Executable
 open Network
 
+def nextTime (exec : Executable net) : Option (Time.From exec.time) :=
+  match exec.state with
+  | .shuttingDown => none
+  | .stopRequested => some exec.time
+  | .executing => exec.queue.nextTime
+
+theorem nextTime_le_queue_nextTime {exec : Executable net} {t q} :
+  (exec.nextTime = some t) → (exec.queue.nextTime = some q) → (t ≤ q) := by
+  intro ht hq
+  simp [nextTime] at ht
+  split at ht <;> simp_all
+  simp [←ht]
+  exact q.property
+
 private def propagationEvents (exec : Executable net) : Queue (Event net) exec.time where
   elems :=
     exec.toPropagate.uniqueMergeMap (le := (·.time ≤ ·.time)) fun port =>
@@ -37,37 +51,32 @@ def empty (tag : Tag) : Next net where
   events := #[]
   queue := °[]
 
--- BUG: It's not sufficient for `time = exec.queue.nextTime`.
---      The `propagationEvents` aren't accounted for in this version of "next time" yet.
-protected def «for» (exec : Executable net) {time} (h : exec.queue.nextTime = some time) : Next net :=
-  -- TODO: We can't destruct here, as this causes problems in the proof of `bounded` below.
-  let eventSplit := (exec.queue.merge exec.propagationEvents).split time <| by
-    intro next h
-  let events := eventSplit.fst
-  let later := eventSplit.snd
-  let timers := events.filterMap (·.timer?)
-  let timerEvents := exec.nextTimerEvents timers time
-  {
-    tag    := exec.tag.advance time
-    events := events
-    queue  := {
-      elems := later.merge timerEvents
-      sorted := sorry
-      bounded := by
-        rw [exec.tag.advance_time time]
-        refine LawfulQueue.merge ?_ nextTimerEvents_LawfulQueue
-        refine eventSplit_snd_LawfulQueue (LawfulQueue.merge ?_ propagationEvents_LawfulQueue)
-        have ⟨e, he, h'⟩ := nextTime_some h
-        intro event he'
-        simp [he] at he'
-        simp [←he', h']
-      }
-  }
+protected def «for» (exec : Executable net) : Option (Next net) :=
+  -- TODO: It feels like this doesn't belong here.
+  let exec := { exec with queue := exec.queue.merge exec.propagationEvents }
+  match h : exec.nextTime with
+  | none => none
+  | some time =>
+    -- TODO: We can't destruct here, as this causes problems in the proof of `bounded` below.
+    let eventSplit := exec.queue.split time (fun _ h' => nextTime_le_queue_nextTime h h')
+    let events := eventSplit.fst
+    let later := eventSplit.snd
+    let timers := events.filterMap (·.timer?)
+    let timerEvents := exec.nextTimerEvents timers time
+    some {
+      tag    := exec.tag.advance time
+      events := events
+      queue  := Tag.advance_time ▸ later.merge timerEvents
+    }
+
+theorem for_isSome_if_stopRequested (exec : Executable net) :
+  (exec.state = .stopRequested) → (Next.for exec).isSome :=
+  sorry
 
 theorem for_preserves_events :
-  (Next.for exec h = next) →
+  (Next.for exec = some next) →
   ∃ timerEvents propagationEvents,
-    (next.events ++ next.queue) ~ (exec.queue ++ timerEvents ++ propagationEvents) := by
+    (next.events ++ next.queue.elems) ~ (exec.queue.elems ++ timerEvents ++ propagationEvents) := by
   sorry
 
 -- The actions-interface for a given reactor according to the `Next` instance.

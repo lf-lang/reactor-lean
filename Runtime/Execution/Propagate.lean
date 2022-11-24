@@ -1,5 +1,9 @@
 import Runtime.Execution.Basic
 
+-- HEQ:
+-- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/.E2.9C.94.20Simple.20HEq
+-- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Questions.20on.20dependent.20elimination.20failures
+
 namespace Execution.Executable
 
 open Network Graph
@@ -54,9 +58,7 @@ where
     congr
     · exact (Path.split_class h).symm
     · have h' : (sib.val.class.interface .inputs).vars = ((sib.val.split h).snd.class.interface .inputs).vars := by congr; exact (Path.split_class h).symm
-      sorry
-        -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/.E2.9C.94.20Simple.20HEq
-        -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Questions.20on.20dependent.20elimination.20failures
+      sorry -- HEQ
 
   type_correctness₃ {parent : ReactorId net} {src : Class.Subport parent.class .output} {leaf : Class.Child parent.class} {dst} :
     (parent.class.connections.instantaneous ⟨leaf, dst⟩ = some src) → src.type = (leaf.class.interface .inputs).type dst :=
@@ -70,8 +72,6 @@ where
     congr
     · exact h.symm
     · have h' : (reaction.reactor.class.interface .outputs).vars = (src.child.class.interface .outputs).vars := by simp [h]
-      sorry
-        -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/.E2.9C.94.20Simple.20HEq
-        -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Questions.20on.20dependent.20elimination.20failures
+      sorry -- HEQ
 
 end Execution.Executable

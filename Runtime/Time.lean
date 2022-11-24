@@ -62,6 +62,9 @@ instance : OfNat Time 0 where
 
 theorem Time.zero_eq_zero : (0 : Time) = Time.of 0 scale := by simp [of]
 
+@[simp]
+theorem Time.zero_le {time : Time} : 0 ≤ time := by apply Nat.zero_le
+
 instance : HAdd Time Duration Time where
   hAdd t d := { ns := t.ns + d.ns }
 

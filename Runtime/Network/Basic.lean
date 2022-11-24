@@ -88,8 +88,8 @@ def PortId.delayedDestinations (port : PortId net .output) : Array (DelayedDesti
         have h₁ := eqType
         have h₂ := split_class h
         have h₃ := extend_class (path := parent) (leaf := leaf)
-        -- TODO: h₁, h₂ and h₃ should suffice to show the theorem.
-        --       The problem is just simultaneous rewriting again.
+        -- HEQ: h₁, h₂ and h₃ should suffice to show the theorem.
+        --      The problem is just simultaneous rewriting again.
         simp
         sorry
     }

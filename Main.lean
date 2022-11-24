@@ -110,6 +110,9 @@ lf {
     ]
 }
 
+example : Execution.Executable.LawfulQueue (LF.executable t).queue 0 := by
+  sorry
+
 def main : IO Unit := do
   let exec := LF.executable (← Time.now)
   let topo : Array (Network.ReactionId LF.network) := #[

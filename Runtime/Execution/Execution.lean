@@ -15,7 +15,7 @@ where
     path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) =
     ((path.extend child).class.interface .outputs).type (Path.extend_class ▸ childOutput) := by
     simp
-    sorry -- by extend_class
+    sorry -- HEQ: by extend_class
 
 def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
   reaction.val.run {

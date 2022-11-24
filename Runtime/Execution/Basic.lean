@@ -14,7 +14,7 @@ namespace Execution.Executable
 
 inductive State
   | executing
-  | stopRequested
+  | shutdownPending
   | shuttingDown
   deriving DecidableEq
 

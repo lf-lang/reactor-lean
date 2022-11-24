@@ -5,9 +5,9 @@ open Network
 
 def nextTime (exec : Executable net) : Option (Time.From exec.time) :=
   match exec.state with
-  | .shuttingDown => none
-  | .stopRequested => some exec.time
-  | .executing => exec.queue.nextTime
+  | .shuttingDown    => none
+  | .shutdownPending => some exec.time
+  | .executing       => exec.queue.nextTime
 
 theorem nextTime_le_queue_nextTime {exec : Executable net} {t q} :
   (exec.nextTime = some t) → (exec.queue.nextTime = some q) → (t ≤ q) := by
@@ -69,8 +69,8 @@ protected def «for» (exec : Executable net) : Option (Next net) :=
       queue  := Tag.advance_time ▸ later.merge timerEvents
     }
 
-theorem for_isSome_if_stopRequested (exec : Executable net) :
-  (exec.state = .stopRequested) → (Next.for exec).isSome :=
+theorem for_isSome_if_shutdownPending {exec : Executable net} :
+  (exec.state = .shutdownPending) → (Next.for exec).isSome :=
   sorry
 
 theorem for_preserves_events :

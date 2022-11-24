@@ -62,25 +62,23 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
   }
 }
 
-def shutdown (exec : Executable net) : Executable net :=
-  match h : Next.for { exec with /-HACK:-/ state := .stopRequested } with
+def shutdown (exec : Executable net) (h : exec.state = .shutdownPending) : Executable net :=
+  match hn : Next.for exec  with
   | some next => { exec.advance next with state := .shuttingDown }
-  | none => by
-    have h' := Next.for_isSome_if_stopRequested { exec with state := .stopRequested } rfl
-    simp [h] at h'
+  | none => by have h' := Next.for_isSome_if_shutdownPending h; simp [hn] at h'
 
 -- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
 partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with
   -- This branch is entered whenever we've completed an instantaneous execution.
   | none =>
-    match exec.state with
+    match h : exec.state with
     -- The instantaneous execution where the `.shutdown` trigger is active
     -- has already been executed, so we terminate execution.
     | .shuttingDown => return
     -- The last instantaneous execution contained a shutdown request,
     -- so the next instantaneous execution performs shutdown.
-    | .stopRequested => exec.shutdown.run topo 0
+    | .shutdownPending => exec.shutdown h |>.run topo 0
     -- Case 1:
     -- We've reached starvation (there are no more events to be processed),
     -- so the next instantaneous execution performs shutdown.
@@ -88,7 +86,9 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
     -- Execution continues normally at the tag of the next event.
     | .executing =>
       match Next.for exec with
-      | none => exec.shutdown.run topo 0
+      | none =>
+        let exec := { exec with state := .shutdownPending }
+        exec.shutdown rfl |>.run topo 0
       | some next =>
         let exec := exec.advance next
         IO.sleepUntil exec.absoluteTime

@@ -29,8 +29,8 @@ where
       -- When requesting to stop, we need to make sure we don't override
       -- if we're already in the process of shutting down.
       match exec.state with
-      | .executing | .stopRequested => .stopRequested
-      | .shuttingDown               => .shuttingDown
+      | .shuttingDown                 => .shuttingDown
+      | .executing | .shutdownPending => .shutdownPending
     else
       exec.state
 

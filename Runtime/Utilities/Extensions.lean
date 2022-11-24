@@ -1,8 +1,7 @@
 import Runtime.Time
 
--- TODO: temporary
-def Array.merge [LE α] [∀ a₁ a₂ : α, Decidable (a₁ ≤ a₂)] (s₁ s₂ : Array α) : Array α :=
-  (s₁ ++ s₂).insertionSort (decide <| · ≤ ·)
+def Array.merge (s₁ s₂ : Array α) (le : α → α → Bool) : Array α :=
+  (s₁ ++ s₂).insertionSort le
 
 def Array.unique (as : Array α) (f : α → β) [DecidableEq β] : (Array α) × (Array α) := Id.run do
   let mut included : Array α := #[]
@@ -13,14 +12,14 @@ def Array.unique (as : Array α) (f : α → β) [DecidableEq β] : (Array α) �
     else included := included.push a
   return (included, excluded)
 
-def Array.uniqueMergeMap [BEq α] [LE β] [∀ b₁ b₂ : β, Decidable (b₁ ≤ b₂)]
-  (as : Array α) (f : α → Array β) : Array β := Id.run do
+def Array.uniqueMergeMap [BEq α] (as : Array α) (f : α → Array β) (le : β → β → Bool) :
+  Array β := Id.run do
   let mut processed : Array α := #[]
   let mut result : Array β := #[]
   for a in as do
     if ¬ processed.contains a then
       processed := processed.push a
-      result := result.merge (f a)
+      result := result.merge (f a) le
   return result
 
 -- `Array.find?` isn't universe polymorphic.

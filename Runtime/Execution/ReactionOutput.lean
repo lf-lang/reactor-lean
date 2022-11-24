@@ -49,22 +49,14 @@ private theorem child_type_correctness {reactor : ReactorId net} {child : Reacto
 def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Option (child.val.inputs.type port) :=
   child_type_correctness ▸ output.child' (Graph.Path.Child.class_eq_class ▸ port : child.class.class.interface .inputs |>.vars)
 
-def actionEvents (output : ReactionOutput exec) :=
-  output.raw.events.map fun event =>
-    Event.action
+def actionEvents (output : ReactionOutput exec) : Queue (Event net) exec.time :=
+  -- TODO: Moving this into a where-clause doesn't allow us to unfold it in the proof below.
+  let convertEvent event :=
+    .action
       event.time
       ⟨output.reactor, output.reaction.subAE.coe event.action⟩
       (output.reaction.subAE.coeEqType ▸ event.value)
-
-theorem actionEvents_LawfulQueue (output : ReactionOutput exec) :
-  Executable.LawfulQueue output.actionEvents exec.time := by
-  intro _ h
-  simp [actionEvents, Array.map_getElem?, Bind.bind, Option.bind] at h
-  split at h
-  · contradiction
-  case _ e _ =>
-    simp at h
-    simp [Event.time, ←h, e.time.property]
+  output.raw.events.map convertEvent (by simp [TimeStamped.time, Event.time])
 
 end ReactionOutput
 end Execution

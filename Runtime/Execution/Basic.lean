@@ -12,16 +12,6 @@ structure Reactor {net : Network} (cls : Class net) where
 
 namespace Execution.Executable
 
-def LawfulQueue (queue : Array (Event net)) (time : Time) :=
-  ∀ {event}, (queue[0]? = some event) → event.time ≥ time
-
-theorem LawfulQueue.empty : LawfulQueue (#[] : Array (Event net)) time := by
-  simp [LawfulQueue]; intros; contradiction
-
-theorem LawfulQueue.merge :
-  (LawfulQueue queue₁ time) → (LawfulQueue queue₂ time) → (LawfulQueue (queue₁.merge queue₂) time) :=
-  sorry
-
 inductive State
   | executing
   | stopRequested
@@ -34,13 +24,10 @@ inductive State
 structure _root_.Execution.Executable (net : Network) where
   state          : State := .executing
   tag            : Tag := ⟨0, 0⟩
-  queue          : Array (Event net)
+  queue          : Queue (Event net) tag.time
   reactors       : (id : ReactorId net) → Reactor id.class
   physicalOffset : Duration
   toPropagate    : Array (PortId net .output) := #[]
-  -- TODO: Replace this by some notion of a bounded, sorted array.
-  --       This type could be called `Executable.Queue`.
-  lawfulQueue    : LawfulQueue queue tag.time
 
 def isStartingUp (exec : Executable net) : Bool :=
   exec.tag = ⟨0, 0⟩

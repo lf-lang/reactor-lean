@@ -4,16 +4,15 @@ import Runtime.Utilities
 
 namespace ReactionT
 
-structure Event (σA : Interface.Scheme) (min : Time) where
+structure Event (σA : Interface.Scheme) where
   action : σA.vars
   value  : σA.type action
-  time   : Time.From min
+  time   : Time
 
-instance : LE (Event σA time) where
-  le e₁ e₂ := e₁.time ≤ e₂.time
-
-instance : Decidable ((e₁ : Event σA time) ≤ e₂) := by
-  simp [LE.le]; infer_instance
+instance : EventType (Event σA) where
+  Id := σA.vars
+  id := Event.action
+  time := Event.time
 
 structure Input (σPS σAS σS σP : Interface.Scheme) where
   ports          : Interface? σPS
@@ -35,11 +34,11 @@ abbrev Input.time (input : Input σPS σAS σS σP) := input.tag.time
 --       fields `ports` and `writtenPorts` by using a dependent hash map.
 @[ext]
 structure Output (σPE σAE σS : Interface.Scheme) (min : Time) where
-  ports         : Interface? σPE              := Interface?.empty
+  ports         : Interface? σPE        := Interface?.empty
   state         : Interface σS
-  events        : SortedArray (Event σAE min) := #[]#
-  stopRequested : Bool                        := false
-  writtenPorts  : Array σPE.vars              := #[]
+  events        : Queue (Event σAE) min := °[]
+  stopRequested : Bool                  := false
+  writtenPorts  : Array σPE.vars        := #[]
 
 abbrev _root_.ReactionT (σPS σPE σAS σAE σS σP : Interface.Scheme) (m : Type → Type) (α : Type) :=
   (input : Input σPS σAS σS σP) → m (Output σPE σAE σS input.time × α)
@@ -138,8 +137,8 @@ def setState (stv : σS.vars) (v : σS.type stv) : ReactionT σPS σPE σAS σAE
 def schedule (action : σAE.vars) (delay : Duration) (v : σAE.type action) : ReactionT σPS σPE σAS σAE σS σP m Unit :=
   fun input =>
     let time := input.time.advance delay
-    let event := { action, time, value := v }
-    let output := { state := input.state, events := #[event]# }
+    let event : Event σAE := { action, time, value := v }
+    let output := { state := input.state, events := °[event]' time.property}
     return (output, ())
 
 def requestStop : ReactionT σPS σPE σAS σAE σS σP m Unit :=

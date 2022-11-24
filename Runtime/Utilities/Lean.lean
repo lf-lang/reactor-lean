@@ -1,9 +1,16 @@
 import Std
 
+@[simp]
+theorem Array.getElem?_nil {i : Nat} : (#[] : Array α)[i]? = none := by
+  simp [getElem?]; split <;> simp; contradiction
+
+@[simp]
+theorem Array.getElem?_zero_singleton : (#[a] : Array α)[0]? = a := rfl
+
 theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSome ↔ ¬as.isEmpty := by
   simp [Array.isEmpty, Option.isSome_iff_exists, getElem?]
   constructor
-  case mp => 
+  case mp =>
     intro ⟨_, h⟩
     split at h
     case inl hs => exact Nat.not_eq_zero_of_lt hs
@@ -14,23 +21,23 @@ theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSo
     case inl => exists as[0]
     case inr hs => exact absurd (Nat.zero_lt_of_ne_zero h) hs
 
-def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} : 
+def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} :
   (as.map f)[i]? = as[i]? >>= (some ∘ f) :=
   sorry
 
-theorem Array.findSome?_some [BEq α] {as : Array α} : (as.findSome? f = some b) → (∃ a, as.contains a ∧ f a = some b) := 
+theorem Array.findSome?_some [BEq α] {as : Array α} : (as.findSome? f = some b) → (∃ a, as.contains a ∧ f a = some b) :=
   sorry
 
 instance [Ord α] : LE α := leOfOrd
 
 @[reducible]
 instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
-  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ => 
-    if h : a₁ = a₂ then 
+  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ =>
+    if h : a₁ = a₂ then
       if h' : (h ▸ b₁) = b₂ then
         .isTrue (by subst h h'; rfl)
-      else 
-        .isFalse (by 
+      else
+        .isFalse (by
           subst h
           intro hc
           injection hc

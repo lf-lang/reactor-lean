@@ -7,9 +7,9 @@ inductive PortKind
   | input
   | output
 
-inductive InterfaceKind 
-  | inputs 
-  | outputs 
+inductive InterfaceKind
+  | inputs
+  | outputs
   | actions
   | state
   | params
@@ -33,7 +33,7 @@ structure Scheme (classes : Type) where
   «class»   : children → classes
   [decEqTimers : DecidableEq timers]
   [decEqChildren : DecidableEq children]
-  
+
 attribute [instance] Scheme.decEqTimers
 attribute [instance] Scheme.decEqChildren
 

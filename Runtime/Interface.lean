@@ -4,7 +4,7 @@ namespace Interface
 
 structure Scheme where
   vars : Type
-  type : (var : vars) → Type
+  type : vars → Type
   [varsDecidableEq : DecidableEq vars]
 
 attribute [reducible] Scheme.type
@@ -13,17 +13,17 @@ attribute [instance] Scheme.varsDecidableEq
 abbrev Scheme.union (σ₁ σ₂ : Scheme) : Scheme where
   vars := Sum σ₁.vars σ₂.vars
   type
-    | .inl var => σ₁.type var 
+    | .inl var => σ₁.type var
     | .inr var => σ₂.type var
 
 infix:65 " ⊎ " => Scheme.union
 
 @[simp]
-theorem Scheme.union_type_left (σ₁ σ₂ : Scheme) (var : σ₁.vars) : 
+theorem Scheme.union_type_left (σ₁ σ₂ : Scheme) (var : σ₁.vars) :
   (σ₁ ⊎ σ₂).type (.inl var) = σ₁.type var := rfl
 
 @[simp]
-theorem Scheme.union_type_right (σ₁ σ₂ : Scheme) (var : σ₂.vars) : 
+theorem Scheme.union_type_right (σ₁ σ₂ : Scheme) (var : σ₂.vars) :
   (σ₁ ⊎ σ₂).type (.inr var) = σ₂.type var := rfl
 
 -- σs is an I-indexed family of schemes.
@@ -38,7 +38,7 @@ theorem Scheme.bUnion_vars (σs : I → Scheme) [DecidableEq I] :
   (⨄ σs).vars = ((i : I) × (σs i).vars) := rfl
 
 @[simp]
-theorem Scheme.bUnion_type (σs : I → Scheme) [DecidableEq I] (var : (σs i).vars) : 
+theorem Scheme.bUnion_type (σs : I → Scheme) [DecidableEq I] (var : (σs i).vars) :
   (⨄ σs).type ⟨i, var⟩ = (σs i).type var := rfl
 
 class Subscheme (σ₁ σ₂ : Scheme) where
@@ -46,9 +46,9 @@ class Subscheme (σ₁ σ₂ : Scheme) where
   inv       : σ₂.vars → Option σ₁.vars
   invInj    : ∀ {a b₁ b₂}, (inv b₁ = some a) → (inv b₂ = some a) → (b₁ = b₂)
   coeInvId  : ∀ a, inv (coe a) = a
-  coeEqType : ∀ {v}, σ₂.type (coe v) = σ₁.type v 
+  coeEqType : ∀ {v}, σ₂.type (coe v) = σ₁.type v
 
-theorem Subscheme.invEqType [inst : Subscheme σ₁ σ₂] : ∀ {b}, (inst.inv b = some a) → (σ₁.type a = σ₂.type b) := 
+theorem Subscheme.invEqType [inst : Subscheme σ₁ σ₂] : ∀ {b}, (inst.inv b = some a) → (σ₁.type a = σ₂.type b) :=
   fun h => by rw [←inst.coeEqType (v := a), inst.invInj h (inst.coeInvId a)]
 
 end Interface
@@ -65,7 +65,7 @@ theorem Interface?.empty_none : Interface?.empty var = none := rfl
 def Interface?.isEmpty (i : Interface? σ) := i = Interface?.empty
 
 @[simp]
-theorem Interface?.isEmpty_def (i : Interface? σ) : i.isEmpty ↔ i = Interface?.empty := by 
+theorem Interface?.isEmpty_def (i : Interface? σ) : i.isEmpty ↔ i = Interface?.empty := by
   simp [isEmpty]
 
 def Interface?.isPresent (i : Interface? σ) (var : σ.vars) : Bool :=
@@ -91,6 +91,6 @@ theorem Interface?.merge_idem : Interface?.merge i i = i := by
   split
   · exact Eq.symm ‹_›
   · simp
-  
-def Interface?.restrict [inst : Interface.Subscheme σ₁ σ₂] (i : Interface? σ₂) : Interface? σ₁ := 
+
+def Interface?.restrict [inst : Interface.Subscheme σ₁ σ₂] (i : Interface? σ₂) : Interface? σ₁ :=
   fun var => inst.coeEqType ▸ i (inst.coe var)

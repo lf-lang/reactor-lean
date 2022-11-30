@@ -72,6 +72,6 @@ where
     congr
     · exact h.symm
     · have h' : (reaction.reactor.class.interface .outputs).vars = (src.child.class.interface .outputs).vars := by simp [h]
-      sorry -- HEQ
+        sorry
 
 end Execution.Executable

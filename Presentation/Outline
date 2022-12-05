@@ -1,56 +1,103 @@
-% There's a couple of different points I want to hightlight in this presentation, which come down to:
-% (1) How does the use of a functional language influence the design of the LF-runtime?
-% (2) How can we use dependent types to our benefit for representing reactors generically?
-% (3) What can we do wrt. verification in the Lean target?
+% Considering the audience, I will keep the introduction to Lingua Franca and Lean short.
+% Certain features and aspects of these systems will be highlighted *during* the presentation anyway.
 %
-% Recap what most of you know already:
+% Just to bring it onto one slide:
 %
-% LF is a polyglot language for building programs according to the reactor model,
-% which is a model of computation based on a notion of isolated units called reactors,
-% which can only interact with eachother under very specific smeantics, including time semantics.
-% These reactors in turn contain small computational units called reactions, 
-% which can execute code and interact with their containing reactor according to specific firing semantics.
+% <left>
+% Lingua Franca is a tool/system/language for writing concurrent programs in a way that adheres to a certain model of computation known as the reactor model.
+% A benefit of this is that we get well-defined ordering and timing semantics which helps reduce or eliminate nondeterminism, despite concurrent execution.
 %
-% We call LF a polyglot language, because the code that is executed by these reactions isn't tied to any specific programming languages.
-% Instead, LF provides a framework which makes it possible to support any programming language as a "target".
+% <right>
+% Lean is a dependently typed functional programming language and proof assistant.
+% What this allows us to do is write functional programs and prove properties about them all in one system.
+
+
+
+% So why write a Lean target? Why is this an interesting endeavor?
+% To explain this I need to explain the reactor model a bit first.
+%
+% In the reactor model, the units of computation are called reactors.
+% They are isolated units which contain internal state and functions (called reactions) which can act on this state.
+% Reactors can communicate along explicitly defined channels, called ports.
+% Along with these computational objects, we get a notion of logical time which allows us to order events in the system in such a way that we can talk about events occurring "at the same time" (without them having to occur at the same physical time).
+% We then also define an order of execution of reactions within such a logical instant, which we call a schedule. 
+
+
+
+% Now LF allows us to implement such networks of reactors in a "polyglot" fashion.
+% This means that when writing an LF-program *some* of the code is going to be LF-syntax,
+% but some parts of the program are going to be written in another programming language which we call the "target language".
+% In the case of LF all of the *structure* of the program is implemented using LF-syntax.
+% That is, things like declarations of a reactors structure (variables, ports), connections between reactors, what ports reactions can read from and write to, etc.
+% The only part implemented in the target language is the actual executable part of the model, ie. the reaction bodies.
+
+
+
+% So when we say that there exists a Lean "target" for LF, what this means is that it is not also possible to write LF-programs with Lean code as reaction bodies.
 % Currently there exist targets for C, C++, Rust, TypeScript, ...
 %
-% Now importantly, when writing an LF-program - all of the reactor-related stuff is expressed as LF-code.
-% That is, when implementing an LF-target, you don't need to write a parser for declaring a reactor, 
+% So the first motivation for this Lean target is purely practical.
+% We're adding to LF's "polyglotness" by adding another target language.
+
+
+
+% To understand the remaining reasons why a Lean target might be interesting, we need to get into LF's architecture a bit.
+% 
+% As previously mentioned, when writing an LF-program all of the reactor-related stuff is expressed as LF-code.
+% As a side-effect, when implementing an LF-target, you don't need to write a parser for declaring a reactor, 
 % or creating a connection between ports or anything like that. Neither do you need to figure out whether
 % the given structure of your reactor system is semantically correct (only output ports are connected to input ports, etc.).
 % The LF-frontend handles this validation for you.
-%
-% This is all static information and is independent of target code (reaction bodies).
+
+
+
+% The reason why this works so well is that this is all static information and is independent of target code (reaction bodies).
 % What LF doesn't do is the dynamic part, i.e. give you a way to *execute* an LF-program.
 % That needs to be handled by each target individually.
 % What "handling the dynamic part" comes down to is implementing a runtime which executes
 % the reactor system which the LF-frontend parsed and validated for you.
 %
-% That is, the compiler we're constructing here has three parts:
+% That is, the LF compiler has three parts for any given target:
 % (1) Run the LF-frontend (which parses and validates an LF-program)
 % (2) Use the AST provided by LF to generate code in the target language which represents the reactor system
 % (3) Generate program in the target language which executes the reactor system using some pre-implemented runtime
+
+% Thus, for the Lean target, the first part isn't actually relevant. It's the same for all targets.
+% Secondly, the code generator from the LF-frotend to Lean code is also trivial in the case of the Lean target.
+
+% The reason for this is that I've implemented a simple reactor-dsl in Lean, which allows us to write code like this in Lean:
 %
-% So this is where our journey for this presentation starts:
-% How do we execute reactors?
-% And for that matter, how do we even represent the different parts of the reactor model in Lean?
+% ...
+%
+% What this is, is a big macro which generates all of the actual objects used in the implementation of the Lean target.
+% So really, this macro performs the actual code generation.
+% We'll get to what the reactor-objects look like in Lean later.
+
+% So, the first two components being trivial, the only interesting one is really the runtime implementation.
+% Considering just this part brings us to the more academically-minded aspects of what might be interesting 
+% about a Lean target (ie. those which are more interesting from a research perspective):
+% (1) How does the use of a functional language influence the design of the runtime?
+% (2) How can we use dependent types to our benefit for representing reactors generically?
+% (3) What can we do wrt. verification in the Lean target?
+
+% Let's start with the first one: How does the use of a functional language influence the design of the LF-runtime?
+% To answer that question we have to think about how to even execute reactors? (while ignoring how to represent them in Lean)
 %
 % There's an obvious answer here, right?
 % If reactors are these isolated units with internal functionality, that sounds awfully alot like a class.
 % So let's just generate a class for each reactor and then the rest follows...
 % 
-% This is where I tell you that Lean is a functional language so we have no objects or mutable state of any kind.
-% So, what now?
-%
-% What I'd like to do is to take you on a journey through the Lean target runtime in the order in which I approached its implementation.
-% We'll start where we want to end up: (which will also address the first question from the top (1))
-% Reaction bodies should look something like this:
+% This is where we remember that functional programming languages like Lean have no objects or mutable state of any kind.
+% So, what now? Let's start a bit smaller.
+
+% What I'd like to do is to take you on a journey through the core part of the Lean target runtime in the order in which I approached its implementation.
+% We'll start where we want to end up. Namely, I want reaction bodies to look something like this:
 %
 % ...
 %
 % That is, they should be basically normal functions in Lean, but with the additional power of being able to read and mutate some "context".
 % By context I mean things like ports, state variables, actions, etc ...
+
 % But as I just said, Lean does not allow for mutable state.
 % The way we (and in fact most functional languages) get around this is by using monads.
 % Now there's a saying that you've only understood monads once you've written a blog post trying to explain them, so I won't try to explain the concept to you here.
@@ -76,19 +123,25 @@
 % def foo : Nat -> Nat x Bool := ... 
 %
 % So really all we've done is explicitly add our "global mutable Nat" as an input and output to the function.
+
+
+
 % So you can imagine that if we have multiple functions like `foo` and call them consecutively,
 % what we want to do is plug them together so that the global state gets carried from one to the next.
 % This is of course super annoying, so people have come up with smart abstractions that allow to do that implicitly.
 % And in fact, these abstractions even allow the monad to decide how it wants to be chained (which will be important for us).
-%
+
+
+
 % So where does this apply in reactions?:
 % Each of the lines containing a left arrow (<-) is a call to such a monadic function.
 % That is, we're using it to either read from the context or write to the context.
 % And then each of these lines is plugged together into a chain where the context is passed on from one to the next.
-% (Side not for those in the know: It's because we're in a do-notatation block here).
 %
 % So much for the mechanics of things. The interesting part wrt to reactors is now what these contexts look like and how theyre plugged together.
-%
+
+
+
 % We have the following things we need to track during reaction execution:
 % * input ports (readable)
 % * output ports (writable)

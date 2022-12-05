@@ -8,6 +8,9 @@
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
+*.nav
+*.snm
+*.vrb
 *.lof
 *.log
 *.lot

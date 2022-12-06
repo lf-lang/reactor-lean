@@ -20,10 +20,10 @@ def InterfaceVar.valueIdent (var : InterfaceVar) : MacroM Ident :=
 def InterfaceDecl := Array InterfaceVar
   deriving Inhabited
 
-def InterfaceDecl.ids (decl : InterfaceDecl) := 
+def InterfaceDecl.ids (decl : InterfaceDecl) :=
   decl.map (·.id)
 
-def InterfaceDecl.values (decl : InterfaceDecl) := 
+def InterfaceDecl.values (decl : InterfaceDecl) :=
   decl.map (·.value)
 
 def InterfaceDecl.valueIdents (decl : InterfaceDecl) : MacroM (Array Ident) :=
@@ -54,7 +54,7 @@ inductive ReactionDecl.DependencyKind
   | actionSource
   | actionEffect
 
-def ReactionDecl.DependencyKind.allCases : Array DependencyKind := 
+def ReactionDecl.DependencyKind.allCases : Array DependencyKind :=
   #[.portSource, .portEffect, .actionSource, .actionEffect]
 
 structure ReactionDecl where
@@ -62,7 +62,7 @@ structure ReactionDecl where
   dependencies : ReactionDecl.DependencyKind → Array Ident
   triggers : TriggerDecl
   body : TSyntax `Lean.Parser.Term.doSeq
-  
+
 structure TimerDecl where
   name : Ident
   offset : Term
@@ -114,8 +114,8 @@ def NetworkDecl.reactorWithName (decl : NetworkDecl) (className : Name) : MacroM
 def NetworkDecl.numNested (decl : NetworkDecl) (rtr : Name) (kind : Reactor.InterfaceKind) : MacroM Nat := do
   let rtr ← decl.reactorWithName rtr
   rtr.nested.map (·.class) |>.foldlM (init := 0) fun acc «class» => do
-    match «class» with 
-    | `($c:ident) => 
+    match «class» with
+    | `($c:ident) =>
       let nestedReactor ← decl.reactorWithName c.getId
       return acc + nestedReactor.num kind
     | _ => Macro.throwError s!"NetworkDecl.numNested: Illformed reactor class '{«class»}'"
@@ -139,7 +139,7 @@ def NetworkDecl.numDependencies (decl : NetworkDecl) (rtr : Name) : ReactionDecl
 partial def NetworkDecl.instancePaths (decl : NetworkDecl) : MacroM <| Array ((Array Name) × Name) := do
   let mainReactorName := (← decl.mainReactor).name.getId
   return #[(#[], mainReactorName)] ++ (← go decl mainReactorName #[])
-where 
+where
   go (network : NetworkDecl) (rtrName : Name) (pre : Array Name) : MacroM <| Array ((Array Name) × Name) := do
     let rtr ← network.reactorWithName rtrName
     rtr.nested.concatMapM fun var => do
@@ -149,8 +149,8 @@ where
 
 instance : ToString Reactor.InterfaceKind where
   toString
-    | .inputs => "inputs" 
-    | .outputs => "outputs" 
+    | .inputs => "inputs"
+    | .outputs => "outputs"
     | .actions => "actions"
     | .state => "state"
     | .params => "params"
@@ -165,7 +165,7 @@ def NetworkDecl.type (decl : NetworkDecl) (reactor : Name) (kind : ReactionDecl.
     | .actionSource | .actionEffect => getLocal rtrDecl .actions target
   | .str (.str .anonymous rtr) l =>
     match rtrDecl.nested.find? (·.id.getId = .mkSimple rtr) with
-    | some instDecl => 
+    | some instDecl =>
       let childRtr ← decl.reactorWithName instDecl.class.getId
       match kind with
       | .portSource                   => getLocal childRtr .outputs (.mkSimple l)
@@ -178,3 +178,7 @@ where
     match (rtrDecl.interfaces kind).find? (·.id.getId = target) with
     | some i => return i.value
     | none => Macro.throwError s!"NetworkDecl.type: Invalid target '{target}' of kind '{kind}' in reactor '{reactor}'"
+
+structure LFDecl where
+  network : NetworkDecl
+  schedule : Array Ident

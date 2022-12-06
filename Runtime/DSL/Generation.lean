@@ -315,7 +315,7 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
 
 -- Each instance generates its own default parameter defs as well as the the parameter defs for its children.
 
-partial def NetworkDecl.genDefaultParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
+def NetworkDecl.genDefaultParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters.Default)
   (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
     let pathName := nameForInstancePath path
@@ -326,12 +326,12 @@ where
   nameForInstancePath (path : Array Name) : Name :=
     .mkSimple <| path.foldl (s!"{·}_{·}") ""
 
-partial def NetworkDecl.genRootParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
+def NetworkDecl.genRootParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
   (← decl.mainReactor).interfaces .params |>.mapM fun param =>
     `(def $(mkIdent <| ns.getId ++ "" ++ param.id.getId) := $(param.default.get!))
 
-partial def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
+def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
   (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
     let rtrDecl ← decl.reactorWithName «class»
@@ -379,8 +379,11 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Execution.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
       reactors := $instancesIdent
-      queue := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
-      lawfulQueue := by simp [$(mkIdent `Execution.Executable.LawfulQueue):ident]
+      queue := {
+        elems := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
+        sorted := sorry
+        bounded := sorry
+      }
     where
       $instancesIdent:ident : (id : $(mkIdent `Network.ReactorId) $(decl.networkIdent)) → $(mkIdent `Reactor) id.class
         $[| $instanceIDs => $instanceValues]*
@@ -393,19 +396,44 @@ where
     then `(.nil)
     else `(.cons ⟨.$(mkIdent path[0]!)⟩ <| $(← pathToID path[1:]))
 
-macro network:network_decl : command => do
-  let network ← NetworkDecl.fromSyntax network
+partial def LFDecl.genSchedule (decl : LFDecl) : MacroM Term := do
+  let rcnIds ← decl.schedule.mapM fun rcn => do
+    let ⟨id, idx⟩ ← pathToID rcn.getId.components
+    `(⟨$id, ⟨$(quote idx), by simp⟩⟩)
+  `(#[ $[$rcnIds],* ])
+where
+  pathToID (path : List Name) : MacroM (Term × Nat) := do
+    match path with
+    | [] => Macro.throwError "LFDecl.genSchedule.pathToID: Invalid reaction id ''"
+    | hd :: [] =>
+      if let some num := hd.toString.drop 1 |>.toNat? then return (← `(.nil), num)
+      else Macro.throwError s!"LFDecl.genSchedule.pathToID: Invalid terminator '{hd}'"
+    | hd :: tl =>
+      let ⟨preId, idx⟩ ← pathToID tl
+      return (← `(.cons ⟨.$(mkIdent hd)⟩ <| $preId), idx)
+
+def LFDecl.genMain (decl : LFDecl) : MacroM Command := do
+  let «schedule» ← decl.genSchedule
+  let exec := mkIdent <| decl.network.namespaceIdent.getId ++ `executable
+  `(
+    def $(mkIdent `main) : IO Unit := do
+      $(mkIdent `Execution.Executable.run):ident ($exec (← Time.now)) ($«schedule») 0
+  )
+
+macro decl:lf_decl : command => do
+  let decl ← LFDecl.fromSyntax decl
   let commands := mkNullNode <|
-    (← network.genInterfaceSchemes) ++
-    [← network.genClassesEnum] ++
-    (← network.genReactorSchemes) ++
-    [← network.genGraphInstance] ++
-    (← network.genReactionDependencySchemes) ++
-    (← network.genSubschemes) ++
-    (← network.genReactionInstances) ++
-    [← network.genNetworkInstance] ++
-    (← network.genDefaultParameterDefs) ++
-    (← network.genRootParameterDefs) ++
-    (← network.genParameterDefs) ++
-    [← network.genExecutableInstance]
+    (← decl.network.genInterfaceSchemes) ++
+    [← decl.network.genClassesEnum] ++
+    (← decl.network.genReactorSchemes) ++
+    [← decl.network.genGraphInstance] ++
+    (← decl.network.genReactionDependencySchemes) ++
+    (← decl.network.genSubschemes) ++
+    (← decl.network.genReactionInstances) ++
+    [← decl.network.genNetworkInstance] ++
+    (← decl.network.genDefaultParameterDefs) ++
+    (← decl.network.genRootParameterDefs) ++
+    (← decl.network.genParameterDefs) ++
+    [← decl.network.genExecutableInstance] ++
+    [← decl.genMain]
   return ⟨commands⟩

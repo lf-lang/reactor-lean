@@ -20,7 +20,7 @@ syntax "triggers" "{"
   "}" : trigger_decl
 
 declare_syntax_cat reaction_decl
-syntax "{"  
+syntax "{"
   &"kind"          ident
   "portSources"   ident_list
   "portEffects"   ident_list
@@ -31,7 +31,7 @@ syntax "{"
   "}" : reaction_decl
 
 declare_syntax_cat timer_decl
-syntax "{" 
+syntax "{"
   &"name"   ident
   "offset" term
   "period" term
@@ -44,12 +44,12 @@ declare_syntax_cat nested_decl
 syntax "[" instance_decl,* "]" : nested_decl
 
 declare_syntax_cat reactor_decl
-syntax "reactor" ident 
+syntax "reactor" ident
   "parameters"  interface_decl
-  "inputs"      interface_decl 
-  "outputs"     interface_decl 
-  "actions"     interface_decl 
-  "state"       interface_decl 
+  "inputs"      interface_decl
+  "outputs"     interface_decl
+  "actions"     interface_decl
+  "state"       interface_decl
   "timers"      "[" timer_decl,* "]"
   "nested"      nested_decl
   "connections" interface_decl
@@ -57,7 +57,10 @@ syntax "reactor" ident
   : reactor_decl
 
 declare_syntax_cat network_decl
-syntax "lf" "{" reactor_decl+ "}" : network_decl
+syntax reactor_decl+ : network_decl
+
+declare_syntax_cat lf_decl
+syntax "lf" "{" network_decl &"schedule" ident_list "}" : lf_decl
 
 def InterfaceVar.fromSyntax : TSyntax `interface_var → MacroM InterfaceVar
   | `(interface_var| $id:ident : $value)             => return { id := id, value := value, default := none }
@@ -69,7 +72,7 @@ def InterfaceDecl.fromSyntax : TSyntax `interface_decl → MacroM InterfaceDecl
   | _ => throwUnsupported
 
 def InstanceDecl.fromSyntax : TSyntax `instance_decl → MacroM InstanceDecl
-  | `(instance_decl| $name:ident : $«class»:ident := $params:interface_decl) => return { 
+  | `(instance_decl| $name:ident : $«class»:ident := $params:interface_decl) => return {
       id := name
       «class» := «class»
       params := ← InterfaceDecl.fromSyntax params
@@ -85,11 +88,11 @@ def TriggerDecl.fromSyntax : TSyntax `trigger_decl → MacroM TriggerDecl
     return { «ports» := p, «actions» := a, «timers» := t, «meta» := m }
   | _ => throwUnsupported
 
-def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl 
-  | `(reaction_decl| { 
-      kind $k portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*] 
+def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl
+  | `(reaction_decl| {
+      kind $k portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*]
       actionEffects [$ae:ident,*] $ts:trigger_decl body { $b:doSeq }
-    }) => return { 
+    }) => return {
       «kind» := k
       dependencies := fun | .portSource => ps | .portEffect => pe | .actionSource => as | .actionEffect => ae
       «triggers» := ← TriggerDecl.fromSyntax ts
@@ -97,8 +100,8 @@ def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl
     }
   | _ => throwUnsupported
 
-def TimerDecl.fromSyntax : TSyntax `timer_decl → MacroM TimerDecl 
-  | `(timer_decl| { name $n:ident offset $o period $p }) => 
+def TimerDecl.fromSyntax : TSyntax `timer_decl → MacroM TimerDecl
+  | `(timer_decl| { name $n:ident offset $o period $p }) =>
     return { «name» := n, «offset» := o, «period» := p }
   | _ => throwUnsupported
 
@@ -118,12 +121,19 @@ def ReactorDecl.fromSyntax : TSyntax `reactor_decl → MacroM ReactorDecl
       «timers» := ← t.getElems.mapM TimerDecl.fromSyntax
       «nested» := n
       «connections» := c
-      «reactions» := r  
+      «reactions» := r
     }
   | _ => throwUnsupported
 
 def NetworkDecl.fromSyntax : TSyntax `network_decl → MacroM NetworkDecl
-  | `(network_decl| lf { $reactors:reactor_decl* }) => return {
+  | `(network_decl| $reactors:reactor_decl*) => return {
       reactors := (← reactors.mapM ReactorDecl.fromSyntax)
+    }
+  | _ => throwUnsupported
+
+def LFDecl.fromSyntax : TSyntax `lf_decl → MacroM LFDecl
+  | `(lf_decl| lf { $network:network_decl schedule [$sched:ident,*] }) => return {
+      network := ← NetworkDecl.fromSyntax network
+      «schedule» := sched
     }
   | _ => throwUnsupported

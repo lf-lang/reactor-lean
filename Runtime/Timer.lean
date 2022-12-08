@@ -14,10 +14,10 @@ private def Period.duration : Timer.Period → Duration
 
 structure _root_.Timer where
   offset : Time
-  period : Timer.Period -- A period of `none` means that the timer should only fire once. 
+  period : Timer.Period -- A period of `none` means that the timer should only fire once.
 
 -- The time of the timer's first firing after time 0.
- def initalFiring (timer : Timer) : Option Time :=
+ def initialFiring (timer : Timer) : Option Time :=
    if timer.offset = 0 then timer.period else timer.offset
 
 end Timer

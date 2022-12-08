@@ -192,7 +192,8 @@ def ReactorDecl.genInstantaneousConnections (decl : ReactorDecl) : MacroM Term :
     match con.default with
     | some _ => return (← subportTerm (← con.valueIdent), ← `(none))
     | none => return (← subportTerm (← con.valueIdent), ← `(some $(← subportTerm con.id)))
-  `(fun dst => match dst with $[| $dsts => $srcs]*)
+  -- TODO: check if the connections are exhaustive, and if not, generate a `_ => none` case.
+  `(fun dst => match dst with $[| $dsts => $srcs]* | _ => none)
 where
   subportTerm (ident : Ident) : MacroM Term := do
     match ident.getId with
@@ -220,7 +221,7 @@ def ReactorDecl.genConnections (decl : ReactorDecl) : MacroM Term := do
   `({
     instantaneous := $(← decl.genInstantaneousConnections)
     delayed := $(← decl.genDelayedConnections)
-    instEqType := by intro _ _ h; simp at h; split at h <;> simp at h <;> try rw [←h]; rfl
+    instEqType := by first | simp | intro _ _ h; simp at h; split at h <;> simp at h <;> try rw [←h]; rfl
   })
 
 def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do
@@ -369,18 +370,18 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       else `(open $(mkIdent ns):ident in $(← rtrDecl.genReactorInstance))
     let timerNames ← rtrDecl.timers.map (·.name) |>.dotted
     let initialTimerEvents ← timerNames.mapM fun timerName => `(
-         match ($instancesIdent $id).timer $timerName |>.initalFiring with
+         match ($instancesIdent $id).timer $timerName |>.val |>.initialFiring with
          | none => none
          | some t => some <| .timer t { «reactor» := $id, timer := $timerName }
        )
     return (id, value, initialTimerEvents)
-  let ⟨instanceValues, initalTimerEvents⟩ := rhs.unzip
+  let ⟨instanceValues, initialTimerEvents⟩ := rhs.unzip
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Execution.Executable) $(decl.networkIdent) where
       physicalOffset := physicalOffset
       reactors := $instancesIdent
       queue := {
-        elems := #[ $[$(initalTimerEvents.concatMap id)],* ].filterMap id
+        elems := #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
         sorted := sorry
         bounded := sorry
       }

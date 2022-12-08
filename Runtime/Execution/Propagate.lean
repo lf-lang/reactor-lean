@@ -56,13 +56,13 @@ where
     (sib.val.inputs).type dst = ((sib.val.split h).snd.class.interface .inputs).type (Path.split_class h ▸ dst) := by
     simp
     congr
-    · exact (Path.split_class h).symm
+    · rw [Path.split_class h]
     · have h' : (sib.val.class.interface .inputs).vars = ((sib.val.split h).snd.class.interface .inputs).vars := by congr; exact (Path.split_class h).symm
       sorry -- HEQ
 
   type_correctness₃ {parent : ReactorId net} {src : Class.Subport parent.class .output} {leaf : Class.Child parent.class} {dst} :
     (parent.class.connections.instantaneous ⟨leaf, dst⟩ = some src) → src.type = (leaf.class.interface .inputs).type dst :=
-    (by simp [parent.class.connections.instEqType ·])
+    (by simp [← parent.class.connections.instEqType ·])
 
   type_correctness₄ {reaction : ReactionId net} {parent : ReactorId net} {src : Class.Subport parent.class .output} :
     (h : src.child.class = reaction.reactor.class) →
@@ -72,6 +72,6 @@ where
     congr
     · exact h.symm
     · have h' : (reaction.reactor.class.interface .outputs).vars = (src.child.class.interface .outputs).vars := by simp [h]
-        sorry
+      sorry
 
 end Execution.Executable

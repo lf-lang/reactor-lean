@@ -33,8 +33,8 @@ instance : Decidable ((t₁ : Time) < t₂) := by
 instance : Decidable ((t₁ : Time) ≤ t₂) := by
   simp [LE.le]; infer_instance
 
-theorem Time.ext {time₁ time₂ : Time} : time₁.ns = time₂.ns → time₁ = time₂ := by
-  intro h; cases time₁ <;> cases time₂; simp [h]
+theorem Time.ext {time₁ time₂ : Time} : time₁.ns = time₂.ns → time₁ = time₂ :=
+  fun _ => by cases time₁; simp_all
 
 theorem Time.le_antisymm {time₁ : Time} : (time₁ ≤ time₂) → (time₂ ≤ time₁) → time₁ = time₂ :=
   (Time.ext <| Nat.le_antisymm · ·)

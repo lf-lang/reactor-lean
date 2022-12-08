@@ -58,7 +58,6 @@ theorem prefix?_iff_cons_prefix?
     simp [hs, prefix?] at h ⊢
     injection h with h
     injection h
-    assumption
 
 def snd (path : Path graph start) (_ : path.isCons) : Class.Child start :=
   match path with

@@ -210,7 +210,8 @@ def ReactorDecl.genDelayedConnections (decl : ReactorDecl) : MacroM Term := do
         then return some (← `({dst := $(← subportTerm (← con.valueIdent)), delay := $delay}))
         else return none
     return (← subportTerm src, ← `(#[ $[$dsts],* ]))
-  `(fun src => match src with $[| $srcs => $dsts]*)
+  -- TODO: check if the connections are exhaustive, and if not, generate a `_ => #[]` case.
+  `(fun src => match src with $[| $srcs => $dsts]* | _ => #[])
 where
   subportTerm (ident : Ident) : MacroM Term := do
     match ident.getId with

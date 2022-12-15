@@ -1,113 +1,89 @@
 import Runtime
 
 lf {
-  reactor Main
+  reactor check
     parameters  []
     inputs      []
     outputs     []
-    actions     []
+    actions     [act : Unit]
+    state       [s : Int := 0]
+    timers      [
+      {
+        name   t
+        offset 0
+        period 0
+      }
+    ]
+    nested      [
+      a : ScheduleLogicalAction := []
+    ]
+    connections []
+    reactions   [
+      {
+        kind          pure
+        portSources   []
+        portEffects   [a.x]
+        actionSources []
+        actionEffects [act]
+        triggers {
+           ports   []
+           actions []
+           timers  [t]
+           meta    []
+        }
+        body {
+          setOutput .a.x 1
+          setState .s (-1)
+          schedule .act 0 ()
+        }
+      }
+    ]
+
+  reactor ScheduleLogicalAction
+    parameters  []
+    inputs      [x : Nat]
+    outputs     []
+    actions     [a : Unit]
     state       []
     timers      []
-    nested      [
-      c : Client := [],
-      s : Server := []
-    ]
-    connections [
-        c.out : s.in := .of 1 .ns,
-        s.out : c.in
-      ]
-    reactions   []
-
-  reactor Server
-    parameters  []
-    inputs      [«in» : Int]
-    outputs     [out : Int]
-    actions     [err : Unit]
-    state       [error : Int]
-    timers      []
     nested      []
     connections []
     reactions   [
       {
         kind          pure
-        portSources   [«in»]
-        portEffects   [out]
+        portSources   [x]
+        portEffects   []
         actionSources []
-        actionEffects [err]
+        actionEffects [a]
         triggers {
-          ports   [«in»]
-          actions []
-          timers  []
-          meta    []
+           ports   [x]
+           actions []
+           timers  []
+           meta    []
         }
         body {
-          match ← getInput «in» with
-          | none   => schedule err 0 ()
-          | some i => setOutput out i
+          schedule a (Time.of 200 .ms) ()
         }
       },
       {
-        kind          pure
+        kind          impure
         portSources   []
         portEffects   []
-        actionSources [err]
+        actionSources [a]
         actionEffects []
         triggers {
-          ports   []
-          actions [err]
-          timers  []
-          meta    []
+           ports   []
+           actions [a]
+           timers  []
+           meta    []
         }
         body {
-          setState error (1 : Int)
+          let elapsedTime <- getLogicalTime
+          sorry
         }
       }
     ]
+  schedule [
 
-  reactor Client
-    parameters  []
-    inputs      [«in» : Int]
-    outputs     [out : Int]
-    actions     []
-    state       [req : Int := 0]
-    timers      []
-    nested      []
-    connections []
-    reactions   [
-      {
-        kind          pure
-        portSources   []
-        portEffects   [out]
-        actionSources []
-        actionEffects []
-        triggers {
-          ports   []
-          actions []
-          timers  []
-          meta    [startup]
-        }
-        body {
-          setState req (0 : Int)
-          setOutput out (← getState req)
-        }
-      },
-      {
-        kind          pure
-        portSources   [«in»]
-        portEffects   []
-        actionSources []
-        actionEffects []
-        triggers {
-          ports   [«in»]
-          actions []
-          timers  []
-          meta    []
-        }
-        body {
-          setState req (0 : Int)
-        }
-      }
-    ]
-
-  schedule [c._0, s._0, s._1, c._1]
+  ]
 }

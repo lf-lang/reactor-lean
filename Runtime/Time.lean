@@ -24,7 +24,7 @@ def Time.Unit.nsRatio : Time.Unit → Nat
   | weeks => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
 
 /-- A list of all members of `Time.Unit`. -/
-def Time.Unit.all : Array Time.Unit :=
+def Time.Unit.allCases : Array Time.Unit :=
   #[ns, μs, ms, s, mins, hours, days, weeks]
 
 instance : ToString Time.Unit where
@@ -102,7 +102,7 @@ def Time.to (time : Time) (unit : Time.Unit) : Nat :=
 --
 -- TODO: Use `run_cmd` for this if it is moved from Mathlib to Std.
 open Lean in macro "mk_nat_to_time_ctors" : command =>
-  return ⟨mkNullNode (← Time.Unit.all.mapM fun unit =>
+  return ⟨mkNullNode (← Time.Unit.allCases.mapM fun unit =>
     let withUnit := (mkIdent <| · ++ (toString unit))
     `(/-- A convenience for constructing a `Time` with the given unit. -/
       protected abbrev $(withUnit `Nat) : Nat → Time := (Time.of · $(withUnit `Time.Unit)))

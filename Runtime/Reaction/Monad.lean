@@ -136,9 +136,12 @@ def setState (stv : σS.vars) (v : σS.type stv) : ReactionT σPS σPE σAS σAE
 
 def schedule (action : σAE.vars) (delay : Duration) (v : σAE.type action) : ReactionT σPS σPE σAS σAE σS σP m Unit :=
   fun input =>
-    let time := input.time.advance delay
+    let time := input.time + delay
     let event : Event σAE := { action, time, value := v }
-    let output := { state := input.state, events := °[event]' time.property}
+    let output := {
+      state := input.state,
+      events := °[event]' (Nat.le_trans (Nat.le_refl _) (Nat.le_add_right ..))
+    }
     return (output, ())
 
 def requestStop : ReactionT σPS σPE σAS σAE σS σP m Unit :=

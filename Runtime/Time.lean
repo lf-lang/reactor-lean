@@ -1,18 +1,33 @@
 import Runtime.Utilities.Lean
 
-inductive Time.Scale
-  | ns | μs | ms | s | min | hour | day | week
+/--
+Time `Unit`s are used for converting between different units of time when getting and setting
+instances of `Time`.
+-/
+protected inductive Time.Unit
+  | ns | μs | ms | s | mins | hours | days | weeks
 
-def Time.Scale.nsRatio : Scale → Nat
-  | .ns   => 1
-  | .μs   => 1000
-  | .ms   => 1000 * 1000
-  | .s    => 1000 * 1000 * 1000
-  | .min  => 1000 * 1000 * 1000 * 60
-  | .hour => 1000 * 1000 * 1000 * 60 * 60
-  | .day  => 1000 * 1000 * 1000 * 60 * 60 * 24
-  | .week => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
+/--
+The multiplication factor required to convert a given number of time units of a given unit to the
+equivalent number of nanoseconds. For example, to convert five minutes to the equivalent number of
+nanoseconds we write `5 * Unit.mins.nsRatio`.
+-/
+def Time.Unit.nsRatio : Time.Unit → Nat
+  | .ns    => 1
+  | .μs    => 1000
+  | .ms    => 1000 * 1000
+  | .s     => 1000 * 1000 * 1000
+  | .mins  => 1000 * 1000 * 1000 * 60
+  | .hours => 1000 * 1000 * 1000 * 60 * 60
+  | .days  => 1000 * 1000 * 1000 * 60 * 60 * 24
+  | .weeks => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
 
+/--
+A `Time` describes a point in time as a nonnegative number of nanoseconds.
+To access the underlying value of a given instance of `Time`, use `Time.to`.
+To construct an instance of `Time`, use `Time.of` or the conveniences
+`Nat.{ns, μs, ms, s, mins, hours, days, weeks}`.
+-/
 structure Time where
   private mk ::
   private ns : Nat
@@ -21,9 +36,11 @@ structure Time where
 instance : ToString Time where
   toString t := s!"{t.ns} ns"
 
+/-- The `<` relation of `Time` is determined by the underlying value. -/
 instance : LT Time where
   lt t₁ t₂ := t₁.ns < t₂.ns
 
+/-- The `≤` relation of `Time` is determined by the underlying value. -/
 instance : LE Time where
   le t₁ t₂ := t₁.ns ≤ t₂.ns
 
@@ -42,57 +59,105 @@ theorem Time.le_antisymm {time₁ : Time} : (time₁ ≤ time₂) → (time₂ �
 @[simp]
 theorem Time.le_refl {time : Time} : time ≤ time := Nat.le_refl _
 
+/--
+A `Duration` describes a span of time described by a nonnegative number of nanoseconds. It is thus
+simply a different way of interpreting instances of `Time`.
+-/
 abbrev Duration := Time
 
-def Time.of (value : Nat) (scale : Scale) : Time :=
-  { ns := value * scale.nsRatio }
+/--
+Creates an instance of time whose underlying number of nanoseconds matches the given number of time
+units of a given unit. For example, `Time.of 5 .mins` constructs an instance of `Time` whose
+underlying value represents five minutes.
+-/
+def Time.of (value : Nat) (unit : Time.Unit) : Time :=
+  { ns := value * unit.nsRatio }
 
-def Time.to (time : Time) (scale : Scale) : Nat :=
-  time.ns / scale.nsRatio
+/--
+Returns the number of time units of a given unit, which represent the given time. The resulting
+value is rounded down to the nearest natural number. For example, if `t` is a `Time` with an
+underlying value of 4200 nanoseconds, then `t.to .μs = 4` and `t.to .ms = 0`.
+-/
+def Time.to (time : Time) (unit : Time.Unit) : Nat :=
+  time.ns / unit.nsRatio
 
-theorem Time.of_to : (Time.of value scale).to scale = value := by
-  simp [of, to, Scale.nsRatio]
-  cases scale <;> simp only [Nat.mul_div_cancel]
+/-- A convenience for constructing a `Time` from a given number of nanoseconds. -/
+protected def Nat.ns : Nat → Time := (Time.of · .ns)
 
+/-- A convenience for constructing a `Time` from a given number of microseconds. -/
+protected def Nat.μs : Nat → Time := (Time.of · .μs)
+
+/-- A convenience for constructing a `Time` from a given number of milliseconds. -/
+protected def Nat.ms : Nat → Time := (Time.of · .ms)
+
+/-- A convenience for constructing a `Time` from a given number of seconds. -/
+protected def Nat.s : Nat → Time := (Time.of · .s)
+
+/-- A convenience for constructing a `Time` from a given number of minutes. -/
+protected def Nat.mins : Nat → Time := (Time.of · .mins)
+
+/-- A convenience for constructing a `Time` from a given number of hours. -/
+protected def Nat.hours : Nat → Time := (Time.of · .hours)
+
+/-- A convenience for constructing a `Time` from a given number of days. -/
+protected def Nat.days : Nat → Time := (Time.of · .days)
+
+/-- A convenience for constructing a `Time` from a given number of weeks. -/
+protected def Nat.weeks : Nat → Time := (Time.of · .weeks)
+
+theorem Time.of_to : (Time.of value unit).to unit = value := by
+  simp [of, to, Unit.nsRatio]
+  cases unit <;> simp only [Nat.mul_div_cancel]
+
+/-- The current time according to `IO.monoNanosNow`. -/
 def Time.now : IO Time :=
   return { ns := ← IO.monoNanosNow }
 
+/--
+A convenience for constructing instances of `Time` with a value of 0, as this doesn't require a
+unit.
+-/
 instance : OfNat Time 0 where
   ofNat := { ns := 0 }
 
-theorem Time.zero_eq_zero : (0 : Time) = Time.of 0 scale := by simp [of]
+theorem Time.zero_eq_zero : (0 : Time) = Time.of 0 unit := by simp [of]
 
 @[simp]
 theorem Time.zero_le {time : Time} : 0 ≤ time := by apply Nat.zero_le
 
+/-- Adding a `Duration` to a `Time` adds the underlying values. -/
 instance : HAdd Time Duration Time where
   hAdd t d := { ns := t.ns + d.ns }
 
+/--
+Subtracting a `Duration` from a `Time` subtracts the underlying values. Note that for duration `d`
+and time `t` with `d ≥ t`, `t - d = 0`.
+-/
 instance : HSub Time Duration Time where
   hSub t d := { ns := t.ns - d.ns }
 
+/--
+Subtracting a `Time` from a `Time` produces their difference as a `Duration`. Note that for times
+`t₁` and `t₂` with `t₂ ≥ t₁`, `t₁ - t₂ = 0`.
+-/
 instance : HSub Time Time Duration where
    hSub t₁ t₂ := { ns := t₁.ns - t₂.ns }
 
-instance : HMod Duration Duration Duration where
-   hMod d₁ d₂ := { ns := d₁.ns % d₂.ns }
-
+/-- A `Time.From t` is a time which is at least "as late" as `t`. -/
 abbrev Time.From (min : Time) := { time : Time // min ≤ time }
 
+/-- Any given time `t` can be lifted to a `Time.From t`, as it is at least "as late" as itself. -/
 instance : CoeDep Time t (Time.From t) where
   coe := ⟨t, by simp_arith [LE.le]⟩
 
+/-- The `≤` relation of `Time.From` is determined by the `Time` value. -/
 instance : LE (Time.From t) where
   le t₁ t₂ := t₁.val ≤ t₂.val
 
 @[simp]
 theorem Time.From.le_refl {time : Time.From t} : time ≤ time := Nat.le_refl _
 
-def Time.advance (time : Time) (d : Duration) : Time.From time := {
-  val := time + d
-  property := by simp_arith [LE.le, HAdd.hAdd, Add.add]
-}
-
+/-- A `Tag` describes a logical time tag as in the Reactor model. -/
 structure Tag where
   time : Time
   microstep : Nat
@@ -101,16 +166,22 @@ structure Tag where
 instance : ToString Tag where
   toString tag := s!"⟨{tag.time}, {tag.microstep}⟩"
 
+/-- The `<` relation of `Tag` is determined lexicographically by its components. -/
 instance : LT Tag where
   lt tag₁ tag₂ :=
     if tag₁.time = tag₂.time
     then tag₁.microstep < tag₂.microstep
     else tag₁.time < tag₂.time
 
+/-- "Incrementing" a tag means advancing it to the next microstep. -/
 def Tag.increment (tag : Tag) : Tag := { tag with
   microstep := tag.microstep + 1
 }
 
+/--
+Advances the given tag `g` *to* (not *by*) a given time `t`.
+We can't move backwards as `t < g.time` is excluded by the type of `t`.
+-/
 def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag :=
   if tag.time < time
   then { time := time, microstep := 0 }

@@ -4,7 +4,7 @@ namespace ReactionT
 
 -- TODO: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Conditional.20Syntax/near/311857316
 open Lean in
-scoped macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
+macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
   let var := if var.isSome then #[mkIdent `var] else #[]
   let input := mkIdent `input
   let opApp ← `($op $[ $var ]* $input (m := Id)
@@ -26,7 +26,7 @@ scoped macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
   return ⟨mkNullNode commands⟩
 
 open Lean in
-scoped macro "mk_set_lemma" op:ident suffix:ident " : " prop:term : command => `(
+macro "mk_set_lemma" op:ident suffix:ident " : " prop:term : command => `(
   @[simp] theorem $(mkIdentFrom op s!"{op.getId}_{suffix}") : $prop := by
     simp [$op:ident]; first | done | rfl | intro h; simp [h]
 )

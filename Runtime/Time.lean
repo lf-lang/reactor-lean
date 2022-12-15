@@ -1,4 +1,5 @@
 import Runtime.Utilities.Lean
+import Lean
 
 /--
 Time `Unit`s are used for converting between different units of time when getting and setting
@@ -13,14 +14,29 @@ equivalent number of nanoseconds. For example, to convert five minutes to the eq
 nanoseconds we write `5 * Unit.mins.nsRatio`.
 -/
 def Time.Unit.nsRatio : Time.Unit → Nat
-  | .ns    => 1
-  | .μs    => 1000
-  | .ms    => 1000 * 1000
-  | .s     => 1000 * 1000 * 1000
-  | .mins  => 1000 * 1000 * 1000 * 60
-  | .hours => 1000 * 1000 * 1000 * 60 * 60
-  | .days  => 1000 * 1000 * 1000 * 60 * 60 * 24
-  | .weeks => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
+  | ns    => 1
+  | μs    => 1000
+  | ms    => 1000 * 1000
+  | s     => 1000 * 1000 * 1000
+  | mins  => 1000 * 1000 * 1000 * 60
+  | hours => 1000 * 1000 * 1000 * 60 * 60
+  | days  => 1000 * 1000 * 1000 * 60 * 60 * 24
+  | weeks => 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
+
+/-- A list of all members of `Time.Unit`. -/
+def Time.Unit.all : Array Time.Unit :=
+  #[ns, μs, ms, s, mins, hours, days, weeks]
+
+instance : ToString Time.Unit where
+  toString
+    | .ns    => "ns"
+    | .μs    => "μs"
+    | .ms    => "ms"
+    | .s     => "s"
+    | .mins  => "mins"
+    | .hours => "hours"
+    | .days  => "days"
+    | .weeks => "weeks"
 
 /--
 A `Time` describes a point in time as a nonnegative number of nanoseconds.
@@ -81,29 +97,17 @@ underlying value of 4200 nanoseconds, then `t.to .μs = 4` and `t.to .ms = 0`.
 def Time.to (time : Time) (unit : Time.Unit) : Nat :=
   time.ns / unit.nsRatio
 
-/-- A convenience for constructing a `Time` from a given number of nanoseconds. -/
-protected def Nat.ns : Nat → Time := (Time.of · .ns)
-
-/-- A convenience for constructing a `Time` from a given number of microseconds. -/
-protected def Nat.μs : Nat → Time := (Time.of · .μs)
-
-/-- A convenience for constructing a `Time` from a given number of milliseconds. -/
-protected def Nat.ms : Nat → Time := (Time.of · .ms)
-
-/-- A convenience for constructing a `Time` from a given number of seconds. -/
-protected def Nat.s : Nat → Time := (Time.of · .s)
-
-/-- A convenience for constructing a `Time` from a given number of minutes. -/
-protected def Nat.mins : Nat → Time := (Time.of · .mins)
-
-/-- A convenience for constructing a `Time` from a given number of hours. -/
-protected def Nat.hours : Nat → Time := (Time.of · .hours)
-
-/-- A convenience for constructing a `Time` from a given number of days. -/
-protected def Nat.days : Nat → Time := (Time.of · .days)
-
-/-- A convenience for constructing a `Time` from a given number of weeks. -/
-protected def Nat.weeks : Nat → Time := (Time.of · .weeks)
+-- For each time unit `x`, this creates a definition `Nat.x` which constructs a `Time` from the
+-- number and unit.
+--
+-- TODO: Use `run_cmd` for this if it is moved from Mathlib to Std.
+open Lean in macro "mk_nat_to_time_ctors" : command =>
+  return ⟨mkNullNode (← Time.Unit.all.mapM fun unit =>
+    let withUnit := (mkIdent <| · ++ (toString unit))
+    `(/-- A convenience for constructing a `Time` with the given unit. -/
+      protected abbrev $(withUnit `Nat) : Nat → Time := (Time.of · $(withUnit `Time.Unit)))
+  )⟩
+mk_nat_to_time_ctors
 
 theorem Time.of_to : (Time.of value unit).to unit = value := by
   simp [of, to, Unit.nsRatio]

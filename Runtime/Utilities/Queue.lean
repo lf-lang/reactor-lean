@@ -1,5 +1,6 @@
 import Runtime.Utilities.Extensions
 
+/-- An event type is a type which has an identifier and an associated time stamp. -/
 class EventType (α : Type _) where
   Id : Type
   id : α → Id
@@ -8,15 +9,20 @@ class EventType (α : Type _) where
 
 attribute [instance] EventType.decEqId
 
+-- TODO: Use `List.Sorted` once it arrives in Mathlib.
 inductive Queue.Sorted [inst : EventType ε] : List ε → Prop
   | nil : Sorted []
   | singleton : Sorted [e]
   | cons : (inst.time fst ≤ inst.time snd) → Sorted (snd :: tl) → Sorted (hd :: snd :: tl)
 
+/--
+A queue is a sorted list of events where each event has a time stamp greater or equal to a given
+lower `bound`.
+-/
 structure Queue (ε : Type) [inst : EventType ε] (bound : Time) where
-  elems : Array ε
-  sorted : Queue.Sorted elems.data
-  bounded : ∀ {event}, (elems[0]? = some event) → bound ≤ inst.time event
+  events : Array ε
+  sorted : Queue.Sorted events.data
+  bounded : ∀ {event}, (events[0]? = some event) → bound ≤ inst.time event
 
 namespace Queue
 open EventType
@@ -24,35 +30,37 @@ open EventType
 variable [EventType ε]
 
 -- TODO: What's the story for theorems about `Array`s in Lean 4?
-
-theorem all_elems_bounded {queue : Queue ε bound} :
-  ∀ {event}, event ∈ queue.elems.data → bound ≤ time event := by
+theorem all_events_bounded {queue : Queue ε bound} :
+  ∀ {event}, event ∈ queue.events.data → bound ≤ time event := by
   sorry
 
-def isEmpty (q : Queue ε bound) : Bool := q.elems.isEmpty
+/-- A queue is empty if its underlying list of events is empty. -/
+def isEmpty (q : Queue ε bound) : Bool := q.events.isEmpty
 
-def size (q : Queue ε bound) : Nat := q.elems.size
+/-- The size of a queue is the number of its events. -/
+def size (q : Queue ε bound) : Nat := q.events.size
 
 instance : GetElem (Queue ε bound) Nat { e : ε // bound ≤ time e } (fun q i => i < q.size) where
   getElem queue i _ := {
-    val := queue.elems[i]
+    val := queue.events[i]
     property := sorry
   }
 
 @[simp]
-theorem getElem?_some_elems_getElem?_some {queue : Queue ε bound} {i : Nat} :
-  (queue[i]? = some event) → (queue.elems[i]? = event.val) := by
+theorem getElem?_some_events_getElem?_some {queue : Queue ε bound} {i : Nat} :
+  (queue[i]? = some event) → (queue.events[i]? = event.val) := by
   intro h
   sorry
 
 @[simp]
-theorem getElem?_none_elems_getElem?_none {queue : Queue ε bound} {i : Nat} :
-  (queue[i]? = none) → (queue.elems[i]? = none) := by
+theorem getElem?_none_events_getElem?_none {queue : Queue ε bound} {i : Nat} :
+  (queue[i]? = none) → (queue.events[i]? = none) := by
   intro h
   sorry
 
+/-- Creates an empty queue. -/
 def nil : Queue ε bound where
-  elems := #[]
+  events := #[]
   sorted := .nil
   bounded := by simp
 
@@ -61,13 +69,19 @@ notation "°[]" => Queue.nil
 instance : Inhabited (Queue ε bound) where
   default := °[]
 
+/-- Creates a queue with a single event. -/
 def singleton (event : ε) (h : bound ≤ time event) : Queue ε bound where
-  elems := #[event]
+  events := #[event]
   sorted := .singleton
   bounded := by simp [h]
 
 notation "°[" e "]' " h => Queue.singleton e h
 
+/--
+The "next time" of a queue is the time of its next event (if it exists).
+
+*Note:* The next event is considered to be the one at index 0.
+-/
 def nextTime (queue : Queue ε bound) : Option (Time.From bound) :=
   match queue[0]? with
   | none => none
@@ -92,41 +106,57 @@ theorem nextTime_isSome_iff_not_isEmpty {queue : Queue ε bound} :
   rw [Queue.isEmpty, ←Array.getElem?_zero_isSome_iff_not_isEmpty]
   simp [nextTime]
   constructor <;> split <;> simp_all [Option.isSome]
-  · simp [Queue.getElem?_some_elems_getElem?_some ‹_›]
+  · simp [Queue.getElem?_some_events_getElem?_some ‹_›]
 
--- The first array are the next events to be executed at `time`.
--- The second array is the remaining queue.
+/--
+Splits a queue into a list of "next events" and "remaining events".
+* "Next events" are those which have a time stamp matching the `nextTime` and are the first among
+  all events with the same id.
+* "Remaining events" are those which have a time stamp greater than the `nextTime` or have an event
+  in with the same id earlier in the queue.
+
+For example, let's assume each event has the form `(time, id, value)`. Then the queue:
+```
+(10, a, 0) (10, a, 1) (10, b, 2) (11, a, 3)
+```
+... would be split into:
+* next events `(10, a, 0) (10, b, 2)`, and
+* remaining events `(10, a, 1) (11, a, 3)`.
+-/
 def split
   (queue : Queue ε bound) (anchor : Time) (h : ∀ next, queue.nextTime = some next → anchor ≤ next) :
   Array ε × Queue ε anchor :=
-  let ⟨candidates, later⟩ := queue.elems.split (time · = anchor)
+  let ⟨candidates, later⟩ := queue.events.split (time · = anchor)
   let ⟨next, postponed⟩ := candidates.unique (EventType.id ·)
   {
     fst := next
     snd := {
-      elems := postponed ++ later
+      events := postponed ++ later
       sorted := sorry
       bounded := sorry
     }
   }
 
--- Note: For the purposes of reactor execution, it is important that this merge is stable.
---       That is, it should be the same as would be produced by a stable sorting algorithm on
---       input `q₁ ++ q₂`.
+-- *Note:* It is important that this merge is stable. That is, it should be the same as would be
+-- produced by a stable sorting algorithm on input `queue₁ ++ queue₂`.
 --
--- TODO: Implement this properly.
+-- TODO: Implement this properly once `List.merge` arrives in Mathlib.
 def merge (queue₁ queue₂ : Queue ε bound) : Queue ε bound :=
   if queue₁.isEmpty      then queue₂
   else if queue₂.isEmpty then queue₁
   else {
-    elems := (queue₁.elems ++ queue₂.elems).insertionSort (time · ≤ time ·)
+    events := (queue₁.events ++ queue₂.events).insertionSort (time · ≤ time ·)
     sorted := sorry
     bounded := sorry
   }
 
+/--
+Maps a queue of event type `ε` to a queue of event type `δ`. To ensure that the resulting queue is
+still sorted and bounded, the map must preserve time stamps.
+-/
 def map [EventType δ] (queue : Queue ε bound) (f : ε → δ) (h : ∀ e : ε, time e = time (f e)) :
   Queue δ bound where
-  elems := queue.elems.map f
+  events := queue.events.map f
   sorted := sorry
   bounded := sorry
 

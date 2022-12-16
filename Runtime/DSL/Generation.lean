@@ -382,7 +382,7 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       physicalOffset := physicalOffset
       reactors := $instancesIdent
       queue := {
-        elems := #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
+        events := #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
         sorted := sorry
         bounded := sorry
       }

@@ -18,7 +18,7 @@ theorem nextTime_le_queue_nextTime {exec : Executable net} {t q} :
   exact q.property
 
 private def propagationEvents (exec : Executable net) : Queue (Event net) exec.time where
-  elems :=
+  events :=
     exec.toPropagate.uniqueMergeMap (le := (·.time ≤ ·.time)) fun port =>
       match exec.reactors port.reactor |>.interface .outputs port.port with
       | none => #[] -- TODO: This case is unreachable by the semantics of `toPropagate`.
@@ -31,7 +31,7 @@ private def propagationEvents (exec : Executable net) : Queue (Event net) exec.t
 
 private def nextTimerEvents (exec : Executable net) (timers : Array (TimerId net)) (anchor : Time) :
   Queue (Event net) anchor where
-  elems :=
+  events :=
     timers.filterMap fun ⟨reactor, timer⟩ =>
       match exec.reactors reactor |>.timer timer |>.val.period with
       | none => none
@@ -76,7 +76,7 @@ theorem for_isSome_if_shutdownPending {exec : Executable net} :
 theorem for_preserves_events :
   (Next.for exec = some next) →
   ∃ timerEvents propagationEvents,
-    (next.events ++ next.queue.elems) ~ (exec.queue.elems ++ timerEvents ++ propagationEvents) := by
+    (next.events ++ next.queue.events) ~ (exec.queue.events ++ timerEvents ++ propagationEvents) := by
   sorry
 
 -- The actions-interface for a given reactor according to the `Next` instance.

@@ -1,5 +1,9 @@
 import Runtime.Reaction.Monad
 
+/-
+This file contains a variety of trivial lemmas about the monadic operations defined for `ReactionT`.
+-/
+
 namespace ReactionT
 
 -- TODO: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Conditional.20Syntax/near/311857316

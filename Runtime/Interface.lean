@@ -111,7 +111,7 @@ theorem isPresent_def (i : Interface? σ) : i.isPresent var ↔ ∃ v, i var = s
   simp [isPresent, Option.isSome_iff_exists]
 
 /--
-Merges `i₂` "into" `i₁`. That is, for each element `e`:
+Merges interface `i₂` "into" `i₁`. That is, for each element `e`:
 * if `i₁ e` is present, return that value
 * otherwise, return `i₂ e`
 -/

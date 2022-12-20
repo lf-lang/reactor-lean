@@ -207,8 +207,8 @@ def setState (stv : σS.vars) (v : σS.type stv) : ReactionT σPS σPE σAS σAE
 /--
 Schedules an event for a given action with a given value to occur after a given logical delay.
 
-The event is ensured to occur at the logical time `(← getLogicalTime) + delay`, but can occur at any
-microstep.
+If `delay = 0`, the action is scheduled for the current time with a microstep delay of 1.
+If `delay > 0`, the action is scheduled for the tag `⟨(← getLogicalTime) + delay, 0⟩`.
 -/
 def schedule (action : σAE.vars) (delay : Duration) (v : σAE.type action) :
   ReactionT σPS σPE σAS σAE σS σP m Unit :=

@@ -23,6 +23,9 @@ structure Queue (ε : Type) [inst : EventType ε] (bound : Time) where
   events : Array ε
   sorted : Queue.Sorted events.data
   bounded : ∀ {event}, (events[0]? = some event) → bound ≤ inst.time event
+  -- TODO: Add the property:
+  -- ∀ {event₁ event₂}, (event₁ ∈ events) → (event₂ ∈ events) → (time event₁ > bound) →
+  --                    (time event₁ ≠ time event₂) ∨ (id event₁ ≠ id event₂)
 
 namespace Queue
 open EventType
@@ -137,18 +140,33 @@ def split
     }
   }
 
+-- *Note*: For adherence to the LF scheduling semantics, this operation overrides events of equal id
+--         and time, except those whose time is `bound`.
+--
 -- *Note:* It is important that this merge is stable. That is, it should be the same as would be
 -- produced by a stable sorting algorithm on input `queue₁ ++ queue₂`.
---
--- TODO: Implement this properly once `List.merge` arrives in Mathlib.
-def merge (queue₁ queue₂ : Queue ε bound) : Queue ε bound :=
+-- TODO: Implement all of this properly once something like `Array.merge` arrives in Std.
+def merge [inst : EventType ε] (queue₁ queue₂ : Queue ε bound) : Queue ε bound :=
   if queue₁.isEmpty      then queue₂
   else if queue₂.isEmpty then queue₁
-  else {
-    events := (queue₁.events ++ queue₂.events).insertionSort (time · ≤ time ·)
+  else
+  -- Note, using `split` is inefficient as it traverses the entire array.
+  let ⟨immediate₁, future₁⟩ := queue₁.events.split (time · = bound)
+  let ⟨immediate₂, future₂⟩ := queue₂.events.split (time · = bound)
+  {
+    events := (mergeImmediate immediate₁ immediate₂) ++ (mergeFuture future₁ future₂)
     sorted := sorry
     bounded := sorry
   }
+where
+  mergeImmediate (is₁ is₂ : Array ε) : Array ε :=
+    (is₁ ++ is₂).insertionSort (time · ≤ time ·)
+  mergeFuture (fs₁ fs₂ : Array ε) : Array ε :=
+    let fs₁' := fs₁.filter fun event₁ =>
+      ¬ fs₂.any fun event₂ =>
+        (inst.time event₁ = inst.time event₂) ∧
+        (inst.id event₁ = inst.id event₂)
+    (fs₁' ++ fs₂).insertionSort (time · ≤ time ·)
 
 /--
 Maps a queue of event type `ε` to a queue of event type `δ`. To ensure that the resulting queue is

@@ -87,3 +87,8 @@ lf {
 
   ]
 }
+
+theorem test : input -[check.Reaction0]→ output → (output.ports .a.x = some 1) := by
+  intro h
+  simp [←h, LF.check.Reaction0]
+  apply Id.bind_eq

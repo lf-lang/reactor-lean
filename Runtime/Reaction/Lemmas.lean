@@ -6,6 +6,15 @@ This file contains a variety of trivial lemmas about the monadic operations defi
 
 namespace ReactionT
 
+/--
+This macro should be used by LF-users to prove theorems about reactions. It makes it possible to
+write `input -[ReactorName.ReactionN]→ output` to express that running reaction number N of reactor
+(class) `ReactorName` on a given `input` produces `output`.
+-/
+macro input:term:max " -[" rcn:ident "]→ " output:term:max : term => `(
+  ($(Lean.mkIdentFrom rcn <| `LF ++ rcn.getId ++ `body) $input).fst = $output
+)
+
 -- TODO: https://leanprover.zulipchat.com/#narrow/stream/270676-lean4/topic/Conditional.20Syntax/near/311857316
 open Lean in
 macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
@@ -31,7 +40,7 @@ macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
 
 open Lean in
 macro "mk_set_lemma" op:ident suffix:ident " : " prop:term : command => `(
-  @[simp] theorem $(mkIdentFrom op s!"{op.getId}_{suffix}") : $prop := by
+  @[simp] theorem $(mkIdentFrom op s!"{op.getId}_{suffix.getId}") : $prop := by
     simp [$op:ident]; first | done | rfl | intro h; simp [h]
 )
 

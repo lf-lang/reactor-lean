@@ -3,6 +3,13 @@ import Runtime.Execution.ReactionOutput
 namespace Execution.Executable
 open Network
 
+/--
+Applies the changes described by a given reaction-output to the given executable. This includes:
+* merging events into the event queue.
+* updating the executable's state if a stop request was performed.
+* updating the state variables of the reaction's parent reactor.
+* setting the values of the reaction's effect ports.
+-/
 def apply (exec : Executable net) (output : ReactionOutput exec) : Executable net := { exec with
   queue := exec.queue.merge output.actionEvents
   state := stateAfter output

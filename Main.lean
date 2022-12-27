@@ -15,9 +15,10 @@ lf {
       }
     ]
     nested      [
-      a : ScheduleLogicalAction := []
+      a : ScheduleLogicalAction := [],
+      b : ScheduleLogicalAction := []
     ]
-    connections []
+    connections [a.y : b.x]
     reactions   [
       {
         kind          pure
@@ -42,7 +43,7 @@ lf {
   reactor ScheduleLogicalAction
     parameters  []
     inputs      [x : Nat]
-    outputs     []
+    outputs     [y : Nat]
     actions     [a : Unit]
     state       []
     timers      []
@@ -79,14 +80,15 @@ lf {
         }
         body {
           let elapsedTime <- getLogicalTime
-          sorry
         }
       }
     ]
   schedule [
-
+    a._0, a._1, b._0, b._1
   ]
 }
+
+open LF
 
 theorem test : input -[check.Reaction0]→ output → (output.ports .a.x = some 1) := by
   intro h

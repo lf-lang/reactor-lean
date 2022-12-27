@@ -222,7 +222,7 @@ def ReactorDecl.genConnections (decl : ReactorDecl) : MacroM Term := do
   `({
     instantaneous := $(← decl.genInstantaneousConnections)
     delayed := $(← decl.genDelayedConnections)
-    instEqType := by first | simp | intro _ _ h; simp at h; split at h <;> simp at h <;> try rw [←h]; rfl
+    instEqType := by first | (intro _ _ h; simp at h; split at h <;> simp at h <;> try rw [←h]; rfl) | simp
   })
 
 def ReactorDecl.genStateInterface (decl : ReactorDecl) : MacroM Term := do
@@ -384,7 +384,7 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       queue := {
         events := #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
         sorted := sorry
-        bounded := sorry
+        bounded := by intros; simp
       }
     where
       $instancesIdent:ident : (id : $(mkIdent `Network.ReactorId) $(decl.networkIdent)) → $(mkIdent `Reactor) id.class

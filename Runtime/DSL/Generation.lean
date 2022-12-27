@@ -379,13 +379,10 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
   let ⟨instanceValues, initialTimerEvents⟩ := rhs.unzip
   `(
     def $executableIdent (physicalOffset : Duration) : $(mkIdent `Execution.Executable) $(decl.networkIdent) where
+      tag := ⟨0, 0⟩ -- This is needed to satisfy the type of `queue`.
       physicalOffset := physicalOffset
       reactors := $instancesIdent
-      queue := {
-        events := #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
-        sorted := sorry
-        bounded := by intros; simp
-      }
+      queue := Queue.sorting <| #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
     where
       $instancesIdent:ident : (id : $(mkIdent `Network.ReactorId) $(decl.networkIdent)) → $(mkIdent `Reactor) id.class
         $[| $instanceIDs => $instanceValues]*

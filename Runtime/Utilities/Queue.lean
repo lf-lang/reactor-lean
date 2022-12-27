@@ -81,6 +81,15 @@ def singleton (event : ε) (h : bound ≤ time event) : Queue ε bound where
 notation "°[" e "]' " h => Queue.singleton e h
 
 /--
+Creates a queue from an array of events by sorting its elements. The time bound fulfilled trivially
+by choosing it to be 0.
+-/
+def sorting (events : Array ε) : Queue ε 0 where
+  events := events.insertionSort (time · ≤ time ·)
+  sorted := sorry
+  bounded := by intros; simp
+
+/--
 The "next time" of a queue is the time of its next event (if it exists).
 
 *Note:* The next event is considered to be the one at index 0.

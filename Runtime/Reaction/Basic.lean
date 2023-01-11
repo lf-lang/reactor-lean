@@ -59,6 +59,10 @@ structure _root_.Reaction where
   triggers      : Array (Trigger portSources.vars actionSources.vars timers)
   body          : ReactionT portSources portEffects actionSources actionEffects state params kind.monad Unit
 
+/-- The specific type of triggers for a given reaction. -/
+abbrev triggerType (rcn : Reaction) :=
+  Trigger rcn.portSources.vars rcn.actionSources.vars rcn.timers
+
 /-- The type of the "context" passed into a reaction body upon execution. -/
 abbrev inputType (rcn : Reaction) :=
   ReactionT.Input rcn.portSources rcn.actionSources rcn.state rcn.params

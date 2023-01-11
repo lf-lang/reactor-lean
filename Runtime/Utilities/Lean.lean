@@ -28,6 +28,8 @@ def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} :
 theorem Array.findSome?_some [BEq α] {as : Array α} : (as.findSome? f = some b) → (∃ a, as.contains a ∧ f a = some b) :=
   sorry
 
+theorem Array.any_iff_mem_where {as : Array α} : (as.any p) ↔ (∃ a, (a ∈ as.data) ∧ p a) := sorry
+
 instance [Ord α] : LE α := leOfOrd
 
 @[reducible]

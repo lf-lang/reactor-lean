@@ -1,21 +1,10 @@
 import Runtime.Execution.Next
 import Runtime.Execution.Apply
 import Runtime.Execution.Propagate
+import Runtime.Execution.Triggers
 
 namespace Execution.Executable
 open Network Graph Class
-
--- TODO?: Refactor this à la `Reaction.Output.LocalValue` and `Reaction.Output.local`.
--- An interface for all ports (local and nested) that can act as sources of reactions of a given reactor.
-def reactionInputs (exec : Executable net) (reactor : ReactorId net) : Interface? reactor.class.reactionInputScheme
-  | .inl localInput           => exec.interface reactor .inputs localInput
-  | .inr ⟨child, childOutput⟩ => type_correctness ▸ exec.interface (reactor.extend child) .outputs (Path.extend_class ▸ childOutput)
-where
-  type_correctness {graph start} {path : Path graph start} {child childOutput} :
-    path.class.reactionInputScheme.type (.inr ⟨child, childOutput⟩) =
-    ((path.extend child).class.interface .outputs).type (Path.extend_class ▸ childOutput) := by
-    simp
-    sorry -- HEQ: by extend_class
 
 def fire (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
   reaction.val.run {
@@ -32,15 +21,6 @@ def fireToIO (exec : Executable net) {reactor : ReactorId net} (reaction : React
 where
   toIO {α} {kind : Reaction.Kind} : (kind.monad α) → IO α :=
     match kind with | .pure => pure | .impure => id
-
-def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Bool :=
-  reaction.val.triggers.any fun trigger =>
-    match trigger with
-    | .port   port   => exec.reactionInputs reactor     |>.isPresent (reaction.subPS.coe port)
-    | .action action => exec.interface reactor .actions |>.isPresent (reaction.subAS.coe action)
-    | .timer  timer  => exec.reactors reactor           |>.timer (reaction.eqTimers ▸ timer) |>.isFiring
-    | .startup       => exec.isStartingUp
-    | .shutdown      => exec.state = .shuttingDown
 
 -- Advances the given executable to the state given by `next`.
 -- This includes:
@@ -97,7 +77,7 @@ partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactio
   | some reactionId =>
     let reaction := reactionId.reaction
     let mut exec := exec
-    if exec.triggers reaction then
+    if Triggers exec reaction then
       exec := (← exec.fireToIO reaction)
         |> ReactionOutput.fromRaw
         |> exec.apply

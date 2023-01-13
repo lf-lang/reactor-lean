@@ -66,7 +66,7 @@ structure Reaction (cls : Class graph) where
   [subPE : Subscheme val.portEffects cls.reactionOutputScheme]
   [subAS : Subscheme val.actionSources (cls.interface .actions)]
   [subAE : Subscheme val.actionEffects (cls.interface .actions)]
-  eqState  : cls.interface .state  = val.state  := by rfl
+  eqState  : cls.interface .state = val.state   := by rfl
   eqParams : cls.interface .params = val.params := by rfl
   eqTimers : cls.timers = val.timers            := by rfl
 

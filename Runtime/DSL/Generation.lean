@@ -61,11 +61,14 @@ def ReactionDecl.genReactionInstance (decl : ReactionDecl) (ns reactorName : Ide
       «params»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Parameter.scheme))
       «timers»        := $(mkIdentFrom reactorIdent  (reactorIdent.getId  ++ `Timer))
       «triggers»      := $(← decl.genTriggers)
-      «body» := open $ns $reactorName $(mkIdent reactionName)
-                     $(mkIdent `PortSource) $(mkIdent `PortEffect)
-                     $(mkIdent `ActionSource) $(mkIdent `ActionEffect)
-                     $(mkIdent `State) $(mkIdent `Parameter) $(mkIdent `ReactionT)
-                     in do $(decl.body)
+      «body» := open $ns $reactorName $(mkIdent reactionName) $(mkIdent `ReactionT) in
+                -- HACK
+                let $(mkIdent `getInput)  {σPE σAS σAE σS  σP m} [Monad m] := @$(mkIdent `getInput) m _ $(mkIdent `PortSource.scheme) σPE σAS σAE σS σP
+                let $(mkIdent `getState)  {σPS σPE σAS σAE σP m} [Monad m] := @$(mkIdent `getState) m _ σPS σPE σAS σAE $(mkIdent `State.scheme) σP
+                let $(mkIdent `getAction) {σPS σPE σAE σS  σP m} [Monad m] := @$(mkIdent `getAction) m _ σPS σPE $(mkIdent `ActionSource.scheme) σAE σS σP
+                let $(mkIdent `getParam)  {σPS σPE σAS σAE σS m} [Monad m] := @$(mkIdent `getParam) m _ σPS σPE σAS σAE σS $(mkIdent `Parameter.scheme)
+                do
+                  $(decl.body)
     })
 
 def ReactionDecl.DependencyKind.subschemeTarget (graphIdent className : Ident) : ReactionDecl.DependencyKind → MacroM Term

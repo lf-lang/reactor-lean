@@ -10,4 +10,4 @@ lean_exe Executable {
   root := `Main
 }
 
-require std from git "https://github.com/leanprover/std4" @ "main"
+require std from git "https://github.com/leanprover/std4" @ "5770b609aeae209cb80ac74655ee8c750c12aabd"

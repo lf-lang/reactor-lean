@@ -120,7 +120,7 @@ where
         inv i := match i with $[| $invSrcTerms => $invDstTerms]*
         invInj := by first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp
         coeInvId := by intro a; cases a <;> rfl
-        coeEqType := by intro v; first | rfl | cases v
+        coeEqType := by intro v; cases v <;> (first | done | simp; rfl)
     )
   forActions (descr : SubschemeGenDescription) : MacroM Command := do
     let coeDstIdents ← descr.ids.dotted
@@ -135,7 +135,7 @@ where
         inv i := match i with $[| $invSrcTerms => $invDstTerms]*
         invInj := by first | (intro _ _ _ h₁ h₂; simp at h₁ h₂; split at h₁ <;> split at h₂ <;> first | rfl | contradiction | simp [←h₁] at h₂) | simp
         coeInvId := by intro a; cases a <;> rfl
-        coeEqType := by intro v; first | rfl | cases v
+        coeEqType := by intro v; cases v <;> (first | done | simp; rfl)
     )
 
 def TimerDecl.genTimer (decl : TimerDecl) : MacroM Term := do

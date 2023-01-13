@@ -21,7 +21,7 @@ syntax "triggers" "{"
 
 declare_syntax_cat reaction_decl
 syntax "{"
-  &"kind"          ident
+  &"kind"         ident
   "portSources"   ident_list
   "portEffects"   ident_list
   "actionSources" ident_list
@@ -32,7 +32,7 @@ syntax "{"
 
 declare_syntax_cat timer_decl
 syntax "{"
-  &"name"   ident
+  &"name"  ident
   "offset" term
   "period" term
   "}" : timer_decl

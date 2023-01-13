@@ -326,7 +326,7 @@ def NetworkDecl.genDefaultParameterDefs (decl : NetworkDecl) : MacroM (Array Com
     let pathName := nameForInstancePath path
     let rtrDecl ← decl.reactorWithName «class»
     (rtrDecl.interfaces .params).mapM fun param => do
-      `(def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) := $(param.default.get!))
+      `(def $(mkIdent <| ns.getId ++ pathName ++ param.id.getId) : $(param.value) := $(param.default.get!))
 where
   nameForInstancePath (path : Array Name) : Name :=
     .mkSimple <| path.foldl (s!"{·}_{·}") ""
@@ -348,14 +348,14 @@ def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) :
         match ← «nested».parameterValue? param.id.getId with
         | none =>
           let defaultDef := mkIdent <| ns.getId ++ `Default ++ (nameForInstancePath nestedPath) ++ param.id.getId
-          return ← `(def $properDef := $defaultDef)
+          return ← `(def $properDef : $(param.value) := $defaultDef)
         | some paramExpr =>
           -- Only open the parent's parameter namespace if it has parameters.
           if rtrDecl.interfaces .params |>.isEmpty then
-            return ← `(def $properDef := $paramExpr)
+            return ← `(def $properDef : $(param.value) := $paramExpr)
           else
             let parentParamNs := mkIdent <| ns.getId ++ (nameForInstancePath path)
-            return ← `(def $properDef := open $parentParamNs:ident in $paramExpr)
+            return ← `(def $properDef : $(param.value) := open $parentParamNs:ident in $paramExpr)
 where
   nameForInstancePath (path : Array Name) : Name :=
     .mkSimple <| path.foldl (s!"{·}_{·}") ""

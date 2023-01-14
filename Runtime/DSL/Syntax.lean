@@ -27,7 +27,7 @@ syntax "{"
   "actionSources" ident_list
   "actionEffects" ident_list
   trigger_decl
-  "body" "{" doSeq "}"
+  "body" "{" (doSeq)? "}"
   "}" : reaction_decl
 
 declare_syntax_cat timer_decl
@@ -88,6 +88,7 @@ def TriggerDecl.fromSyntax : TSyntax `trigger_decl → MacroM TriggerDecl
     return { «ports» := p, «actions» := a, «timers» := t, «meta» := m }
   | _ => throwUnsupported
 
+-- TODO: Figure out how to condense the distinction of $b being optional into one case.
 def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl
   | `(reaction_decl| {
       kind $k portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*]
@@ -97,6 +98,15 @@ def ReactionDecl.fromSyntax : TSyntax `reaction_decl → MacroM ReactionDecl
       dependencies := fun | .portSource => ps | .portEffect => pe | .actionSource => as | .actionEffect => ae
       «triggers» := ← TriggerDecl.fromSyntax ts
       «body» := b
+    }
+  | `(reaction_decl| {
+      kind $k portSources [$ps:ident,*] portEffects [$pe:ident,*] actionSources [$as:ident,*]
+      actionEffects [$ae:ident,*] $ts:trigger_decl body { }
+    }) => return {
+      «kind» := k
+      dependencies := fun | .portSource => ps | .portEffect => pe | .actionSource => as | .actionEffect => ae
+      «triggers» := ← TriggerDecl.fromSyntax ts
+      «body» := ⟨← `(return)⟩
     }
   | _ => throwUnsupported
 

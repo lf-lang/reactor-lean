@@ -177,6 +177,19 @@ instance : LT Tag where
     then tag₁.microstep < tag₂.microstep
     else tag₁.time < tag₂.time
 
+/-- The `≤` relation of `Tag` is determined lexicographically by its components. -/
+instance : LE Tag where
+  le tag₁ tag₂ :=
+    if tag₁.time = tag₂.time
+    then tag₁.microstep ≤ tag₂.microstep
+    else tag₁.time < tag₂.time
+
+instance : Decidable ((tag₁ : Tag) < tag₂) := by
+  simp [LT.lt]; infer_instance
+
+instance : Decidable ((tag₁ : Tag) ≤ tag₂) := by
+  simp [LE.le]; infer_instance
+
 /-- "Incrementing" a tag means advancing it to the next microstep. -/
 def Tag.increment (tag : Tag) : Tag := { tag with
   microstep := tag.microstep + 1

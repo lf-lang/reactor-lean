@@ -1,69 +1,119 @@
 import Runtime.Execution.ReactionInputs
 
+namespace Network.Graph.Class.Reaction
+
+inductive Trigger (net : Network)
+  | port {kind} (id : PortId net kind)
+  | action (id : ActionId net)
+  | timer (id : TimerId net)
+  | startup
+  | shutdown
+
+def Trigger.lift {reactor : ReactorId net} {reaction : Reaction reactor.class} :
+  reaction.val.triggerType → Trigger net
+  | .action a => .action ⟨reactor, reaction.subAS.coe a⟩
+  | .timer t  => .timer ⟨reactor, reaction.eqTimers ▸ t⟩
+  | .startup  => .startup
+  | .shutdown => .shutdown
+  | .port p =>
+    match reaction.subPS.coe p with
+    | .inl input => (.port (kind := .input) ⟨reactor, input⟩)
+    | .inr ⟨c, output⟩ => (.port (kind := .output) ⟨reactor.extend c, Path.extend_class ▸ output⟩)
+
+inductive Trigger.Equiv {reactor : ReactorId net} {reaction : Reaction reactor.class} :
+  (Trigger net) → reaction.val.triggerType → Prop
+  | action :   Equiv (.action ⟨reactor, reaction.subAS.coe a⟩) (.action a)
+  | timer :    Equiv (.timer ⟨reactor, reaction.eqTimers ▸ t⟩) (.timer t)
+  | startup :  Equiv .startup .startup
+  | shutdown : Equiv .shutdown .shutdown
+  | input :
+    (reaction.subPS.coe p = .inl input) →
+    Equiv (.port (kind := .input) ⟨reactor, input⟩) (.port p)
+  | output :
+    (reaction.subPS.coe p = .inr ⟨c, output⟩) →
+    Equiv (.port (kind := .output) ⟨reactor.extend c, Path.extend_class ▸ output⟩) (.port p)
+
+infix:50 " ≡ " => Trigger.Equiv
+
+theorem Trigger.Equiv.lift
+  {reactor : ReactorId net} {reaction : Reaction reactor.class} (t : reaction.val.triggerType) :
+  Trigger.lift t ≡ t := by
+  cases t
+  all_goals
+    simp [Trigger.lift]
+    first
+    | constructor
+    | split <;> (constructor; assumption)
+
+end Network.Graph.Class.Reaction
+
 namespace Execution.Executable
 open Network Graph Class
 
--- TODO: Replace the `port` constructor's condition with something more akin to:
---       "∃ portSource ∈ reaction.portSources: exec[portsSource].isPresent"
-
 /--
 A predicate indicating whether a given executable triggers a given reaction by means of a given
-trigger. The main use case for this predicate is its closure `Triggers`.
+trigger. The main use case for this predicate is its closure: `Triggers`.
 -/
-private inductive TriggersWith
-  (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class)
-  : reaction.val.triggerType → Prop
-  | port     : (exec.reactionInputs reactor |>.isPresent (reaction.subPS.coe port))       → TriggersWith _ _ (.port port)
-  | action   : (exec.interface reactor .actions |>.isPresent (reaction.subAS.coe action)) → TriggersWith _ _ (.action action)
-  | timer    : (exec.reactors reactor |>.timer (reaction.eqTimers ▸ timer) |>.isFiring)   → TriggersWith _ _ (.timer timer)
-  | startup  : (exec.isStartingUp)                                                        → TriggersWith _ _ .startup
-  | shutdown : (exec.state = .shuttingDown)                                               → TriggersWith _ _ .shutdown
+inductive Activates (exec : Executable net) : (Class.Reaction.Trigger net) → Prop
+  | port     : (exec.portIsPresent p)       → Activates _ (.port p)
+  | action   : (exec.actionIsPresent a)     → Activates _ (.action a)
+  | timer    : (exec.timer t |>.isFiring)   → Activates _ (.timer t)
+  | startup  : (exec.isStartingUp)          → Activates _ .startup
+  | shutdown : (exec.state = .shuttingDown) → Activates _ .shutdown
 
-/-- A decision procedure for `TriggersWith` which is used in its `Decidable` instance. -/
-private def triggersWith
-  (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class)
-  : reaction.val.triggerType → Bool
-  | .port   port   => exec.reactionInputs reactor     |>.isPresent (reaction.subPS.coe port)
+/-- A predicate indicating whether a given executable triggers a given reaction. -/
+inductive Triggers (exec) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Prop
+  | witness (equiv : t ≡ t') (mem : t' ∈ reaction.val.triggers.data) (active : Activates exec t)
+
+/-- A decision procedure for `Triggers`. -/
+private def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
+  reaction.val.triggers.any (activated ·)
+where
+  activated : reaction.val.triggerType → Bool
+  | .port   port   => exec.reactionInputs reactor |>.isPresent (reaction.subPS.coe port)
   | .action action => exec.interface reactor .actions |>.isPresent (reaction.subAS.coe action)
-  | .timer  timer  => exec.reactors reactor           |>.timer (reaction.eqTimers ▸ timer) |>.isFiring
+  | .timer  timer  => exec.reactors reactor |>.timer (reaction.eqTimers ▸ timer) |>.isFiring
   | .startup       => exec.isStartingUp
   | .shutdown      => exec.state = .shuttingDown
 
-instance : Decidable (TriggersWith exec reaction trigger) :=
-  if h : triggersWith exec reaction trigger then
-    .isTrue <| by
-      cases trigger
-      all_goals simp only [triggersWith, decide_eq_true_iff] at h
-      case port     => exact .port h
-      case action   => exact .action h
-      case timer    => exact .timer h
-      case startup  => exact .startup h
-      case shutdown => exact .shutdown h
-  else
-    .isFalse <| by
-      intro hc
-      cases hc
-      all_goals
-        simp only [triggersWith, decide_eq_true_iff] at h
-        contradiction
+theorem Activates.iff_equiv_trigger_activated {t'} :
+  (t ≡ t') → (Activates exec t ↔ triggers.activated exec reaction t') := by
+  intro h
+  unfold triggers.activated
+  constructor
+  case mp =>
+    /-intro hc
+    cases hc
+    all_goals
+      simp only [triggersWith, decide_eq_true_iff] at h
+      contradiction
+    -/sorry
+  case mpr =>
+    /-cases trigger
+    all_goals simp only [triggersWith, decide_eq_true_iff] at h
+    case port     => exact .port h
+    case action   => exact .action h
+    case timer    => exact .timer h
+    case startup  => exact .startup h
+    case shutdown => exact .shutdown h
+    -/sorry
 
-/-- A predicate indicating whether a given executable triggers a given reaction. -/
-inductive Triggers
-  (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Prop :=
-  | witness (mem : trigger ∈ reaction.val.triggers.data) (trig : TriggersWith exec reaction trigger)
+theorem Triggers.iff_triggers_eq_true : (Triggers exec reaction) ↔ (exec.triggers reaction) := by
+  unfold triggers
+  constructor
+  case mp =>
+    intro ⟨equiv, mem, active⟩
+    rw [Array.any_iff_mem_where]
+    refine ⟨_, mem, ?_⟩
+    exact Activates.iff_equiv_trigger_activated equiv |>.mp active
+  case mpr =>
+    intro h
+    have ⟨t', mem, active⟩ := Array.any_iff_mem_where.mp h
+    have ⟨_, equiv⟩ : ∃ t, t ≡ t' := ⟨_, Reaction.Trigger.Equiv.lift t'⟩
+    refine .witness equiv mem ?_
+    exact Activates.iff_equiv_trigger_activated equiv |>.mpr active
 
 instance : Decidable (Triggers exec reaction) :=
-  if h : reaction.val.triggers.any (TriggersWith exec reaction ·) then
-    .isTrue <| by
-      have ⟨_, ⟨mem, trig⟩⟩ := Array.any_iff_mem_where.mp h
-      refine .witness mem ?_
-      exact decide_eq_true_iff _ |>.mp trig
-  else
-    .isFalse <| by
-      intro ⟨mem, _⟩
-      have h := (mt Array.any_iff_mem_where.mpr h) |> not_exists.mp
-      have h := not_and.mp (h _) mem
-      simp [decide_eq_true_iff] at h
-      contradiction
+  decidable_of_iff' _ Triggers.iff_triggers_eq_true
 
 end Execution.Executable

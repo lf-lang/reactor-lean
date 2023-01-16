@@ -56,7 +56,12 @@ structure PortId (net : Network) (kind : Reactor.PortKind) where
   port    : reactor.class.interface kind |>.vars
   deriving DecidableEq
 
-def PortId.hasDelayedConnection (port : PortId net .output) : Bool :=
+namespace PortId
+
+abbrev type (port : PortId net kind) : Type :=
+  port.reactor.class.interface kind |>.type port.port
+
+def hasDelayedConnection (port : PortId net .output) : Bool :=
   if h : port.reactor.isCons then
     -- TODO: We can't destruct here because then the type cast on `port.port` doesn't work.
     let split := port.reactor.split h
@@ -68,13 +73,13 @@ def PortId.hasDelayedConnection (port : PortId net .output) : Bool :=
     -- so there are no connections.
     false
 
-structure PortId.DelayedDestination (port : PortId net .output) where
+structure DelayedDestination (port : PortId net .output) where
   dst : PortId net .input
   delay : Duration
   eqType : (port.reactor.outputs).type port.port = (dst.reactor.inputs).type dst.port
 
 open Path in
-def PortId.delayedDestinations (port : PortId net .output) : Array (DelayedDestination port) :=
+def delayedDestinations (port : PortId net .output) : Array (DelayedDestination port) :=
   if h : port.reactor.isCons then
     -- TODO: We can't destruct here because then the type cast on `port` doesn't work.
     let split := port.reactor.split h
@@ -98,4 +103,5 @@ def PortId.delayedDestinations (port : PortId net .output) : Array (DelayedDesti
     -- so there are no connections and hence no destinations.
     #[]
 
+end PortId
 end Network

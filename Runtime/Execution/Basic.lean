@@ -40,4 +40,16 @@ def absoluteTime (exec : Executable net) : Time :=
 def interface (exec : Executable net) (id : ReactorId net) :=
   (exec.reactors id).interface
 
+def timer (exec : Executable net) (timer : TimerId net) :=
+  exec.reactors timer.reactor |>.timer timer.timer
+
+def actionIsPresent (exec : Executable net) (action : ActionId net) :=
+  exec.reactors action.reactor |>.interface .actions |>.isPresent action.action
+
+def portIsPresent (exec : Executable net) (port : PortId net kind) : Bool :=
+  -- For some reason this doesn't work if we don't match on `kind`.
+  match kind with
+  | .input  => exec.interface port.reactor .inputs |>.isPresent port.port
+  | .output => exec.interface port.reactor .outputs |>.isPresent port.port
+
 end Execution.Executable

@@ -93,14 +93,11 @@ def delayedDestinations (port : PortId net .output) : Array (DelayedDestination 
         have h₂ := by rw [extend_class]
         ⟨parent.extend dst.child, dst.port |> cast h₂⟩
       eqType := by
-        simp
-        congr
-        · sorry
-          -- have H₁ := eqType
-          -- have H₂ := split_class h
-          -- have H₃ := extend_class (path := parent) (leaf := leaf)
-        · sorry
-          -- apply cast_heq
+        simp [ReactorId.outputs, ReactorId.inputs]
+        suffices h : port.reactor.outputs.type port.port = src.type by
+          rw [h, eqType, Class.Subport.type]
+          congr <;> simp [(cast_heq _ _).symm]
+        congr <;> simp [split_class, (cast_heq _ _).symm]
     }
   else
     -- In this case the reaction that produced the output lives in the top level reactor,

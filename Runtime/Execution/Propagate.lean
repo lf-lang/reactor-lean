@@ -35,7 +35,7 @@ where
     let parent := split.fst
     let leaf := split.snd
     have h₁ := by rw [Path.split_class h]
-    have h₂ := by congr; apply Path.split_class h; apply cast_heq
+    have h₂ := by congr <;> simp [Path.split_class h, cast_heq _ _]
     aux₃ parent leaf (dst |> cast h₁) |> cast h₂
 
   aux₃
@@ -44,14 +44,16 @@ where
     (dst : (leaf.class.interface .inputs).vars) :
     Option ((leaf.class.interface .inputs).type dst) :=
     match h : parent.class.connections.instantaneous ⟨leaf, dst⟩ with
-    | some src => aux₄ src |> cast (by simp [← parent.class.connections.instEqType h])
-    | none     => none -- independent
+    | none => none -- independent
+    | some src =>
+      have h := by simp [← parent.class.connections.instEqType h]
+      aux₄ src |> cast h
 
   aux₄ {parent : ReactorId net} (src : Class.Subport parent.class .output) : Option src.type :=
     if h : src.child.class = reaction.reactor.class
     then
       have h₁ := by rw [h]
-      have h₂ := by congr; rw [h]; apply cast_heq
+      have h₂ := by congr <;> simp [h, cast_heq _ _]
       aux₅ (src.port |> cast h₁) |> cast h₂
     else
       none -- independent

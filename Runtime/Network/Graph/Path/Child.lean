@@ -18,7 +18,8 @@ theorem split_fst_eq_parent (child : Child path) :
   sorry
 
 def «class» (child : Child path) : Class.Child path.class :=
-  split_fst_eq_parent child ▸ (child.val.split child.property.isCons).snd
+  have h := by rw [split_fst_eq_parent child]
+  (child.val.split child.property.isCons).snd |> cast h
 
 @[simp]
 theorem class_eq_class {child : Child path} : child.class.class = child.val.class := by

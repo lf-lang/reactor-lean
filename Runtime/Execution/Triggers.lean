@@ -78,6 +78,8 @@ where
   | .startup       => exec.isStartingUp
   | .shutdown      => exec.state = .shuttingDown
 
+set_option pp.proofs.withType false
+
 theorem Activates.iff_equiv_trigger_activated {t'} :
   (t ≡ t') → (Activates exec t ↔ triggers.activated exec reaction t') := by
   intro equiv
@@ -91,6 +93,7 @@ theorem Activates.iff_equiv_trigger_activated {t'} :
       try assumption
     case output.port a' _ c o a h =>
       have ⟨v, h⟩ := h
+      rw [h]
       exists cast sorry v
       sorry
   case mpr =>

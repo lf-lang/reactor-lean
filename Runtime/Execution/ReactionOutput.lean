@@ -39,15 +39,10 @@ private def child' (output : ReactionOutput exec) {child : ReactorId.Child outpu
   | none => none -- independent port
   | some port' => output.reaction.subPE.invEqType h ▸ output.raw.ports port'
 
-private theorem child_type_correctness {reactor : ReactorId net} {child : ReactorId.Child reactor} {port} :
-  (child.class.class.interface .inputs).type (Graph.Path.Child.class_eq_class ▸ port) = (child.val.inputs).type port := by
-  simp [ReactorId.inputs, Graph.Class.interface, ReactorId.Child.class]
-  congr
-  · exact Graph.Path.Child.class_eq_class
-  · sorry -- TODO: This should hold by reflexivity.
-
 def child (output : ReactionOutput exec) {child : ReactorId.Child output.reactor} (port : child.val.inputs.vars) : Option (child.val.inputs.type port) :=
-  child_type_correctness ▸ output.child' (Graph.Path.Child.class_eq_class ▸ port : child.class.class.interface .inputs |>.vars)
+  have h₁ := by rw [Graph.Path.Child.class_eq_class]
+  have h₂ := by congr; apply Graph.Path.Child.class_eq_class; apply cast_heq
+  output.child' (port |> cast h₁) |> cast h₂
 
 def actionEvents (output : ReactionOutput exec) : Queue (Event net) exec.time :=
   -- TODO: Moving this into a where-clause doesn't allow us to unfold it in the proof below.

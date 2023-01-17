@@ -17,8 +17,10 @@ def Trigger.lift {reactor : ReactorId net} {reaction : Reaction reactor.class} :
   | .shutdown => .shutdown
   | .port p =>
     match reaction.subPS.coe p with
-    | .inl input => (.port (kind := .input) ⟨reactor, input⟩)
-    | .inr ⟨c, output⟩ => (.port (kind := .output) ⟨reactor.extend c, Path.extend_class ▸ output⟩)
+    | .inl input =>
+      (.port (kind := .input) ⟨reactor, input⟩)
+    | .inr ⟨c, output⟩ =>
+      (.port (kind := .output) ⟨reactor.extend c, cast (by rw [Path.extend_class]) output⟩)
 
 inductive Trigger.Equiv {reactor : ReactorId net} {reaction : Reaction reactor.class} :
   (Trigger net) → reaction.val.triggerType → Prop
@@ -29,9 +31,9 @@ inductive Trigger.Equiv {reactor : ReactorId net} {reaction : Reaction reactor.c
   | input :
     (reaction.subPS.coe p = .inl input) →
     Equiv (.port (kind := .input) ⟨reactor, input⟩) (.port p)
-  | output :
+  | output {h} :
     (reaction.subPS.coe p = .inr ⟨c, output⟩) →
-    Equiv (.port (kind := .output) ⟨reactor.extend c, Path.extend_class ▸ output⟩) (.port p)
+    Equiv (.port (kind := .output) ⟨reactor.extend c, cast h output⟩) (.port p)
 
 infix:50 " ≡ " => Trigger.Equiv
 
@@ -78,25 +80,32 @@ where
 
 theorem Activates.iff_equiv_trigger_activated {t'} :
   (t ≡ t') → (Activates exec t ↔ triggers.activated exec reaction t') := by
-  intro h
+  intro equiv
   unfold triggers.activated
   constructor
   case mp =>
-    /-intro hc
-    cases hc
+    intro activates
+    cases equiv <;> cases activates
     all_goals
-      simp only [triggersWith, decide_eq_true_iff] at h
-      contradiction
-    -/sorry
+      simp_all [actionIsPresent, portIsPresent, reactionInputs]
+      try assumption
+    case output.port a' _ c o a h =>
+      have ⟨v, h⟩ := h
+      exists cast sorry v
+      sorry
   case mpr =>
-    /-cases trigger
-    all_goals simp only [triggersWith, decide_eq_true_iff] at h
-    case port     => exact .port h
-    case action   => exact .action h
-    case timer    => exact .timer h
-    case startup  => exact .startup h
-    case shutdown => exact .shutdown h
-    -/sorry
+    intro h
+    cases equiv
+    all_goals
+      simp at h
+      constructor
+      simp [actionIsPresent, portIsPresent]
+      try assumption
+    all_goals
+      have ⟨v, h⟩ := h
+      simp [reactionInputs] at h
+    · sorry
+    · sorry
 
 theorem Triggers.iff_triggers_eq_true : (Triggers exec reaction) ↔ (exec.triggers reaction) := by
   unfold triggers

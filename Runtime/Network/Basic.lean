@@ -85,18 +85,22 @@ def delayedDestinations (port : PortId net .output) : Array (DelayedDestination 
     let split := port.reactor.split h
     let parent := split.fst
     let leaf := split.snd
-    let src := ⟨leaf, split_class h ▸ port.port⟩
+    have h₁ := by rw [split_class h]
+    let src := ⟨leaf, port.port |> cast h₁⟩
     parent.class.connections.delayed src |>.map fun { dst, delay, eqType } => {
-      delay := delay
-      dst := ⟨parent.extend dst.child, extend_class ▸ dst.port⟩
+      delay
+      dst :=
+        have h₂ := by rw [extend_class]
+        ⟨parent.extend dst.child, dst.port |> cast h₂⟩
       eqType := by
-        have h₁ := eqType
-        have h₂ := split_class h
-        have h₃ := extend_class (path := parent) (leaf := leaf)
-        -- HEQ: h₁, h₂ and h₃ should suffice to show the theorem.
-        --      The problem is just simultaneous rewriting again.
         simp
-        sorry
+        congr
+        · sorry
+          -- have H₁ := eqType
+          -- have H₂ := split_class h
+          -- have H₃ := extend_class (path := parent) (leaf := leaf)
+        · sorry
+          -- apply cast_heq
     }
   else
     -- In this case the reaction that produced the output lives in the top level reactor,

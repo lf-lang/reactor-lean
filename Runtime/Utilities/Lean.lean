@@ -30,6 +30,8 @@ theorem Array.findSome?_some [BEq α] {as : Array α} : (as.findSome? f = some b
 
 theorem Array.any_iff_mem_where {as : Array α} : (as.any p) ↔ (∃ a, (a ∈ as.data) ∧ p a) := sorry
 
+theorem Array.isEmpty_iff_data_eq_nil {as : Array α} : as.isEmpty ↔ as.data = [] := sorry
+
 instance [Ord α] : LE α := leOfOrd
 
 @[reducible]

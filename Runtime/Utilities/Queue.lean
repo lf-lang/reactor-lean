@@ -32,6 +32,10 @@ open EventType
 
 variable [EventType ε]
 
+@[reducible]
+instance : Membership ε (Queue ε bound) where
+  mem e q := e ∈ q.events.data
+
 -- TODO: What's the story for theorems about `Array`s in Lean 4?
 theorem all_events_bounded {queue : Queue ε bound} :
   ∀ {event}, event ∈ queue.events.data → bound ≤ time event := by
@@ -176,6 +180,24 @@ where
         (inst.time event₁ = inst.time event₂) ∧
         (inst.id event₁ = inst.id event₂)
     (fs₁' ++ fs₂).insertionSort (time · ≤ time ·)
+
+theorem merge_mem₂ {queue₁ queue₂ : Queue ε bound} :
+  (event ∈ queue₂) → (event ∈ queue₁.merge queue₂) := by
+  intro h
+  simp [merge]
+  split <;> try split
+  case inl => exact h
+  case inr.inl he =>
+    rw [isEmpty, Array.isEmpty_iff_data_eq_nil] at he
+    simp [Membership.mem, he] at h
+    contradiction
+  case inr.inr =>
+    if ht : time event = bound then
+      -- `event` is in `immediate₂` and thus retained as part of `mergeImmediate`
+      sorry
+    else
+      -- `event` is in `future₂` and thus retained as part of `mergeFuture`
+      sorry
 
 /--
 Maps a queue of event type `ε` to a queue of event type `δ`. To ensure that the resulting queue is

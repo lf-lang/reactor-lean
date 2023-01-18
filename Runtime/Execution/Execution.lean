@@ -42,12 +42,19 @@ def advance (exec : Executable net) (next : Next net) : Executable net := { exec
   }
 }
 
+theorem advance_tag_strictly_increasing (exec : Executable net) :
+  (Next.for exec = some next) → exec.tag < (exec.advance next).tag :=
+  Next.for_tag_strictly_monotonic exec
+
 def shutdown (exec : Executable net) (h : exec.state = .shutdownPending) : Executable net :=
   match hn : Next.for exec  with
   | some next => { exec.advance next with state := .shuttingDown }
   | none => by have h' := Next.for_isSome_if_shutdownPending h; simp [hn] at h'
 
--- Note: We can't separate out a `runInst` function at the moment as `IO` isn't universe polymorphic.
+-- TODO: Once Lean has universe polymorphic IO:
+-- * factor out a `runInst` function for the instantaneous execution
+-- * factor out a `runTimed` function for everything currently happening in the `none` branch
+-- Then you can actually prove theorems about these functions.
 partial def run (exec : Executable net) (topo : Array (ReactionId net)) (reactionIdx : Nat) : IO Unit := do
   match topo[reactionIdx]? with
   -- This branch is entered whenever we've completed an instantaneous execution.

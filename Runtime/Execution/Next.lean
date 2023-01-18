@@ -69,6 +69,15 @@ protected def «for» (exec : Executable net) : Option (Next net) :=
       queue  := Tag.advance_time ▸ later.merge timerEvents
     }
 
+theorem for_tag_strictly_monotonic (exec : Executable net) :
+  (Next.for exec = some next) → (exec.tag < next.tag) := by
+  intro h
+  simp [Next.for] at h
+  split at h
+  · contradiction
+  · simp at h
+    simp [←h, Tag.lt_advance]
+
 theorem for_isSome_if_shutdownPending {exec : Executable net} :
   (exec.state = .shutdownPending) → (Next.for exec).isSome :=
   sorry

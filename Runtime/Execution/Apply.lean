@@ -41,4 +41,8 @@ where
     else
       exec.state
 
+theorem apply_scheduled_action_mem_queue {output : ReactionOutput exec} :
+  (.action t i v ∈ output.actionEvents) → (.action t i v ∈ (exec.apply output).queue) :=
+  Queue.merge_mem₂
+
 end Execution.Executable

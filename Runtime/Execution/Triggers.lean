@@ -31,9 +31,9 @@ inductive Trigger.Equiv {reactor : ReactorId net} {reaction : Reaction reactor.c
   | input :
     (reaction.subPS.coe p = .inl input) →
     Equiv (.port (kind := .input) ⟨reactor, input⟩) (.port p)
-  | output {h} :
+  | output :
     (reaction.subPS.coe p = .inr ⟨c, output⟩) →
-    Equiv (.port (kind := .output) ⟨reactor.extend c, cast h output⟩) (.port p)
+    Equiv (.port (kind := .output) ⟨reactor.extend c, cast (by rw [Path.extend_class]) output⟩) (.port p)
 
 infix:50 " ≡ " => Trigger.Equiv
 
@@ -78,7 +78,49 @@ where
   | .startup       => exec.isStartingUp
   | .shutdown      => exec.state = .shuttingDown
 
-set_option pp.proofs.withType false
+set_option pp.proofs.withType false in
+theorem Activates.port_iff_equiv_port_activated {p'} :
+  (.port p ≡ .port p') →
+  ((Activates exec $ .port p) ↔ (triggers.activated exec reaction $ .port p')) := by
+  intro he
+  constructor <;> intro h
+  case mp reactor =>
+    simp only [triggers.activated, reactionInputs]
+    cases hp : reaction.subPS.coe p'
+    case inl loc =>
+      simp
+      cases he
+      case input hi =>
+        simp [hi] at hp
+        cases h
+        case port h =>
+          simp [portIsPresent, hp] at h
+          exact h
+      case output ho =>
+        rw [ho] at hp
+        contradiction
+    case inr sub =>
+      have ⟨c, output⟩ := sub
+      simp at output ⊢
+      cases he
+      case input hi =>
+        rw [hi] at hp
+        contradiction
+      case output c' output' ho =>
+        simp [ho] at hp
+        injection hp with hc ho
+        subst hc
+        subst ho
+        cases h
+        case port h =>
+          simp [portIsPresent] at h
+          have ⟨v, hv⟩ := h
+          exists cast sorry v
+          simp [hv]
+          -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4
+          sorry
+  case mpr =>
+    sorry
 
 theorem Activates.iff_equiv_trigger_activated {t'} :
   (t ≡ t') → (Activates exec t ↔ triggers.activated exec reaction t') := by
@@ -87,28 +129,25 @@ theorem Activates.iff_equiv_trigger_activated {t'} :
   constructor
   case mp =>
     intro activates
-    cases equiv <;> cases activates
+    cases t <;> cases t' <;> (try contradiction)
+    case port.port => exact Activates.port_iff_equiv_port_activated equiv |>.mp activates
     all_goals
-      simp_all [actionIsPresent, portIsPresent, reactionInputs]
-      try assumption
-    case output.port a' _ c o a h =>
-      have ⟨v, h⟩ := h
-      rw [h]
-      exists cast sorry v
-      sorry
+      cases activates
+      cases equiv
+      all_goals
+        simp_all [actionIsPresent, portIsPresent, reactionInputs]
+        try assumption
   case mpr =>
     intro h
-    cases equiv
+    cases t <;> cases t' <;> (try contradiction)
+    case port.port => exact Activates.port_iff_equiv_port_activated equiv |>.mpr h
     all_goals
       simp at h
       constructor
-      simp [actionIsPresent, portIsPresent]
-      try assumption
-    all_goals
-      have ⟨v, h⟩ := h
-      simp [reactionInputs] at h
-    · sorry
-    · sorry
+      cases equiv
+      all_goals
+        simp_all [actionIsPresent, portIsPresent, reactionInputs]
+        try assumption
 
 theorem Triggers.iff_triggers_eq_true : (Triggers exec reaction) ↔ (exec.triggers reaction) := by
   unfold triggers

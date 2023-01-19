@@ -46,10 +46,11 @@ def timer (exec : Executable net) (timer : TimerId net) :=
 def actionIsPresent (exec : Executable net) (action : ActionId net) :=
   exec.reactors action.reactor |>.interface .actions |>.isPresent action.action
 
-def portIsPresent (exec : Executable net) (port : PortId net kind) : Bool :=
-  -- For some reason this doesn't work if we don't match on `kind`.
-  match kind with
-  | .input  => exec.interface port.reactor .inputs |>.isPresent port.port
-  | .output => exec.interface port.reactor .outputs |>.isPresent port.port
+-- Note: We have to resolve the `kind` explicitly, as otherwise the `interfaceType` (resulting from
+--       `exec.interface reactor kind`) can't be resolved to `Interface?` - and hence `isPresent`
+--       isn't accessible.
+def portIsPresent (exec : Executable net) : {kind : Reactor.PortKind} → (PortId net kind) → Bool
+  | .input, ⟨reactor, port⟩ => exec.interface reactor .inputs |>.isPresent port
+  | .output, ⟨reactor, port⟩ => exec.interface reactor .outputs |>.isPresent port
 
 end Execution.Executable

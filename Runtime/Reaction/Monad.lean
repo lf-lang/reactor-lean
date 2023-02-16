@@ -160,7 +160,7 @@ instance : MonadLift IO (ReactionT σPS σPE σAS σAE σS σP IO) where
 /--
 Gets the value of a given input port. The return value is optional, as the port may be absent.
 -/
-def getInput (port : σPS.vars) : ReactionT σPS σPE σAS σAE σS σP m (Option $ σPS.type port) :=
+def getInput (port : σPS.vars) : ReactionT σPS σPE σAS σAE σS σP m (Option <| σPS.type port) :=
   fun input => return (input.noop, input.ports port)
 
 /-- Gets the value of a given state variable. -/
@@ -172,7 +172,7 @@ Gets the value of a given action as scheduled for the current tag (cf. `Reaction
 `getTag`). The return value is optional, as there may be no event scheduled for the action at the
 current tag.
 -/
-def getAction (action : σAS.vars) : ReactionT σPS σPE σAS σAE σS σP m (Option $ σAS.type action) :=
+def getAction (action : σAS.vars) : ReactionT σPS σPE σAS σAE σS σP m (Option <| σAS.type action) :=
   fun input => return (input.noop, input.actions action)
 
 /-- Gets the value of a given parameter as set for the parent reactor (instance) of the reaction. -/

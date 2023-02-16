@@ -81,7 +81,7 @@ where
 set_option pp.proofs.withType false in
 theorem Activates.port_iff_equiv_port_activated {p'} :
   (.port p ≡ .port p') →
-  ((Activates exec $ .port p) ↔ (triggers.activated exec reaction $ .port p')) := by
+  ((Activates exec <| .port p) ↔ (triggers.activated exec reaction <| .port p')) := by
   intro he
   constructor <;> intro h
   case mp reactor =>

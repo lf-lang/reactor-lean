@@ -1,4 +1,4 @@
-import Runtime.Utilities.Lean
+import Runtime.Utilities.Mathlib
 import Lean
 
 /--
@@ -97,17 +97,15 @@ underlying value of 4200 nanoseconds, then `t.to .μs = 4` and `t.to .ms = 0`.
 def Time.to (time : Time) (unit : Time.Unit) : Nat :=
   time.ns / unit.nsRatio
 
+
 -- For each time unit `x`, this creates a definition `Nat.x` which constructs a `Time` from the
 -- number and unit.
---
--- TODO: Use `run_cmd` for this if it is moved from Mathlib to Std.
-open Lean in macro "mk_nat_to_time_ctors" : command =>
-  return ⟨mkNullNode (← Time.Unit.allCases.mapM fun unit =>
-    let withUnit := (mkIdent <| · ++ (toString unit))
+open Lean Elab Command in run_cmd do
+  elabCommand <| mkNullNode (← Time.Unit.allCases.mapM fun unit =>
+    let withUnit := (Lean.mkIdent <| · ++ (toString unit))
     `(/-- A convenience for constructing a `Time` with the given unit. -/
       protected abbrev $(withUnit `Nat) : Nat → Time := (Time.of · $(withUnit `Time.Unit)))
-  )⟩
-mk_nat_to_time_ctors
+  )
 
 theorem Time.of_to : (Time.of value unit).to unit = value := by
   simp [of, to, Unit.nsRatio]

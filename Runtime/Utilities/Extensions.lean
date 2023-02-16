@@ -1,5 +1,52 @@
 import Runtime.Time
 
+@[simp]
+theorem Array.getElem?_nil {i : Nat} : (#[] : Array α)[i]? = none := by
+  simp [getElem?]; split <;> simp; contradiction
+
+@[simp]
+theorem Array.getElem?_zero_singleton : (#[a] : Array α)[0]? = a := rfl
+
+theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSome ↔ ¬as.isEmpty := by
+  simp [Array.isEmpty, Option.isSome_iff_exists, getElem?]
+  constructor
+  case mp =>
+    intro ⟨_, h⟩
+    split at h
+    case inl hs => exact Nat.not_eq_zero_of_lt hs
+    case inr => contradiction
+  case mpr =>
+    intro h
+    split
+    case inl => exists as[0]
+    case inr hs => exact absurd (Nat.zero_lt_of_ne_zero h) hs
+
+theorem Array.isEmpty_iff_data_eq_nil {as : Array α} : as.isEmpty ↔ as.data = [] := by
+  simp [isEmpty, size]
+  exact List.length_eq_zero
+
+theorem Array.any_iff_mem_where {as : Array α} : (as.any p) ↔ (∃ a, (a ∈ as.data) ∧ p a) := sorry
+
+@[reducible]
+instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
+  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ =>
+    if h : a₁ = a₂ then
+      if h' : (h ▸ b₁) = b₂ then
+        .isTrue (by subst h h'; rfl)
+      else
+        .isFalse (by
+          subst h
+          intro hc
+          injection hc
+          contradiction
+        )
+    else
+      .isFalse (by
+        intro hc
+        injection hc
+        contradiction
+      )
+
 def Array.merge (s₁ s₂ : Array α) (le : α → α → Bool) : Array α :=
   (s₁ ++ s₂).insertionSort le
 

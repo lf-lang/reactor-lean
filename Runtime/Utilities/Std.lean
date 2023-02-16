@@ -1,8 +1,31 @@
-section Std4
+import Lean
 
 open Lean Parser.Tactic in
 macro "rwa " rws:rwRuleSeq loc:(location)? : tactic =>
   `(tactic| (rw $rws:rwRuleSeq $[$loc:location]?; assumption))
+
+open Lean Meta Elab Term in
+elab "unsafe " t:term : term <= expectedType => do
+  let mut t ← elabTerm t expectedType
+  t ← instantiateMVars t
+  if t.hasExprMVar then
+    synthesizeSyntheticMVarsNoPostponing
+    t ← instantiateMVars t
+  if ← logUnassignedUsingErrorInfos (← getMVars t) then throwAbortTerm
+  t ← mkAuxDefinitionFor (← mkAuxName `unsafe) t
+  let Expr.const unsafeFn unsafeLvls .. := t.getAppFn | unreachable!
+  let ConstantInfo.defnInfo unsafeDefn ← getConstInfo unsafeFn | unreachable!
+  let implName ← mkAuxName `impl
+  addDecl <| Declaration.defnDecl {
+    name := implName
+    type := unsafeDefn.type
+    levelParams := unsafeDefn.levelParams
+    value := ← mkOfNonempty unsafeDefn.type
+    hints := ReducibilityHints.opaque
+    safety := DefinitionSafety.safe
+  }
+  setImplementedBy implName unsafeFn
+  pure $ mkAppN (mkConst implName unsafeLvls) t.getAppArgs
 
 namespace Nat
 
@@ -51,64 +74,17 @@ theorem isSome_iff_exists : isSome x ↔ ∃ a, x = some a := by
 
 end Option
 
+namespace List
+
+theorem eq_nil_of_length_eq_zero (_ : length l = 0) : l = [] := match l with | [] => rfl
+
+theorem length_eq_zero : length l = 0 ↔ l = [] :=
+  ⟨eq_nil_of_length_eq_zero, fun h => h ▸ rfl⟩
+
+end List
+
 @[inline] def decidable_of_iff (a : Prop) (h : a ↔ b) [Decidable a] : Decidable b :=
   decidable_of_decidable_of_iff h
 
 @[inline] def decidable_of_iff' (b : Prop) (h : a ↔ b) [Decidable b] : Decidable a :=
   decidable_of_decidable_of_iff h.symm
-
-end Std4
-
-@[simp]
-theorem Array.getElem?_nil {i : Nat} : (#[] : Array α)[i]? = none := by
-  simp [getElem?]; split <;> simp; contradiction
-
-@[simp]
-theorem Array.getElem?_zero_singleton : (#[a] : Array α)[0]? = a := rfl
-
-theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSome ↔ ¬as.isEmpty := by
-  simp [Array.isEmpty, Option.isSome_iff_exists, getElem?]
-  constructor
-  case mp =>
-    intro ⟨_, h⟩
-    split at h
-    case inl hs => exact Nat.not_eq_zero_of_lt hs
-    case inr => contradiction
-  case mpr =>
-    intro h
-    split
-    case inl => exists as[0]
-    case inr hs => exact absurd (Nat.zero_lt_of_ne_zero h) hs
-
-def Array.map_getElem? (as : Array α) (f : α → β) {i : Nat} :
-  (as.map f)[i]? = as[i]? >>= (some ∘ f) :=
-  sorry
-
-theorem Array.findSome?_some [BEq α] {as : Array α} : (as.findSome? f = some b) → (∃ a, as.contains a ∧ f a = some b) :=
-  sorry
-
-theorem Array.any_iff_mem_where {as : Array α} : (as.any p) ↔ (∃ a, (a ∈ as.data) ∧ p a) := sorry
-
-theorem Array.isEmpty_iff_data_eq_nil {as : Array α} : as.isEmpty ↔ as.data = [] := sorry
-
-instance [Ord α] : LE α := leOfOrd
-
-@[reducible]
-instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
-  fun ⟨a₁, b₁⟩ ⟨a₂, b₂⟩ =>
-    if h : a₁ = a₂ then
-      if h' : (h ▸ b₁) = b₂ then
-        .isTrue (by subst h h'; rfl)
-      else
-        .isFalse (by
-          subst h
-          intro hc
-          injection hc
-          contradiction
-        )
-    else
-      .isFalse (by
-        intro hc
-        injection hc
-        contradiction
-      )

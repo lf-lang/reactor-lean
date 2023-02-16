@@ -63,7 +63,7 @@ lf {
            meta    []
         }
         body {
-          schedule a (Time.of 200 .ms) ()
+          schedule .a (Time.of 200 .ms) ()
         }
       },
       {

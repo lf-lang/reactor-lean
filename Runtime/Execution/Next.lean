@@ -82,11 +82,13 @@ theorem for_isSome_if_shutdownPending {exec : Executable net} :
   (exec.state = .shutdownPending) → (Next.for exec).isSome :=
   sorry
 
+/- TODO: Requires List.Perm
 theorem for_preserves_events :
   (Next.for exec = some next) →
   ∃ timerEvents propagationEvents,
     (next.events ++ next.queue.events) ~ (exec.queue.events ++ timerEvents ++ propagationEvents) := by
   sorry
+-/
 
 -- The actions-interface for a given reactor according to the `Next` instance.
 def actions (next : Next net) (reactor : ReactorId net) :

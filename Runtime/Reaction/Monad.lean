@@ -1,6 +1,7 @@
 import Runtime.Time
 import Runtime.Interface
 import Runtime.Utilities
+import Runtime.Reaction.Trigger
 
 namespace ReactionT
 
@@ -59,13 +60,18 @@ this case, the port's value would not be propagated along a delayed connection.
 -/
 -- TODO: If there's an implementation of a dependent hash map available, combine the fields `ports`
 --       and `writtenPorts` by using a dependent hash map.
-@[ext]
 structure Output (σPE σAE σS : Interface.Scheme) (min : Time) where
   ports         : Interface? σPE        := Interface?.empty
   state         : Interface σS
   events        : Queue (Event σAE) min := °[]
   stopRequested : Bool                  := false
   writtenPorts  : Array σPE.vars        := #[]
+
+-- WIP: Try implementing issue #11 before continuing with this.
+-- structure Proofs (input : Input σPS σAS σS σP) (triggers : Array (Trigger σPS.vars σAS.vars Timer)) where
+--   a : triggers.all (·.valued) → ¬(input.ports.isEmpty ∧ input.actions.isEmpty)
+--   b : triggers = #[.startup] → input.tag = ⟨0, 0⟩
+--   c : triggers = #[.timer t] → input.tag.microstep = 0
 
 /--
 The `ReactionT` monad transformer adds readable `ReactionT.Input` and writable `ReactionT.Output` to

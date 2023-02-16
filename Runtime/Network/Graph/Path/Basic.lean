@@ -18,7 +18,7 @@ theorem isNil_of_nil : (nil : Path graph start).isNil := rfl
 @[simp]
 theorem isNil_def {path : Path graph start} : path.isNil ↔ path = nil := by
   cases path <;> simp [isNil]
-  
+
 def isCons : Path graph start → Bool
   | nil => false
   | cons .. => true
@@ -30,6 +30,8 @@ theorem isCons_of_eq_cons {path : Path graph start} : (path = cons child subpath
 
 theorem isCons_def {path : Path graph start} : path.isCons ↔ (∃ child subpath, path = cons child subpath) := by
   cases path <;> simp [isCons]
+  exists ‹_›, ‹_›
+  simp
 
 theorem isCons_iff_not_isNil {path : Path graph start} : path.isCons ↔ ¬path.isNil := by
   cases path <;> simp [isCons, isNil]
@@ -40,7 +42,7 @@ theorem isNil_iff_not_isCons {path : Path graph start} : path.isNil ↔ ¬path.i
 def «class» : (Path graph start) → Class graph
   | nil            => start
   | cons _ subpath => subpath.class
-  
+
 @[simp]
 theorem nil_class : (nil : Path graph start).class = start := rfl
 

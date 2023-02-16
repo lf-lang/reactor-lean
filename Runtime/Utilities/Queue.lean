@@ -80,7 +80,7 @@ instance : Inhabited (Queue ε bound) where
 def singleton (event : ε) (h : bound ≤ time event) : Queue ε bound where
   events := #[event]
   sorted := .singleton
-  bounded := by simp [h]
+  bounded := by intros; simp_all
 
 notation "°[" e "]' " h => Queue.singleton e h
 
@@ -192,10 +192,11 @@ theorem merge_mem₂ {queue₁ queue₂ : Queue ε bound} :
     simp [Membership.mem, he] at h
     contradiction
   case inr.inr =>
-    if ht : time event = bound then
+    by_cases time event = bound
+    case inl ht =>
       -- `event` is in `immediate₂` and thus retained as part of `mergeImmediate`
       sorry
-    else
+    case inr ht =>
       -- `event` is in `future₂` and thus retained as part of `mergeFuture`
       sorry
 

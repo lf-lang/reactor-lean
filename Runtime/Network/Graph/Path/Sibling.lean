@@ -10,7 +10,7 @@ infix:40 " ≂ " => Sibling
 
 theorem Sibling.refl : ∀ path : Path graph start, (path ≂ path)
   | .nil => nil
-  | .cons _ subpath => by have ⟨_, h⟩ := Succ.cons subpath; exact cons h h 
+  | .cons _ subpath => by have ⟨_, h⟩ := Succ.cons subpath; exact cons h h
 
 theorem Sibling.symm : (path₁ ≂ path₂) → (path₂ ≂ path₁)
   | nil => nil
@@ -26,13 +26,13 @@ theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix? = pat
     case cons.nil => intro h; cases h; case _ h   => have := h.isCons; contradiction
   case mpr =>
     intro h
-    by_cases hp : path₁.prefix?.isSome
-    case neg =>
+    by_cases path₁.prefix?.isSome
+    case inr hp =>
       have hc₁ := isNil_iff_not_isCons.mpr <| mt prefix?_isSome_iff_isCons.mpr hp; simp at hc₁
       rw [h] at hp
       have hc₂ := isNil_iff_not_isCons.mpr <| mt prefix?_isSome_iff_isCons.mpr hp; simp at hc₂
       simp [hc₁, hc₂, Sibling.nil]
-    case pos =>
+    case inl hp =>
       have ⟨_, hp₁⟩ := Option.isSome_iff_exists.mp hp
       rw [h] at hp
       have ⟨_, hp₂⟩ := Option.isSome_iff_exists.mp hp
@@ -40,7 +40,7 @@ theorem Sibling.iff_eq_prefix : (path₁ ≂ path₂) ↔ (path₁.prefix? = pat
       exact Sibling.cons hp₁ hp₂
 
 instance : Decidable (path₁ ≂ path₂) :=
-  if h : path₁.prefix? = path₂.prefix? 
+  if h : path₁.prefix? = path₂.prefix?
   then isTrue <| Sibling.iff_eq_prefix.mpr h
   else isFalse <| mt Sibling.iff_eq_prefix.mp h
 

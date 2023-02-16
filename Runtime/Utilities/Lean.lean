@@ -1,4 +1,63 @@
-import Std
+section Std4
+
+open Lean Parser.Tactic in
+macro "rwa " rws:rwRuleSeq loc:(location)? : tactic =>
+  `(tactic| (rw $rws:rwRuleSeq $[$loc:location]?; assumption))
+
+namespace Nat
+
+theorem div_eq_sub_div (h₁ : 0 < b) (h₂ : b ≤ a) : a / b = (a - b) / b + 1 := by
+ rw [div_eq a, if_pos]; constructor <;> assumption
+
+@[simp] theorem add_div_right (x : Nat) {z : Nat} (H : 0 < z) : (x + z) / z = succ (x / z) := by
+  rw [div_eq_sub_div H (Nat.le_add_left _ _), Nat.add_sub_cancel]
+
+theorem add_mul_div_left (x z : Nat) {y : Nat} (H : 0 < y) : (x + y * z) / y = x / y + z := by
+  induction z with
+  | zero => rw [Nat.mul_zero, Nat.add_zero, Nat.add_zero]
+  | succ z ih => rw [mul_succ, ← Nat.add_assoc, add_div_right _ H, ih]; rfl
+
+theorem add_mul_div_right (x y : Nat) {z : Nat} (H : 0 < z) : (x + y * z) / z = x / z + y := by
+  rw [Nat.mul_comm, add_mul_div_left _ _ H]
+
+@[simp] protected theorem zero_div (b : Nat) : 0 / b = 0 :=
+  (div_eq 0 b).trans <| if_neg <| And.rec Nat.not_le_of_gt
+
+protected theorem mul_div_cancel (m : Nat) {n : Nat} (H : 0 < n) : m * n / n = m := by
+  let t := add_mul_div_right 0 m H
+  rwa [Nat.zero_add, Nat.zero_div, Nat.zero_add] at t
+
+end Nat
+
+variable {p q : α → Prop}
+
+@[simp] theorem forall_exists_index {q : (∃ x, p x) → Prop} :
+    (∀ h, q h) ↔ ∀ x (h : p x), q ⟨x, h⟩ :=
+  ⟨fun h x hpx => h ⟨x, hpx⟩, fun h ⟨x, hpx⟩ => h x hpx⟩
+
+theorem exists_imp : ((∃ x, p x) → b) ↔ ∀ x, p x → b := forall_exists_index
+
+@[simp] theorem not_exists: (¬∃ x, p x) ↔ ∀ x, ¬p x := exists_imp
+
+namespace Option
+
+@[simp] theorem isSome_none : @isSome α none = false := rfl
+
+@[simp] theorem isSome_some : isSome (some a) = true := rfl
+
+theorem isSome_iff_exists : isSome x ↔ ∃ a, x = some a := by
+  cases x <;> simp [isSome]
+  exists ‹_›
+
+end Option
+
+@[inline] def decidable_of_iff (a : Prop) (h : a ↔ b) [Decidable a] : Decidable b :=
+  decidable_of_decidable_of_iff h
+
+@[inline] def decidable_of_iff' (b : Prop) (h : a ↔ b) [Decidable b] : Decidable a :=
+  decidable_of_decidable_of_iff h.symm
+
+end Std4
 
 @[simp]
 theorem Array.getElem?_nil {i : Nat} : (#[] : Array α)[i]? = none := by
@@ -53,14 +112,3 @@ instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : Dec
         injection hc
         contradiction
       )
-
--- https://github.com/leanprover-community/mathlib4/blob/a56a3c33fe9ffe2312439b8b54f6cdd243b464c6/Mathlib/Data/List/Perm.lean#L8
-inductive List.Perm {α} : List α → List α → Prop
-  | nil   : Perm [] []
-  | cons  : ∀ (x : α) {l₁ l₂ : List α}, Perm l₁ l₂ → Perm (x::l₁) (x::l₂)
-  | swap  : ∀ (x y : α) (l : List α), Perm (y::x::l) (x::y::l)
-  | trans : ∀ {l₁ l₂ l₃ : List α}, Perm l₁ l₂ → Perm l₂ l₃ → Perm l₁ l₃
-
-def Array.Perm (as₁ as₂ : Array α) := List.Perm as₁.data as₂.data
-
-infixl:50 " ~ " => Array.Perm

@@ -1,4 +1,3 @@
-import Runtime.Utilities.Mathlib
 import Lean
 
 /--
@@ -53,18 +52,18 @@ instance : ToString Time where
   toString t := s!"{t.ns} ns"
 
 /-- The `<` relation of `Time` is determined by the underlying value. -/
-instance : LT Time where
+instance Time.instLT : LT Time where
   lt t₁ t₂ := t₁.ns < t₂.ns
 
 /-- The `≤` relation of `Time` is determined by the underlying value. -/
-instance : LE Time where
+instance Time.instLE : LE Time where
   le t₁ t₂ := t₁.ns ≤ t₂.ns
 
 instance : Decidable ((t₁ : Time) < t₂) := by
-  simp [LT.lt]; infer_instance
+  rw [LT.lt, Time.instLT]; infer_instance
 
 instance : Decidable ((t₁ : Time) ≤ t₂) := by
-  simp [LE.le]; infer_instance
+  rw [LE.le, Time.instLE]; infer_instance
 
 theorem Time.ext {time₁ time₂ : Time} : time₁.ns = time₂.ns → time₁ = time₂ :=
   fun _ => by cases time₁; simp_all
@@ -74,6 +73,9 @@ theorem Time.le_antisymm {time₁ : Time} : (time₁ ≤ time₂) → (time₂ �
 
 @[simp]
 theorem Time.le_refl {time : Time} : time ≤ time := Nat.le_refl _
+
+theorem Time.ne_of_lt {t₁ t₂ : Time} (h : t₁ < t₂) : t₁ ≠ t₂ := by
+  sorry
 
 /--
 A `Duration` describes a span of time described by a nonnegative number of nanoseconds. It is thus
@@ -102,14 +104,14 @@ def Time.to (time : Time) (unit : Time.Unit) : Nat :=
 -- number and unit.
 open Lean Elab Command in run_cmd do
   elabCommand <| mkNullNode (← Time.Unit.allCases.mapM fun unit =>
-    let withUnit := (Lean.mkIdent <| · ++ (toString unit))
+    let withUnit := (Lean.mkIdent <| .str · (toString unit))
     `(/-- A convenience for constructing a `Time` with the given unit. -/
       protected abbrev $(withUnit `Nat) : Nat → Time := (Time.of · $(withUnit `Time.Unit)))
   )
 
 theorem Time.of_to : (Time.of value unit).to unit = value := by
   simp [of, to, Unit.nsRatio]
-  cases unit <;> simp only [Nat.mul_div_cancel]
+  cases unit <;> simp_arith only [Nat.mul_div_cancel]
 
 /-- The current time according to `IO.monoNanosNow`. -/
 def Time.now : IO Time :=
@@ -122,7 +124,7 @@ unit.
 instance : OfNat Time 0 where
   ofNat := { ns := 0 }
 
-theorem Time.zero_eq_zero : (0 : Time) = Time.of 0 unit := by simp [of]
+theorem Time.zero_eq_zero : (0 : Time) = Time.of 0 unit := by simp_arith [of]
 
 @[simp]
 theorem Time.zero_le {time : Time} : 0 ≤ time := by apply Nat.zero_le
@@ -150,7 +152,7 @@ abbrev Time.From (min : Time) := { time : Time // min ≤ time }
 
 /-- Any given time `t` can be lifted to a `Time.From t`, as it is at least "as late" as itself. -/
 instance : CoeDep Time t (Time.From t) where
-  coe := ⟨t, by simp_arith [LE.le]⟩
+  coe := ⟨t, by rw [LE.le, Time.instLE]; simp⟩
 
 /-- The `≤` relation of `Time.From` is determined by the `Time` value. -/
 instance : LE (Time.From t) where
@@ -169,24 +171,24 @@ instance : ToString Tag where
   toString tag := s!"⟨{tag.time}, {tag.microstep}⟩"
 
 /-- The `<` relation of `Tag` is determined lexicographically by its components. -/
-instance : LT Tag where
+instance Tag.instLT : LT Tag where
   lt tag₁ tag₂ :=
     if tag₁.time = tag₂.time
     then tag₁.microstep < tag₂.microstep
     else tag₁.time < tag₂.time
 
 /-- The `≤` relation of `Tag` is determined lexicographically by its components. -/
-instance : LE Tag where
+instance Tag.instLE : LE Tag where
   le tag₁ tag₂ :=
     if tag₁.time = tag₂.time
     then tag₁.microstep ≤ tag₂.microstep
     else tag₁.time < tag₂.time
 
 instance : Decidable ((tag₁ : Tag) < tag₂) := by
-  simp [LT.lt]; infer_instance
+  rw [LT.lt, Tag.instLT]; infer_instance
 
 instance : Decidable ((tag₁ : Tag) ≤ tag₂) := by
-  simp [LE.le]; infer_instance
+  rw [LE.le, Tag.instLE]; infer_instance
 
 /-- "Incrementing" a tag means advancing it to the next microstep. -/
 def Tag.increment (tag : Tag) : Tag := { tag with
@@ -204,12 +206,16 @@ def Tag.advance (tag : Tag) (time : Time.From tag.time) : Tag :=
 
 @[simp]
 theorem Tag.advance_time {tag : Tag} {time} : (tag.advance time).time = time := by
-  simp [advance]
-  split <;> simp
-  case _ h => simp_arith [LT.lt] at h; exact Time.le_antisymm time.property h
+  simp only [advance]
+  split
+  · simp
+  next h =>
+    rw [LT.lt, Time.instLT] at h
+    simp_arith only at h
+    exact Time.le_antisymm time.property h
 
 theorem Tag.lt_advance : (tag : Tag) < tag.advance t := by
-  simp [advance]
+  simp only [advance]
   split
-  case inr => simp_arith [LT.lt, increment]
-  case inl => simp [LT.lt] at *; split <;> simp_all
+  case isTrue h => rw [LT.lt, Tag.instLT]; simp_all [Time.ne_of_lt]
+  case isFalse  => rw [increment, LT.lt, Tag.instLT]; simp

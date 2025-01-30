@@ -24,7 +24,7 @@ def writtenPortsWithDelayedConnections (output : ReactionOutput exec) : Array (P
     match output.reaction.subPE.coe port with
     | .inr _ => none
     | .inl port =>
-      let id : PortId .. := ⟨output.reactor, port⟩
+      let id : PortId net .output := ⟨output.reactor, port⟩
       if id.hasDelayedConnection then id else none
 
 def «local» (output : ReactionOutput exec) (port : output.reactor.outputs.vars) : Option (output.reactor.outputs.type port) :=

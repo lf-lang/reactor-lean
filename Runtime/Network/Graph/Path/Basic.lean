@@ -30,8 +30,6 @@ theorem isCons_of_eq_cons {path : Path graph start} : (path = cons child subpath
 
 theorem isCons_def {path : Path graph start} : path.isCons ↔ (∃ child subpath, path = cons child subpath) := by
   cases path <;> simp [isCons]
-  exists ‹_›, ‹_›
-  simp
 
 theorem isCons_iff_not_isNil {path : Path graph start} : path.isCons ↔ ¬path.isNil := by
   cases path <;> simp [isCons, isNil]

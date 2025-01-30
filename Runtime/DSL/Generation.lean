@@ -87,7 +87,7 @@ structure SubschemeGenDescription where
 
 def SubschemeGenDescription.sourceSchemeIdent (descr : SubschemeGenDescription) :=
   let reactorIdent := mkIdentFrom descr.reactorName <| descr.ns.getId ++ descr.reactorName.getId
-  mkIdentFrom reactorIdent (reactorIdent.getId ++ s!"Reaction{descr.reactionIdx}" ++ descr.dependencyKind.name ++ `scheme)
+  mkIdentFrom reactorIdent (reactorIdent.getId ++ (.mkSimple s!"Reaction{descr.reactionIdx}") ++ descr.dependencyKind.name ++ `scheme)
 
 def SubschemeGenDescription.targetSchemeTerm (descr : SubschemeGenDescription) :=
   descr.dependencyKind.subschemeTarget (mkIdentFrom descr.graphName <| descr.ns.getId ++ descr.graphName.getId) descr.reactorName
@@ -98,8 +98,8 @@ def SubschemeGenDescription.subschemeType (descr : SubschemeGenDescription) := d
 def SubschemeGenDescription.sumTerms (descr : SubschemeGenDescription) : MacroM (Array Term) :=
   descr.ids.mapM fun id => do
     match id.getId with
-    | .str .anonymous l            => `(.inl .$(mkIdent l))
-    | .str (.str .anonymous rtr) l => `(.inr ⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent l)⟩)
+    | .str .anonymous l            => `(.inl .$(mkIdent (.mkSimple l)))
+    | .str (.str .anonymous rtr) l => `(.inr ⟨⟨.$(mkIdent (.mkSimple rtr))⟩, .$(mkIdent (.mkSimple l))⟩)
     | _                            => throwUnsupported
 
 def SubschemeGenDescription.genSubscheme (descr : SubschemeGenDescription) : MacroM Command := do
@@ -159,8 +159,8 @@ def ReactorDecl.genInterfaceSchemes (decl : ReactorDecl) (ns : Ident) : MacroM (
     interface.genInterfaceScheme ident optionalTypeWhenNoDefault
 
 def ReactorDecl.genReactionDependencSchemes (net : NetworkDecl) (decl : ReactorDecl) (ns : Ident) : MacroM (Array Command) := do
-  decl.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ => do
-    let rcnNs := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
+  decl.reactions.enumerate.flatMapM fun ⟨idx, rcn⟩ => do
+    let rcnNs := mkIdentFrom decl.name (ns.getId ++ decl.name.getId ++ (.mkSimple s!"Reaction{idx}"))
     rcn.genDependencySchemes net decl.name.getId rcnNs
 
 instance : Quote Reactor.InterfaceKind where
@@ -200,7 +200,7 @@ def ReactorDecl.genInstantaneousConnections (decl : ReactorDecl) : MacroM Term :
 where
   subportTerm (ident : Ident) : MacroM Term := do
     match ident.getId with
-    | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
+    | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent (.mkSimple rtr))⟩, .$(mkIdent (.mkSimple p))⟩)
     | _                            => throwUnsupported
 
 def ReactorDecl.genDelayedConnections (decl : ReactorDecl) : MacroM Term := do
@@ -218,7 +218,7 @@ def ReactorDecl.genDelayedConnections (decl : ReactorDecl) : MacroM Term := do
 where
   subportTerm (ident : Ident) : MacroM Term := do
     match ident.getId with
-    | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent rtr)⟩, .$(mkIdent p)⟩)
+    | .str (.str .anonymous rtr) p => `(⟨⟨.$(mkIdent (.mkSimple rtr))⟩, .$(mkIdent (.mkSimple p))⟩)
     | _                            => throwUnsupported
 
 def ReactorDecl.genConnections (decl : ReactorDecl) : MacroM Term := do
@@ -265,8 +265,8 @@ def NetworkDecl.genGraphInstance (decl : NetworkDecl) : MacroM Command := do
   )
 
 def NetworkDecl.genSubschemes (decl : NetworkDecl) : MacroM (Array Command) :=
-  decl.reactors.concatMapM fun rtr =>
-    rtr.reactions.enumerate.concatMapM fun ⟨idx, rcn⟩ =>
+  decl.reactors.flatMapM fun rtr =>
+    rtr.reactions.enumerate.flatMapM fun ⟨idx, rcn⟩ =>
       ReactionDecl.DependencyKind.allCases.mapM fun kind => do
         let ids := rcn.dependencies kind
         SubschemeGenDescription.genSubscheme {
@@ -280,19 +280,19 @@ def NetworkDecl.genSubschemes (decl : NetworkDecl) : MacroM (Array Command) :=
         }
 
 def NetworkDecl.genInterfaceSchemes (decl : NetworkDecl) : MacroM (Array Command) :=
-  decl.reactors.concatMapM (·.genInterfaceSchemes decl.namespaceIdent)
+  decl.reactors.flatMapM (·.genInterfaceSchemes decl.namespaceIdent)
 
 def NetworkDecl.genReactorSchemes (decl : NetworkDecl) : MacroM (Array Command) :=
   decl.reactors.mapM (·.genReactorScheme decl.namespaceIdent)
 
 def NetworkDecl.genReactionDependencySchemes (decl : NetworkDecl) : MacroM (Array Command) := do
-  decl.reactors.concatMapM (·.genReactionDependencSchemes decl decl.namespaceIdent)
+  decl.reactors.flatMapM (·.genReactionDependencSchemes decl decl.namespaceIdent)
 
 def NetworkDecl.genReactionInstances (decl : NetworkDecl) : MacroM (Array Command) := do
-  decl.reactors.concatMapM fun rtr => do
+  decl.reactors.flatMapM fun rtr => do
     rtr.reactions.enumerate.mapM fun ⟨idx, rcn⟩ => do
-      let rcn ← rcn.genReactionInstance decl.namespaceIdent rtr.name s!"Reaction{idx}"
-      let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ s!"Reaction{idx}"
+      let rcn ← rcn.genReactionInstance decl.namespaceIdent rtr.name (.mkSimple s!"Reaction{idx}")
+      let defName := mkIdent <| decl.namespaceIdent.getId ++ rtr.name.getId ++ (.mkSimple s!"Reaction{idx}")
       `(abbrev $defName : Reaction := $rcn)
 
 def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
@@ -301,8 +301,8 @@ def NetworkDecl.genReactionInstanceMap (decl : NetworkDecl) : MacroM Term := do
   `(fun $[| $dottedClasses => $instanceArrays]*)
 where
   genReactionInstances (decl : ReactorDecl) (ns : Ident) : MacroM Term := do
-    let instances := decl.reactions.size.fold (init := #[]) fun idx result =>
-      result.push <| mkIdent (ns.getId ++ decl.name.getId ++ s!"Reaction{idx}")
+    let instances := decl.reactions.size.fold (init := #[]) fun idx _ result =>
+      result.push <| mkIdent (ns.getId ++ decl.name.getId ++ (.mkSimple s!"Reaction{idx}"))
     `(#[ $[{ val := $instances }],* ])
 
 def NetworkDecl.genConnectionsMap (decl : NetworkDecl) : MacroM Term := do
@@ -322,7 +322,7 @@ def NetworkDecl.genNetworkInstance (decl : NetworkDecl) : MacroM Command := do `
 
 def NetworkDecl.genDefaultParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters.Default)
-  (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
+  (← decl.instancePaths).flatMapM fun ⟨path, «class»⟩ => do
     let pathName := nameForInstancePath path
     let rtrDecl ← decl.reactorWithName «class»
     (rtrDecl.interfaces .params).mapM fun param => do
@@ -334,13 +334,13 @@ where
 def NetworkDecl.genRootParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
   (← decl.mainReactor).interfaces .params |>.mapM fun param =>
-    `(def $(mkIdent <| ns.getId ++ "" ++ param.id.getId) := $(param.default.get!))
+    `(def $(mkIdent <| ns.getId ++ (.mkSimple "") ++ param.id.getId) := $(param.default.get!))
 
 def NetworkDecl.genParameterDefs (decl : NetworkDecl) : MacroM (Array Command) := do
   let ns := mkIdent (decl.namespaceIdent.getId ++ `Parameters)
-  (← decl.instancePaths).concatMapM fun ⟨path, «class»⟩ => do
+  (← decl.instancePaths).flatMapM fun ⟨path, «class»⟩ => do
     let rtrDecl ← decl.reactorWithName «class»
-    rtrDecl.nested.concatMapM fun «nested» => do
+    rtrDecl.nested.flatMapM fun «nested» => do
       let nestedPath := path.push «nested».id.getId
       let nestedDecl ← decl.reactorWithName «nested».class.getId
       nestedDecl.interfaces .params |>.mapM fun param => do
@@ -385,7 +385,7 @@ partial def NetworkDecl.genExecutableInstance (decl : NetworkDecl) : MacroM Comm
       tag := ⟨0, 0⟩ -- This is needed to satisfy the type of `queue`.
       physicalOffset := physicalOffset
       reactors := $instancesIdent
-      queue := Queue.sorting <| #[ $[$(initialTimerEvents.concatMap id)],* ].filterMap id
+      queue := Queue.sorting <| #[ $[$(initialTimerEvents.flatMap id)],* ].filterMap id
     where
       $instancesIdent:ident : (id : $(mkIdent `Network.ReactorId) $(decl.networkIdent)) → $(mkIdent `Reactor) id.class
         $[| $instanceIDs => $instanceValues]*

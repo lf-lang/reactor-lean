@@ -1,31 +1,21 @@
 import Runtime.Time
 
-@[simp]
-theorem Array.getElem?_nil {i : Nat} : (#[] : Array α)[i]? = none := by
-  simp [getElem?]; split <;> simp; contradiction
-
-@[simp]
-theorem Array.getElem?_zero_singleton : (#[a] : Array α)[0]? = a := rfl
-
 theorem Array.getElem?_zero_isSome_iff_not_isEmpty {as : Array α} : as[0]?.isSome ↔ ¬as.isEmpty := by
   simp [Array.isEmpty, Option.isSome_iff_exists, getElem?]
   constructor
   case mp =>
-    intro ⟨_, h⟩
-    split at h
-    case inl hs => exact Nat.not_eq_zero_of_lt hs
-    case inr => contradiction
+    intro ⟨_, h, _⟩
+    exact List.ne_nil_of_length_pos h
   case mpr =>
     intro h
-    split
-    case inl => exists as[0]
-    case inr hs => exact absurd (Nat.zero_lt_of_ne_zero h) hs
+    have he := List.ne_nil_iff_exists_cons.mp h
+    have hs := List.length_pos_iff_exists_cons.mpr he
+    exact ⟨as[0], hs, rfl⟩
 
-theorem Array.isEmpty_iff_data_eq_nil {as : Array α} : as.isEmpty ↔ as.data = [] := by
-  simp [isEmpty, size]
-  exact List.length_eq_zero
+theorem Array.isEmpty_iff_toList_eq_nil {as : Array α} : as.isEmpty ↔ as.toList = [] := by
+  simp
 
-theorem Array.any_iff_mem_where {as : Array α} : (as.any p) ↔ (∃ a, (a ∈ as.data) ∧ p a) := sorry
+theorem Array.any_iff_mem_where {as : Array α} : (as.any p) ↔ (∃ a, (a ∈ as.toList) ∧ p a) := sorry
 
 @[reducible]
 instance [DecidableEq α] {β : α → Type _} [∀ a, DecidableEq (β a)] : DecidableEq (Σ a : α, β a) :=
@@ -79,26 +69,25 @@ where
     if p a then a else loop (idx + 1) as p
   else
     none
-termination_by _ => as.size - idx
+termination_by as.size - idx
 
 theorem Array.findP?_property {as : Array α} : (Array.findP? as p = some a) → (p a) :=
   let rec go {idx} : (Array.findP?.loop idx as p = some a) → (p a) := by
     intro h
     unfold findP?.loop at h
     split at h <;> simp at h
-    case inl hi =>
+    case isTrue hi =>
       split at h
-      case inl => simp_all
-      case inr => exact go h
+      case isTrue => simp_all
+      case isFalse => exact go h
   go
-termination_by _ => as.size - idx
 
 def UInt32.clipping (n : Nat) : UInt32 :=
   UInt32.ofNatCore (min n (UInt32.size - 1)) (by
     rw [Nat.min_def]
     split
-    case inr => simp
-    case inl h => exact Nat.lt_succ_of_le h
+    case isTrue h => exact Nat.lt_succ_of_le h
+    case isFalse  => simp
   )
 
 def IO.sleepUntil (time : Time) : IO Unit := do

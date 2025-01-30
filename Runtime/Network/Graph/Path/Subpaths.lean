@@ -15,7 +15,7 @@ theorem prefix?_cons_eq_cons_prefix?
   intro h
   cases subpath
   case nil => simp [prefix?] at h
-  case cons child' subpath => simp [prefix?, h]; rfl
+  case cons child' subpath => simp [prefix?, h]
 
 theorem prefix?_isSome_iff_isCons {path : Path graph start} :
   path.prefix?.isSome ↔ path.isCons := by
@@ -41,7 +41,6 @@ theorem prefix?_isSome_iff_isCons {path : Path graph start} :
         specialize hi isCons_of_cons
         have ⟨subpath, hi⟩ := Option.isSome_iff_exists.mp hi
         simp [prefix?, hi, Option.isSome_iff_exists]
-        exists .cons child₁ subpath
 
 theorem prefix?_iff_cons_prefix?
   {graph start} {child : Class.Child start} {path₁ path₂ : Path graph child.class} :
@@ -51,13 +50,12 @@ theorem prefix?_iff_cons_prefix?
     intro h
     cases path₁
     case nil => simp [prefix?] at h
-  case mp.cons => simp [prefix?, h]; rfl
+  case mp.cons => simp [prefix?, h]
   case mpr.cons child subpath =>
     have hs := prefix?_isSome_iff_isCons.mpr (@isCons_of_cons _ _ child subpath)
     have ⟨_, hs⟩ := Option.isSome_iff_exists.mp hs
     simp [hs, prefix?] at h ⊢
-    injection h with h
-    injection h
+    assumption
 
 def snd (path : Path graph start) (_ : path.isCons) : Class.Child start :=
   match path with
@@ -69,14 +67,14 @@ theorem cons_snd_eq_child : (cons child path).snd h = child := rfl
 
 -- Note: We can't define this property with an optional return type,
 --       as we can't even state the return type for an invalid input path.
-def suffix (path : Path graph start) (h) : Path graph (path.snd h) :=
+def suffix (path : Path graph start) (h) : Path graph (path.snd h).class :=
   match path with
   | nil => by contradiction
   | cons _ subpath => subpath
 
 @[simp]
 theorem suffix_class {path : Path graph start} {h} : (path.suffix h).class = path.class := by
-  rw [suffix]
+  rw [suffix.eq_def]
   split
   case _ h => simp [isCons] at h
   · simp
@@ -96,7 +94,7 @@ theorem split_class {path : Path graph start} (h : path.isCons) :
   case nil => contradiction
   case cons child subpath hi =>
     cases subpath
-    case nil => rfl
+    case nil => rw [split, Path.class]; rfl
     case cons child' subpath => rw [split]; exact hi h
 
 end Network.Graph.Path

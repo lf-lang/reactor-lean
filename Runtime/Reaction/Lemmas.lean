@@ -34,13 +34,13 @@ macro "mk_get_lemmas" op:ident field:ident var:"_"? : command => do
     ("writtenPorts",  ← `(($opApp).fst.writtenPorts.isEmpty))
   ]
   let commands ← lemmas.mapM fun ⟨suffix, property⟩ => `(
-    @[simp] theorem $(mkIdentFrom op s!"{op.getId}_{suffix}") {$[ $var ]*} : $property := rfl
+    @[simp] theorem $(mkIdentFrom op (.mkSimple s!"{op.getId}_{suffix}")) {$[ $var ]*} : $property := rfl
   )
   return ⟨mkNullNode commands⟩
 
 open Lean in
 macro "mk_set_lemma" op:ident suffix:ident " : " prop:term : command => `(
-  @[simp] theorem $(mkIdentFrom op s!"{op.getId}_{suffix.getId}") : $prop := by
+  @[simp] theorem $(mkIdentFrom op (.mkSimple s!"{op.getId}_{suffix.getId}")) : $prop := by
     simp [$op:ident]; first | done | rfl | intro h; simp [h]
 )
 
@@ -52,7 +52,7 @@ mk_get_lemmas getTag         tag
 mk_get_lemmas getLogicalTime time
 
 mk_set_lemma setOutput state : (setOutput (m := Id) (σAE := σAE) var val input).fst.state = input.state
-mk_set_lemma setOutput same_port : (setOutput (m := Id) (σAE := σAE) var val input).fst.ports var = val
+mk_set_lemma setOutput same_port : (setOutput (m := Id) (σAE := σAE) var val input).fst.ports var = some val
 
 @[simp] theorem setOutput_other_port {var' var val} : (var' ≠ var) →
   (setOutput (m := Id) (σPE := σPE) (σAE := σAE) var val input).fst.ports var' = none :=

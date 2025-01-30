@@ -14,7 +14,6 @@ structure Scheme where
   type : vars → Type
   [varsDecidableEq : DecidableEq vars]
 
-attribute [reducible] Scheme.type
 attribute [instance] Scheme.varsDecidableEq
 
 /--

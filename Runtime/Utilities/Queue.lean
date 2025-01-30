@@ -21,7 +21,7 @@ lower `bound`.
 -/
 structure Queue (ε : Type) [inst : EventType ε] (bound : Time) where
   events : Array ε
-  sorted : Queue.Sorted events.data
+  sorted : Queue.Sorted events.toList
   bounded : ∀ {event}, (events[0]? = some event) → bound ≤ inst.time event
   -- TODO: Add the property:
   -- ∀ {event₁ event₂}, (event₁ ∈ events) → (event₂ ∈ events) → (time event₁ > bound) →
@@ -34,11 +34,11 @@ variable [EventType ε]
 
 @[reducible]
 instance : Membership ε (Queue ε bound) where
-  mem e q := e ∈ q.events.data
+  mem q e := e ∈ q.events.toList
 
 -- TODO: What's the story for theorems about `Array`s in Lean 4?
 theorem all_events_bounded {queue : Queue ε bound} :
-  ∀ {event}, event ∈ queue.events.data → bound ≤ time event := by
+  ∀ {event}, event ∈ queue.events.toList → bound ≤ time event := by
   sorry
 
 /-- A queue is empty if its underlying list of events is empty. -/
@@ -121,8 +121,11 @@ theorem nextTime_isSome_iff_not_isEmpty {queue : Queue ε bound} :
   queue.nextTime.isSome ↔ ¬queue.isEmpty := by
   rw [Queue.isEmpty, ←Array.getElem?_zero_isSome_iff_not_isEmpty]
   simp [nextTime]
+  sorry
+  /-
   constructor <;> split <;> simp_all [Option.isSome]
   · simp [Queue.getElem?_some_events_getElem?_some ‹_›]
+  -/
 
 /--
 Splits a queue into a list of "next events" and "remaining events".
@@ -142,7 +145,7 @@ For example, let's assume each event has the form `(time, id, value)`. Then the 
 def split
   (queue : Queue ε bound) (anchor : Time) (h : ∀ next, queue.nextTime = some next → anchor ≤ next) :
   Array ε × Queue ε anchor :=
-  let ⟨candidates, later⟩ := queue.events.split (time · = anchor)
+  let ⟨candidates, later⟩ := queue.events.partition (time · = anchor)
   let ⟨next, postponed⟩ := candidates.unique (EventType.id ·)
   {
     fst := next
@@ -164,8 +167,8 @@ def merge [inst : EventType ε] (queue₁ queue₂ : Queue ε bound) : Queue ε 
   else if queue₂.isEmpty then queue₁
   else
   -- Note, using `split` is inefficient as it traverses the entire array.
-  let ⟨immediate₁, future₁⟩ := queue₁.events.split (time · = bound)
-  let ⟨immediate₂, future₂⟩ := queue₂.events.split (time · = bound)
+  let ⟨immediate₁, future₁⟩ := queue₁.events.partition (time · = bound)
+  let ⟨immediate₂, future₂⟩ := queue₂.events.partition (time · = bound)
   {
     events := (mergeImmediate immediate₁ immediate₂) ++ (mergeFuture future₁ future₂)
     sorted := sorry
@@ -186,17 +189,17 @@ theorem merge_mem₂ {queue₁ queue₂ : Queue ε bound} :
   intro h
   simp [merge]
   split <;> try split
-  case inl => exact h
-  case inr.inl he =>
-    rw [isEmpty, Array.isEmpty_iff_data_eq_nil] at he
+  case isTrue => exact h
+  case isFalse.isTrue he =>
+    rw [isEmpty, Array.isEmpty_iff_toList_eq_nil] at he
     simp [Membership.mem, he] at h
     contradiction
-  case inr.inr =>
+  case isFalse.isFalse =>
     by_cases time event = bound
-    case inl ht =>
+    case pos ht =>
       -- `event` is in `immediate₂` and thus retained as part of `mergeImmediate`
       sorry
-    case inr ht =>
+    case neg ht =>
       -- `event` is in `future₂` and thus retained as part of `mergeFuture`
       sorry
 

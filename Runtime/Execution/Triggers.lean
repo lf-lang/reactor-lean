@@ -65,7 +65,7 @@ inductive Activates (exec : Executable net) : (Class.Reaction.Trigger net) → P
 
 /-- A predicate indicating whether a given executable triggers a given reaction. -/
 inductive Triggers (exec) {reactor : ReactorId net} (reaction : Reaction reactor.class) : Prop
-  | witness (equiv : t ≡ t') (mem : t' ∈ reaction.val.triggers.data) (active : Activates exec t)
+  | witness (equiv : t ≡ t') (mem : t' ∈ reaction.val.triggers.toList) (active : Activates exec t)
 
 /-- A decision procedure for `Triggers`. -/
 private def triggers (exec : Executable net) {reactor : ReactorId net} (reaction : Reaction reactor.class) :=
@@ -116,8 +116,8 @@ theorem Activates.port_iff_equiv_port_activated {p'} :
           simp [portIsPresent] at h
           have ⟨v, hv⟩ := h
           exists cast sorry v
-          simp [hv]
           -- https://leanprover.zulipchat.com/#narrow/stream/270676-lean4
+          -- simp [hv]
           sorry
   case mpr =>
     sorry
@@ -146,7 +146,7 @@ theorem Activates.iff_equiv_trigger_activated {t'} :
       constructor
       cases equiv
       all_goals
-        simp_all [actionIsPresent, portIsPresent, reactionInputs]
+        try simp_all [actionIsPresent, portIsPresent, reactionInputs]
         try assumption
 
 theorem Triggers.iff_triggers_eq_true : (Triggers exec reaction) ↔ (exec.triggers reaction) := by

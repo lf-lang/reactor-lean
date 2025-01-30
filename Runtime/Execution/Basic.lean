@@ -3,7 +3,7 @@ import Runtime.Execution.Event
 open Network Graph Class
 
 structure Reactor.Timer where
-  val : Timer
+  val : _root_.Timer
   isFiring : Bool
 
 structure Reactor {net : Network} (cls : Class net) where

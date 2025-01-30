@@ -41,9 +41,6 @@ structure _root_.Reaction where
   triggers      : Array (Trigger portSources.vars actionSources.vars timers)
   body          : ReactionT portSources portEffects actionSources actionEffects state params kind.monad Unit
 
-open Reaction in
-attribute [reducible] portSources portEffects actionSources actionEffects state params
-
 /-- The specific type of triggers for a given reaction. -/
 abbrev triggerType (rcn : Reaction) :=
   Trigger rcn.portSources.vars rcn.actionSources.vars rcn.timers

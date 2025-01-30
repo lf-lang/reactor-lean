@@ -16,16 +16,15 @@ theorem Succ.isCons' : (cons c₁ (cons c₂ path₁) ≻ path₂) → path₂.i
   simp [Succ, prefix?, hp] at h
   simp [isCons_def]
   exists c₁, subpath
-  injection h with h
   exact h.symm
 
-theorem Succ.iff_cons_Succ {path₁ path₂} : 
+theorem Succ.iff_cons_Succ {path₁ path₂} :
   (path₁ ≻ path₂) ↔ (cons child path₁) ≻ (cons child path₂) :=
   prefix?_iff_cons_prefix?
 
 theorem Succ.nil : (cons child nil) ≻ nil := rfl
 
-instance : Decidable (path₁ ≻ path₂) := 
+instance : Decidable (path₁ ≻ path₂) :=
   if h : path₁.prefix? = path₂ then isTrue h else isFalse h
 
 theorem Succ.cons (path₁) : ∃ path₂, (cons child path₁) ≻ path₂ := by

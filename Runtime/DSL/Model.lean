@@ -142,7 +142,7 @@ partial def NetworkDecl.instancePaths (decl : NetworkDecl) : MacroM <| Array ((A
 where
   go (network : NetworkDecl) (rtrName : Name) (pre : Array Name) : MacroM <| Array ((Array Name) × Name) := do
     let rtr ← network.reactorWithName rtrName
-    rtr.nested.concatMapM fun var => do
+    rtr.nested.flatMapM fun var => do
       let path := pre.push var.id.getId
       let name := var.class.getId
       return #[(path, name)] ++ (← go network name path)

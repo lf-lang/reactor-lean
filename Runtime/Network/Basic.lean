@@ -98,6 +98,7 @@ def delayedDestinations (port : PortId net .output) : Array (DelayedDestination 
           rw [h, eqType, Class.Subport.type]
           congr <;> simp [(cast_heq _ _).symm]
         congr <;> simp [split_class, (cast_heq _ _).symm]
+        sorry -- TODO: This proof used to be complete as stated above.
     }
   else
     -- In this case the reaction that produced the output lives in the top level reactor,

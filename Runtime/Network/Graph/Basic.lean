@@ -34,8 +34,8 @@ def Child.class {cls : Class graph} (child : Child cls) : Class graph :=
   cls.scheme.class child.id
 
 -- TODO: Get this coercion to work at call site.
-instance {cls : Class graph} : Coe (Child cls) (Class graph) where
-  coe child := child.class
+-- instance {cls : Class graph} : Coe (Child cls) (Class graph) where
+--   coe child := child.class
 
 abbrev subinterface (cls : Class graph) (kind : Reactor.InterfaceKind) :=
   ⨄ fun child : Child cls => child.class.interface kind
@@ -61,7 +61,7 @@ abbrev reactionOutputScheme (cls : Class graph) :=
 
 open Interface in
 structure Reaction (cls : Class graph) where
-  val : Reaction
+  val : _root_.Reaction
   [subPS : Subscheme val.portSources cls.reactionInputScheme]
   [subPE : Subscheme val.portEffects cls.reactionOutputScheme]
   [subAS : Subscheme val.actionSources (cls.interface .actions)]
